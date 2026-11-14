@@ -56,8 +56,9 @@ manuscript’s settings, with the multiplier correction in full (5,000
 draws) and the full bootstrap implemented and run at a small number of
 replicates to show the machinery and its cost. The manuscript’s Table S2
 (Supplementary Section S6), computed with B = 1,000 bootstrap
-replicates, is reproduced for comparison.
-[`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+replicates, is reproduced for comparison. The article [Interpretable
+subgroup identification with
+forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html)
 runs the companion analysis of León and Anderson (2026b) on the same
 trial — the search, the one-sided bounds and the declaration
 calibration; this vignette is about the two-sided correction and the
@@ -100,11 +101,10 @@ below follow the document that produced its Table S2:
 - **The selection rule** is $`\max_{\mathcal{A}} N(\varepsilon)`$ at
   $`\varepsilon = 0.10`$: the largest admitted region whose effect is
   within 10% of the largest effect over the family. The companion
-  vignette uses $`\varepsilon = 0.20`$ and returns a larger
-  forest-search region (N 75); at $`\varepsilon = 0.10`$ the rule
-  returns the 61 patients with no measured estrogen receptor and tumour
-  size at most 35 mm — the effect-maximising region of that vignette’s
-  candidate table.
+  article uses $`\varepsilon = 0.20`$ and returns a larger forest-search
+  region (N 75); at $`\varepsilon = 0.10`$ the rule returns the 61
+  patients with no measured estrogen receptor and tumour size at most 35
+  mm — the effect-maximising region of that article’s candidate table.
 - **DINA** is re-ranked on the Cox coefficient against a floor of 0.90,
   with a two-fold cross-fit surface. The floor of 0.90 is the one in the
   document that produced Table S2, which this call reproduces; Section 6
@@ -116,7 +116,7 @@ below follow the document that produced its Table S2:
   (`ci_method = "ij"` for DINA and GRF). The forest-search fit asks for
   `ci_method = "field"` with `field_recovery = TRUE`: the two-term
   estimate and the IJ interval are the same under both settings, and the
-  field adds the one-sided bounds of the companion vignette and the
+  field adds the one-sided bounds of the companion article and the
   membership-recovery diagnostics used below.
 
 ## The three fits
@@ -191,9 +191,9 @@ for (m in names(fits)) {
 }
 ```
 
-    #> FS   {er <= 0} & {size <= 35}     N  61   fit  24.0 s (multiplier stage 0.9 s)   family 1744
-    #> DINA {grade3 >= 1} & {pgr <= 10}  N  89   fit   1.1 s (multiplier stage 0.2 s)   family 84
-    #> GRF  {er <= 0}                    N  82   fit   7.4 s (multiplier stage 0.2 s)   family 858
+    #> FS   {er <= 0} & {size <= 35}     N  61   fit  29.6 s (multiplier stage 1.0 s)   family 1744
+    #> DINA {grade3 >= 1} & {pgr <= 10}  N  89   fit   1.4 s (multiplier stage 0.3 s)   family 84
+    #> GRF  {er <= 0}                    N  82   fit   9.8 s (multiplier stage 0.5 s)   family 858
 
 ## The multiplier correction
 
@@ -287,7 +287,7 @@ round(boot_secs, 1)
 ```
 
     #>   FS DINA  GRF
-    #> 55.2 23.6 24.5
+    #> 45.6 32.8 35.2
 
 The package’s own summaries, shown for forest search. The first is the
 bootstrap table: the naive estimate beside the bootstrap-corrected one,
@@ -317,9 +317,9 @@ summ_fs <- summarize_bootstrap_results(sgharm = fit_fs$sg.harm, boot_results = b
     #> TIMING ANALYSIS:
     #> -------------------------------------------------------------
     #> Overall:
-    #>   Total bootstrap time:          0.90 minutes (0.02 hours)
-    #>   Average per iteration:         0.04 min (2.2 sec)
-    #>   Projected for 1000 boots:      36.12 min (0.60 hrs)
+    #>   Total bootstrap time:          0.74 minutes (0.01 hours)
+    #>   Average per iteration:         0.03 min (1.8 sec)
+    #>   Projected for 1000 boots:      29.65 min (0.49 hrs)
 
 ``` r
 
@@ -351,23 +351,7 @@ package’s own table above shows what the machinery returns for it).
 
 ``` r
 
-three_columns <- function(method, fit, boot) {
-  g <- fit$mr_inference; cc <- g$complement
-  n_H <- g$n_selected; n_Hc <- cc$n
-  f2 <- function(e, l, u) sprintf("%.2f (%.2f, %.2f)", e, l, u)
-  data.frame(
-    method = method, region = c("H", "Hc"),
-    n = c(sprintf("%d (%d%%)", n_H, round(100 * n_H / (n_H + n_Hc))),
-          sprintf("%d (%d%%)", n_Hc, round(100 * n_Hc / (n_H + n_Hc)))),
-    naive = c(f2(g$naive$est, g$naive$lower, g$naive$upper),
-              f2(cc$naive$est, cc$naive$lower, cc$naive$upper)),
-    bootstrap = sprintf("%.2f", c(boot$H_estimates$H2, boot$Hc_estimates$H2)),
-    multiplier = c(f2(g$debiased$est, g$debiased$lower, g$debiased$upper),
-                   f2(cc$debiased$est, cc$debiased$lower, cc$debiased$upper)))
-}
-side_by_side <- rbind(three_columns("FS", fit_fs, boots$FS),
-                      three_columns("DINA", fit_dina, boots$DINA),
-                      three_columns("GRF", fit_grf, boots$GRF))
+side_by_side <- mr_method_comparison(fits, boots, est.scale = "hr", digits = 2)
 boot_label <- sprintf("Full bootstrap estimate (B = %d / %d / %d)",
                       B[["FS"]], B[["DINA"]], B[["GRF"]])
 knitr::kable(side_by_side, row.names = FALSE, align = "llrrrr",
@@ -379,8 +363,8 @@ knitr::kable(side_by_side, row.names = FALSE, align = "llrrrr",
 
 | Method | SG | n (%) | Naive | Full bootstrap estimate (B = 25 / 25 / 10) | Multiplier (5,000 draws) |
 |:---|:---|---:|---:|---:|---:|
-| FS | H | 61 (9%) | 2.54 (1.25, 5.17) | 1.88 | 1.44 (0.62, 3.36) |
-| FS | Hc | 625 (91%) | 0.61 (0.47, 0.79) | 0.63 | 0.64 (0.40, 1.03) |
+| FS | H | 61 (9%) | 2.54 (1.25, 5.17) | 1.39 | 1.44 (0.62, 3.36) |
+| FS | Hc | 625 (91%) | 0.61 (0.47, 0.79) | 0.66 | 0.64 (0.40, 1.03) |
 | DINA | H | 89 (13%) | 1.60 (0.88, 2.91) | 0.83 | 1.11 (0.45, 2.75) |
 | DINA | Hc | 597 (87%) | 0.63 (0.48, 0.82) | 0.66 | 0.66 (0.40, 1.09) |
 | GRF | H | 82 (12%) | 1.95 (1.04, 3.67) | 1.29 | 1.05 (0.47, 2.34) |
@@ -444,13 +428,7 @@ Table S2 of León and Anderson (2026a), as published. {.table
 
 ``` r
 
-cost <- data.frame(
-  method = names(fits),
-  mr_seconds = sapply(fits, function(f) f$mr_inference$timing_seconds),
-  bootstrap_B = B[names(fits)],
-  bootstrap_seconds = boot_secs[names(fits)])
-cost$seconds_per_replicate <- cost$bootstrap_seconds / cost$bootstrap_B
-cost$projected_B_1000 <- round(cost$seconds_per_replicate * 1000)
+cost <- mr_cost_table(fits, boots, boot_seconds = boot_secs)
 plan_label <- if (n_workers > 1L) sprintf("%d workers", n_workers) else "one process"
 knitr::kable(cost, row.names = FALSE, digits = 2,
              col.names = c("Method", "MR (s)", "B", "bootstrap (s)", "s per replicate",
@@ -463,9 +441,9 @@ knitr::kable(cost, row.names = FALSE, digits = 2,
 
 | Method | MR (s) |   B | bootstrap (s) | s per replicate | projected at B = 1,000 (s) |
 |:-------|-------:|----:|--------------:|----------------:|---------------------------:|
-| FS     |   0.86 |  25 |         55.15 |            2.21 |                       2206 |
-| DINA   |   0.17 |  25 |         23.63 |            0.95 |                        945 |
-| GRF    |   0.25 |  10 |         24.54 |            2.45 |                       2454 |
+| FS     |   0.99 |  25 |         45.60 |            1.82 |                       1824 |
+| DINA   |   0.25 |  25 |         32.83 |            1.31 |                       1313 |
+| GRF    |   0.53 |  10 |         35.20 |            3.52 |                       3520 |
 
 Wall-clock timings from this run: the multiplier stage under the fits’
 sequential plan, the bootstrap on 2 workers. The projection is linear in
@@ -579,12 +557,14 @@ region conditional on the family proposed, and the results above are
 empirical evaluations of how the correction behaves on such families,
 not instances of the theorem. The one-sided bounds, the two-subgroup
 claim and the declaration calibration that build on this correction are
-the subject of León and Anderson (2026b) and of
-[`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md).
+the subject of León and Anderson (2026b) and of the article
+[Interpretable subgroup identification with
+forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html).
 
 ## Where to go next
 
-- [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md):
+- The article [Interpretable subgroup identification with
+  forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html):
   the same trial under the identification paper — the search, the three
   identifiers at the $`\max_{\mathcal{A}} N(\varepsilon = 0.20)`$ rule,
   the one-sided field bounds, the two-subgroup claim and the declaration
@@ -640,7 +620,7 @@ sessionInfo()
     #> [1] stats     graphics  grDevices utils     datasets  methods   base
     #>
     #> other attached packages:
-    #> [1] future_1.80.0      survival_3.8-12    forestsearch_0.4.0
+    #> [1] future_1.82.0      survival_3.8-12    forestsearch_0.5.0
     #>
     #> loaded via a namespace (and not attached):
     #>  [1] gt_1.4.0             sass_0.4.10          generics_0.1.4
@@ -651,17 +631,16 @@ sessionInfo()
     #> [16] mvtnorm_1.4-2        fastmap_1.2.0        foreach_1.5.2
     #> [19] jsonlite_2.0.0       Matrix_1.7-6         glmnet_5.2
     #> [22] scales_1.4.0         weightedsurv_0.1.0   codetools_0.2-20
-    #> [25] cli_3.6.6            rlang_1.3.0          litedown_0.11
-    #> [28] parallelly_1.48.0    future.apply_1.21.0  commonmark_2.0.0
-    #> [31] splines_4.6.2        base64enc_0.1-6      withr_3.0.3
-    #> [34] yaml_2.3.12          otel_0.2.0           tools_4.6.2
-    #> [37] parallel_4.6.2       doFuture_1.4.0       dplyr_1.2.1
-    #> [40] ggplot2_4.0.3        globals_0.20.0       vctrs_0.7.3
-    #> [43] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2
-    #> [46] fs_2.1.0             pkgconfig_2.0.3      progressr_1.1.0
-    #> [49] pillar_1.11.1        gtable_0.3.6         data.table_1.18.6.1
-    #> [52] glue_1.8.1           Rcpp_1.1.2           xfun_0.62
-    #> [55] tibble_3.3.1         tidyselect_1.2.1     knitr_1.52
-    #> [58] farver_2.1.2         patchwork_1.3.2      htmltools_0.5.9
-    #> [61] rmarkdown_2.32       compiler_4.6.2       S7_0.2.2
-    #> [64] markdown_2.1
+    #> [25] cli_3.6.6            rlang_1.3.0          litedown_1.0
+    #> [28] parallelly_1.50.0    future.apply_1.21.0  splines_4.6.2
+    #> [31] base64enc_0.1-6      withr_3.0.3          yaml_2.3.12
+    #> [34] otel_0.3.0           tools_4.6.2          parallel_4.6.2
+    #> [37] doFuture_1.4.0       dplyr_1.2.1          ggplot2_4.0.4
+    #> [40] globals_0.20.0       vctrs_0.7.3          R6_2.6.1
+    #> [43] lifecycle_1.0.5      randomForest_4.7-1.2 fs_2.1.0
+    #> [46] pkgconfig_2.0.3      progressr_1.1.0      pillar_1.11.1
+    #> [49] gtable_0.3.6         data.table_1.18.6.1  glue_1.8.1
+    #> [52] Rcpp_1.1.2           xfun_0.62            tibble_3.3.1
+    #> [55] tidyselect_1.2.1     knitr_1.52           farver_2.1.2
+    #> [58] patchwork_1.3.2      htmltools_0.5.9      rmarkdown_2.32
+    #> [61] compiler_4.6.2       S7_0.2.2             markdown_2.1

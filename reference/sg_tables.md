@@ -108,13 +108,37 @@ sg_tables(
 List with gt tables for estimates, subgroups, and optionally search
 info.
 
+## Details
+
+**Orientation of the GLM estimates table.** For a non-survival fit with
+the default `est.scale = "hr"` (and for a `grf_glm_result`), the
+estimates table shows the per-arm `Rate(C)`, `Rate(T)` (binary) or
+`Mean(C)`, `Mean(T)` (continuous, count), their raw difference `Diff`
+(treated minus control; in percentage points for binary outcomes) and
+the effect column. The effect column follows the fit's orientation: its
+estimator is built with the fit's stored `adverse_outcome` or, when none
+is stored, with
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)'s
+rule (`TRUE` for binary and count outcomes, `FALSE` otherwise), so it is
+on the scale of the fit's own estimates. The arm columns and `Diff` do
+not follow it: they are the raw outcome. So for an unadjusted fit where
+a lower outcome is adverse (`adverse_outcome = FALSE`, the default for
+continuous outcomes) the effect and `Diff` have opposite signs: an MD is
+`-Diff`, an RD is `-Diff / 100`, and the log of an OR or RR has the sign
+opposite to `Diff`. Count outcomes and the rate measures (IRR, IRD) are
+not reoriented (see
+[`make_effect_estimator`](https://larry-leon.github.io/forestsearch/reference/make_effect_estimator.md)),
+so for them `adverse_outcome` does not change the effect column.
+
 ## Examples
 
 ``` r
 if (FALSE) { # \dontrun{
-library(survival)
+gbsg <- survival::gbsg
+gbsg$grade3 <- as.integer(gbsg$grade == 3)
 fs <- forestsearch(
   gbsg,
+  id.name          = "pid",
   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
   outcome.name     = "rfstime",
   treat.name       = "hormon",

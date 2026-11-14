@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -22,6 +22,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -30,6 +31,10 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -82,7 +87,40 @@
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>List with indicators for any match, exact match, one match, and
-covariate-specific matches.</p>
+covariate-specific matches, one value per fold (<code>sg1[i]</code>,
+<code>sg2[i]</code> are the factor labels of fold <code>i</code>'s subgroup,
+<code>NA</code> for an empty slot):</p><dl><dt>any_found</dt>
+<dd><p>1 if the fold found a subgroup (either slot not
+<code>NA</code>), else 0.</p></dd>
+
+<dt>exact_match</dt>
+<dd><p>1 if the fold's subgroup is the full-data
+subgroup <code>sg_analysis</code>, else 0.  For a two-factor
+<code>sg_analysis</code>, both factors appear in the fold's two slots,
+in either order.  For a one-factor <code>sg_analysis</code>, the fold's
+subgroup is that factor alone: one slot holds it and the other is
+<code>NA</code>.  A fold subgroup that combines it with a second factor
+is not exact; it counts in <code>one_match</code>.</p></dd>
+
+<dt>one_match</dt>
+<dd><p>1 if at least one full-data factor appears in
+either slot, else 0.</p></dd>
+
+<dt>cov1_any, cov2_any</dt>
+<dd><p>1 if the fold's subgroup uses the
+covariate of the first (second) full-data factor, with any cut
+(see <code><a href="find_covariate_any_match.html">find_covariate_any_match</a></code>), else 0.</p></dd>
+
+<dt>cov1_exact, cov2_exact</dt>
+<dd><p>1 if the first (second) full-data
+factor appears in either slot, else 0.</p></dd>
+
+
+</dl><p><code>cov2_any</code> and <code>cov2_exact</code> are <code>NA</code> unless
+<code>sg_analysis</code> has two factors.  A comparison with <code>NA</code>
+counts as 0.  When <code>sg_analysis</code> has no element, or more than
+two, <code>exact_match</code>, <code>one_match</code>, <code>cov1_any</code> and
+<code>cov1_exact</code> are 0 for every fold.</p>
     </div>
 
     <div class="section level2">

@@ -58,7 +58,8 @@ bootstrap_results(
 - show_three:
 
   Logical. If `TRUE`, prints detailed progress for the first three
-  bootstrap iterations for debugging purposes. Default: `FALSE`.
+  bootstrap iterations for debugging purposes. No default; must be
+  supplied.
 
 - H_obs:
 

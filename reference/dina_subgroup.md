@@ -66,9 +66,11 @@ dina_subgroup(
 
   **Scale.** The link (tau) scale of `fit$family`, which is not the
   scale the effect is usually reported on: `log(HR)` for `cox`,
-  `log(OR)` for `binomial`, `log(IRR)` for `poisson`, and the raw mean
-  difference for `gaussian`. A harm threshold of HR 1.25 is therefore
-  `m_diff = log(1.25)`, not `1.25`.
+  `log(OR)` for `binomial`, the log mean-count ratio for `poisson` (DINA
+  takes no exposure offset, so this equals `log(IRR)` only when mean
+  follow-up does not depend on arm given the covariates), and the raw
+  mean difference for `gaussian`. A harm threshold of HR 1.25 is
+  therefore `m_diff = log(1.25)`, not `1.25`.
 
   **Under
   [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
@@ -106,8 +108,7 @@ dina_subgroup(
 
   numeric in (0, 1); fraction of `nrow(df)` used for the adaptive
   `n_min` floor when `n_min = NULL`. Default `0.10`. Ignored when
-  `n_min` is supplied. Default `60L`, matching the convention in GRF and
-  [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md).
+  `n_min` is supplied.
 
 - direction:
 

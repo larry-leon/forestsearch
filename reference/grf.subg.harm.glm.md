@@ -78,9 +78,9 @@ grf.subg.harm.glm(
   ratio, binary/logistic), `"log_RR"` (log relative risk,
   binary/modified Poisson), `"RD"` (risk difference, binary/identity
   link), `"MD"` (mean difference, continuous/Gaussian), or `"log_IRR"`
-  (log incidence rate ratio, count/Poisson with offset). Default is
-  `"log_OR"` for binary, `"MD"` for continuous, and `"log_IRR"` for
-  count.
+  (log incidence rate ratio, count/Poisson with offset). Default `NULL`,
+  which resolves to `"log_OR"` for binary, `"MD"` for continuous, and
+  `"log_IRR"` for count.
 
 - offset.name:
 

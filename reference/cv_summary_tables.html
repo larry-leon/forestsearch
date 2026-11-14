@@ -11,7 +11,7 @@ estimates, and K-fold subgroup estimates."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -26,6 +26,7 @@ estimates, and K-fold subgroup estimates."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -34,6 +35,10 @@ estimates, and K-fold subgroup estimates."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -118,6 +123,23 @@ Default: TRUE.</p></dd>
 <li><p><code>kfold_table</code>: K-fold subgroup estimates</p></li>
 <li><p><code>metrics_table</code>: Agreement and finding metrics (if <code>show_metrics = TRUE</code>)</p></li>
 </ul><p>If <code>use_gt = FALSE</code>, returns equivalent data.frames.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>The estimate tables are those of <code>kfold_out</code>, formatted without
+recomputation.  For GLM outcomes <code><a href="forestsearch_KfoldOut.html">forestsearch_KfoldOut</a></code>
+builds their effect column with the fit's orientation (the fit's stored
+<code>adverse_outcome</code> or, when none is stored,
+<code><a href="forestsearch.html">forestsearch</a></code>'s rule: <code>TRUE</code> for binary and count
+outcomes, <code>FALSE</code> otherwise), while, for a fit with the default
+<code>est.scale = "hr"</code>, the arm columns (<code>Rate(C)</code> or
+<code>Mean(C)</code>, <code>Rate(T)</code> or <code>Mean(T)</code>) and their raw
+difference <code>Diff</code> (treated minus control) are the raw outcome.  So
+for an unadjusted fit where a lower outcome is adverse
+(<code>adverse_outcome = FALSE</code>, the default for continuous outcomes)
+the effect and <code>Diff</code> have opposite signs.  Count outcomes and the
+rate measures (IRR, IRD) are not reoriented.  See
+<code><a href="sg_tables.html">sg_tables</a></code> for the details.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

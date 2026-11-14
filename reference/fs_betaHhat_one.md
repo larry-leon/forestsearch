@@ -18,7 +18,12 @@ fs_betaHhat_one(
   outcome.name = "y_sim",
   event.name = "event_sim",
   treat.name = "treat_sim",
-  sg_def_struct = NULL
+  sg_def_struct = NULL,
+  method = c("frame", "exact"),
+  dgm = NULL,
+  analysis_time = 84,
+  max_entry = 24,
+  cens_adjust = log(1.5)
 )
 ```
 
@@ -63,6 +68,31 @@ fs_betaHhat_one(
   `.grf_evaluate_subgroup()`, which is the package's own answer for GRF
   membership.
 
+- method:
+
+  Character. `"frame"` (default) scores the rule on `frame` by the
+  per-family fit, exactly as before this argument existed. `"exact"`
+  (survival only) computes the same population quantity from the
+  analytic layer; see the section *The exact route*.
+
+- dgm:
+
+  The DGM `frame` was drawn from (an
+  [`inject_mrct_structure()`](https://larry-leon.github.io/forestsearch/reference/inject_mrct_structure.md)
+  build). Required by `method = "exact"`; ignored by `"frame"`.
+
+- analysis_time, max_entry, cens_adjust:
+
+  The analysis time, the entry maximum and the censoring adjustment of
+  the evaluation draw. Used by `method = "exact"` only; the defaults are
+  those of the draw
+  [`fs_build_eval_frame()`](https://larry-leon.github.io/forestsearch/reference/fs_build_eval_frame.md)
+  makes (`analysis_time = 84`, `cens_adjust = log(1.5)`, and
+  [`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)'s
+  default `max_entry = 24`, which
+  [`fs_build_eval_frame()`](https://larry-leon.github.io/forestsearch/reference/fs_build_eval_frame.md)
+  does not override). Pass the values the frame was drawn with.
+
 ## Value
 
 A one-row data frame with columns `betaHhat_H`, `betaHhat_Hc`,
@@ -92,3 +122,44 @@ The record is all-`NA` with `status = "unresolved"` and `missing_cols`
 naming the columns, rather than a partially-resolved region. Silently
 dropping the offending clause returns a finite value for the wrong
 region.
+
+## The exact route
+
+With `method = "exact"` the survival target is computed without a draw:
+[`ahr_population()`](https://larry-leon.github.io/forestsearch/reference/ahr_population.md)`(dgm, analysis_time, max_entry)`
+once, then `exp(beta*)` from
+[`ahr_limit()`](https://larry-leon.github.io/forestsearch/reference/ahr_limit.md)`(pop, set = <membership>, psi = pop$psi)`
+for the realized region and for its complement, where `beta*` is the
+Struthers-Kalbfleisch limit of the two-sample Cox estimate (1:1
+randomisation, entry U(0, `max_entry`), analysis at `analysis_time`).
+Membership is resolved on `dgm$df_super` by the same internal
+`.fs_resolve_membership()` (the
+[`get_dfpred()`](https://larry-leon.github.io/forestsearch/reference/get_dfpred.md)
+route) the frame route uses on `frame`, so a rule the frame route cannot
+evaluate is `NA` on both routes, and the counts `nH_eval` / `nHc_eval`
+are over `dgm$df_super`. An empty region is `NA`, as on the frame route.
+
+The two routes estimate the same population quantity: the frame route
+fits [`survival::coxph()`](https://rdrr.io/pkg/survival/man/coxph.html)
+on one
+[`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
+draw of the whole super-population and so carries the Monte Carlo error
+of that single evaluation draw; the exact route has none. The frame
+route's small-region guard (fewer than five events or a single arm in
+the draw) has no counterpart: the limit exists for any non-empty region.
+
+The exact route applies when the censoring is administrative only: the
+analytic layer has no random-censoring factor. It stops, rather than
+approximating, unless the DGM's random censoring time falls before
+`analysis_time` with probability below `.Machine$double.eps` for every
+patient in both arms under `cens_adjust`. In
+[`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
+`cens_adjust = 0` means *no adjustment* of the DGM's censoring model,
+not no random censoring, and the frame route's default `log(1.5)`
+lengthens the random censoring times but keeps them; `cens_adjust = 50`
+(the administrative-only convention of the MRCT campaigns) or `Inf`
+removes it. Requires a DGM made by
+[`inject_mrct_structure()`](https://larry-leon.github.io/forestsearch/reference/inject_mrct_structure.md),
+as
+[`ahr_population()`](https://larry-leon.github.io/forestsearch/reference/ahr_population.md)
+does.

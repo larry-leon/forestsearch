@@ -3,11 +3,9 @@
 Creates a GBSG-based data generating mechanism that is fully compatible
 with
 [`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md).
-This is the replacement for
-[`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md):
-it accepts exactly the same arguments and produces the same numeric
-output, but returns an object of class `"aft_dgm_flex"` instead of
-`"gbsg_dgm"`.
+It builds the mechanism with the package's internal GBSG builder and
+returns it as an object of class
+`c("aft_dgm_flex", "gbsg_dgm", "list")`.
 
 ## Usage
 
@@ -95,9 +93,11 @@ setup_gbsg_dgm(
 
 ## Value
 
-An object of class `c("aft_dgm_flex", "gbsg_dgm", "list")` with all
-fields from
-[`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
+An object of class `c("aft_dgm_flex", "gbsg_dgm", "list")` with the
+builder's fields (`df_super_rand`; the true hazard ratios `hr_causal`,
+`hr_H_true`, `hr_Hc_true`, `AHR`, `AHR_H_true`, `AHR_Hc_true` and the
+list `hazard_ratios`; `model_params`, `cens_params`, `subgroup_info`,
+`effect_modifiers`, `analysis_vars`, `model_type`, `n_super` and `seed`)
 plus:
 
 - `df_super`:
@@ -130,9 +130,7 @@ plus:
 
 ## Details
 
-Internally the function calls
-[`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
-and then:
+Internally the function calls that builder and then:
 
 1.  Adds a `df_super` field with column names aligned to
     [`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
@@ -148,15 +146,76 @@ The original `df_super_rand` field is kept so that
 [`compute_dgm_cde()`](https://larry-leon.github.io/forestsearch/reference/compute_dgm_cde.md)
 and `print.gbsg_dgm` continue to work.
 
+**Subgroup.** The harm subgroup H is `z1 = 1` and `z3 = 1`: `z1` is 1
+when the estrogen receptor value `er` is at or below its `z1_quantile`
+sample quantile in
+[`survival::gbsg`](https://rdrr.io/pkg/survival/man/gbsg.html) (the 25th
+percentile by default), and `z3` is 1 for premenopausal patients
+(`meno == 0`). Its indicator is `flag.harm` in `df_super_rand` and
+`flag_harm` in `df_super`. Under `model = "null"` the indicator is 0 for
+every patient.
+
+**Model.** A Weibull accelerated failure time model is fitted with
+[`survival::survreg()`](https://rdrr.io/pkg/survival/man/survreg.html)
+to [`survival::gbsg`](https://rdrr.io/pkg/survival/man/gbsg.html), with
+time `rfstime / 30.4375` (months), event `status` and treatment
+`treat = hormon`. Its covariates are `treat`, `z1`, `z2`, `z3`, `z4` and
+`z5`, where `z2`, `z4` and `z5` are the quartile groups of `age`, `pgr`
+and `nodes`, entered as scores 1 to 4; under `model = "alt"` the
+interaction `zh = treat * z1 * z3` is added. `k_treat` and `k_z3`
+multiply the fitted `treat` and `z3` coefficients. With AFT coefficients
+`gamma` and scale `sigma`, the hazard-scale coefficients are
+`-gamma / sigma` (`model_params$b_hr`).
+
+**Interaction (`k_inter`).** Under `model = "alt"`, `k_inter` multiplies
+the fitted `zh` coefficient, `gamma[zh] <- k_inter * gamma[zh]` (the
+default `k_inter = 1` keeps the fitted value). Each patient's log hazard
+ratio (`loghr_po = theta_1 - theta_0` in `df_super_rand`) is then
+`-(gamma[treat] + gamma[zh]) / sigma` in H and `-gamma[treat] / sigma`
+in its complement, so `k_inter = 0` gives every patient the same hazard
+ratio. The exponentials of these two values are the stored `AHR_H_true`
+and `AHR_Hc_true`. The Cox-based `hr_H_true` and `hr_Hc_true` are fitted
+to stacked potential outcomes of the `n_super` patients drawn with
+replacement from the GBSG rows, and differ from them; at `k_inter = 0`
+they still differ slightly from each other. Under `model = "null"`,
+`k_inter` is not used.
+
 Noise columns requested via `k_random_noise` are inert N(0,1) population
 attributes intended as candidate confounders; the builder never puts
 them in the outcome model. They are drawn once onto the super-population
 (both `df_super_rand` and `df_super`), so simulated trials and
 evaluation frames inherit them by row resampling.
 
+## Superseded
+
+This function is kept so that published simulations can be reproduced.
+New work should use
+[`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
+with
+[`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md),
+which take any survival dataset with a 0/1 treatment column. On the GBSG
+data they give the same outcome model, true hazard ratios and `k_inter`
+calibration once the caller has built the GBSG covariates, at `k_z3 = 1`
+and `use_rand_params = FALSE`
+([`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
+has neither argument); there is no drop-in replacement call. The
+censoring step differs: here (with the default `cens_type = "weibull"`)
+a Weibull censoring model is fitted to the resampled super-population,
+in which treatment is the arm assigned for simulation, not the observed
+treatment, and its covariate term is the fitted term multiplied by the
+ratio of the event-model scale to the censoring-model scale. The true
+hazard ratios stored in the object and the `k_inter` calibration are not
+affected; simulated censoring times are, and with them the observed
+times and event indicators and anything computed from them, such as the
+beta(Hhat) targets scored on a frame from
+[`fs_build_eval_frame()`](https://larry-leon.github.io/forestsearch/reference/fs_build_eval_frame.md).
+The "Extreme Subgroup Effects" article on the package website shows the
+general machinery on the GBSG data, with a uniform treatment effect.
+This function will be deprecated in a future release.
+
 ## See also
 
-[`create_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md),
+[`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md),
 [`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md),
 [`compute_dgm_cde`](https://larry-leon.github.io/forestsearch/reference/compute_dgm_cde.md)
 

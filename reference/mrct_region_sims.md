@@ -27,7 +27,8 @@ mrct_region_sims(
   parallel_args = list(plan = "multisession", workers = NULL, show_message = TRUE),
   details = FALSE,
   verbose_n_sims = 2L,
-  seed = NULL
+  seed = NULL,
+  record = c("point", "full")
 )
 ```
 
@@ -86,13 +87,20 @@ mrct_region_sims(
 - confounders.name:
 
   Character vector. Confounder variable names for ForestSearch. If NULL,
-  automatically extracted from dgm
+  automatically extracted from dgm: the columns of `dgm$df_super` whose
+  names start with `z_`, `ecog` or `strat`, except that, for a mechanism
+  built with a spline (`dgm$model_params$spline_info`), the three
+  internal columns of the spline variable `<var>` are left out by their
+  exact names `<var>_treat`, `<var>_k` and `<var>_k_treat` (for
+  [`create_dgm_for_mrct`](https://larry-leon.github.io/forestsearch/reference/create_dgm_for_mrct.md):
+  `z_bm_treat`, `z_bm_k`, `z_bm_k_treat`). A covariate such as
+  `z_prior_treat` and the region indicator stay in the set.
 
 - conf_force:
 
   Character vector. Forced cuts to consider in ForestSearch. Default:
-  c("z_age \<= 65", "z_bm \<= 0", "z_bm \<= 1", "z_bm \<= 2", "z_bm \<=
-  5")
+  NULL, which resolves to c("z_age \<= 65", "z_bm \<= 0", "z_bm \<= 1",
+  "z_bm \<= 2", "z_bm \<= 5")
 
 - fs_args:
 
@@ -111,10 +119,14 @@ mrct_region_sims(
 
   Named list. Additional arguments passed to
   [`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
-  inside each replicate (e.g., `rand_ratio`, `draw_treatment`).
-  Parameters already in the `mrct_region_sims` signature
-  (`analysis_time`, `cens_adjust`) take precedence. Default:
-  list(rand_ratio = 1, draw_treatment = TRUE)
+  inside each replicate (e.g., `rand_ratio`, `draw_treatment`,
+  `max_entry`, or `entry_delay = list(var = "z_region", delay = a)` for
+  a region enrolling `a` time units later, redrawn every replicate). If
+  `dgm$df_super` has a column `entrytime`, it is passed as
+  `entry_var = "entrytime"` (one fixed entry time per super-population
+  row) and takes precedence over `entry_delay`. Parameters already in
+  the `mrct_region_sims` signature (`analysis_time`, `cens_adjust`) take
+  precedence. Default: list(rand_ratio = 1, draw_treatment = TRUE)
 
 - analysis_time:
 
@@ -148,6 +160,13 @@ mrct_region_sims(
 - seed:
 
   Integer. Base random seed for reproducibility. Default: NULL
+
+- record:
+
+  Character. `"point"` (default) returns the point estimates only,
+  exactly as before this argument existed. `"full"` adds, from the same
+  simulated trials (nothing is redrawn), the per-replicate record
+  described under *Full record* below.
 
 ## Value
 
@@ -225,6 +244,16 @@ A data.table with simulation results containing:
 
   Subgroup HR when found, NA otherwise
 
+With `record = "full"`, the same table followed by the columns
+`TP_nonregion`, `FP_nonregion`, `FN_nonregion`, `TN_nonregion`,
+`TP_region`, `FP_region`, `FN_region`, `TN_region`, then the
+multiplier-resampling columns `mr_ci_method`, `mr_debiased_H`,
+`mr_ij_lower_H`, `mr_ij_upper_H`, `mr_field_lower_1s_H`,
+`mr_debiased_Hc`, `mr_ij_lower_Hc`, `mr_ij_upper_Hc`,
+`mr_field_upper_1s_Hc`, `mr_field_upper_1s_s_Hc`, `mr_bonf_lower_H`,
+`mr_bonf_upper_Hc`, `mr_p_hat_H`, `mr_selection_rate`, and the attribute
+`"estimators"` (see *Full record*).
+
 ## Details
 
 ### Simulation Process
@@ -255,6 +284,94 @@ DGM using
 [`create_dgm_for_mrct`](https://larry-leon.github.io/forestsearch/reference/create_dgm_for_mrct.md)
 or
 [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md).
+
+### Full record
+
+With `record = "full"` the returned table is the `"point"` table with
+twenty-two columns added (eight counts, then fourteen
+multiplier-resampling columns) and a second table attached as an
+attribute, `est <- attr(res, "estimators")`; `res$hr_itt`, `nrow(res)`
+and every `"point"` column are unchanged. (A data.table subset such as
+`res[order(sim)]` drops the attribute: take it first.)
+
+`estimators` has one row per trial and patient set: `itt_all` (all
+patients), `itt_nonregion` (`region_var == 0`), `itt_region`
+(`region_var == 1`), `region_Ghat` (the region outside the declared harm
+subgroup \\\hat H\\; the whole region in an undeclared trial),
+`region_Gstar` (the region with `flag_harm == 0`) and `Hstar_nonregion`
+(the non-region patients with `flag_harm == 1`). Columns: `sim`,
+`estimator`, `n`, `n_exp`, `events_exp`, `events_ctl`; the unadjusted
+two-sample Cox fit `Surv(y_sim, event_sim) ~ treat_sim` on the set,
+`hr`, `lo`, `hi` (Wald 95\\ `se_loghr` (a fit with an arm without events
+is kept; a fit that errors, e.g. on an empty set, gives `NA`); the
+targets on the same patients, `ahr` = `exp(mean(loghr_po))` and `cde` =
+`mean(exp(theta_1)) / mean(exp(theta_0))` (`NA` when the simulated trial
+lacks those columns); and `declared` (0/1, the trial's `any_found`).
+`itt_all` is unadjusted, so it equals `hr_itt` only when the trial has
+no `strat` column.
+
+The added columns of the per-trial table are the 2 x 2 counts of \\\hat
+H\\ membership against `flag_harm == 1` over the non-region patients and
+over the region patients. \\\hat H\\ is evaluated from the selected
+definition with
+[`get_dfpred`](https://larry-leon.github.io/forestsearch/reference/get_dfpred.md)
+(the route of `df.test`); it is empty in an undeclared trial, whose
+counts are kept.
+
+When the simulated trial has no `flag_harm` column, the `region_Gstar`
+and `Hstar_nonregion` rows are omitted and the counts are `NA`, with a
+message.
+
+After the counts come fourteen columns read from the trial's
+[`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+result `fs$mr_inference` (multiplier resampling,
+`fs_args = list(mr_inference = TRUE, ...)`; see
+[`fs_mr_inference`](https://larry-leon.github.io/forestsearch/reference/fs_mr_inference.md)),
+on the effect (HR) scale:
+
+- `mr_ci_method`:
+
+  `ci_method`.
+
+- `mr_debiased_H`, `mr_ij_lower_H`, `mr_ij_upper_H`:
+
+  `debiased$est`, `$lower`, `$upper`: the de-biased estimate on \\\hat
+  H\\ and its interval (IJ SE under `"ij"` and `"field"`, robust SE
+  under `"wald"`).
+
+- `mr_field_lower_1s_H`:
+
+  `field$lower_1s`.
+
+- `mr_debiased_Hc`, `mr_ij_lower_Hc`, `mr_ij_upper_Hc`:
+
+  `complement$debiased$est`, `$lower`, `$upper`.
+
+- `mr_field_upper_1s_Hc`, `mr_field_upper_1s_s_Hc`:
+
+  `field$complement$upper_1s` and its studentized companion
+  `field$complement$upper_1s_s`.
+
+- `mr_bonf_lower_H`, `mr_bonf_upper_Hc`:
+
+  `field$joint$bonf_lower_H`, `field$joint$bonf_upper_Hc`.
+
+- `mr_p_hat_H`:
+
+  `reselection$p_hat[selected_index]`.
+
+- `mr_selection_rate`:
+
+  `selection_rate`.
+
+Each is `NA` when its element is absent: every one in a trial without
+`mr_inference` or without a declared subgroup (nothing to de-bias), or
+with the short MR return; the complement columns without
+`include_complement = TRUE`; the field columns unless
+`ci_method = "field"`; the complement field and Bonferroni columns
+without `field_complement = TRUE`; `mr_p_hat_H` without
+`return_reselection = TRUE`. Under `record = "point"` none of these
+columns is added.
 
 ## See also
 

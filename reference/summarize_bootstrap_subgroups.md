@@ -46,11 +46,20 @@ List with summary components:
 
 - consistency_dist:
 
-  Data.table of Pcons distribution by bins
+  Data.table of Pcons distribution by bins (columns `Consistency Range`,
+  `Count`, `Percent` = `100 * Count / n_found`). The bins are closed on
+  the left: a label `"a-b"` holds `a <= Pcons < b` (for example
+  `"0.85-0.95"` holds `0.85 <= Pcons < 0.95`), `"<0.5"` holds
+  `Pcons < 0.5`, and the top bin `">=0.95"` holds `0.95 <= Pcons <= 1`.
+  A value on a break counts in the bin that starts there (0.95 is in
+  `">=0.95"`).
 
 - size_dist:
 
-  Data.table of subgroup size distribution
+  Data.table of subgroup size distribution (columns `Size Range`,
+  `Count`, `Percent`), with bins closed on the left in the same way:
+  `"<50"` holds `N_sg < 50`, `"50-99"` holds `50 <= N_sg < 100`, and so
+  on to `">=300"`, which holds `N_sg >= 300`.
 
 - factor_freq:
 

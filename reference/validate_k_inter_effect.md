@@ -26,11 +26,24 @@ validate_k_inter_effect(
 
 - ...:
 
-  Additional arguments passed to create_gbsg_dgm
+  Additional arguments passed to the internal GBSG builder that
+  [`setup_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+  also calls: `k_treat`, `k_z3`, `z1_quantile`, `n_super`, `cens_type`,
+  `use_rand_params` and `seed`, with the meanings given there.
 
 ## Value
 
 Data frame with k_inter, hr_H, hr_Hc, AHR_H, AHR_Hc, and ratio columns
+
+## Note
+
+This function builds its mechanisms through the superseded GBSG wrapper
+(see
+[`setup_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)).
+That wrapper's censoring step, in which the covariate term of the
+censoring model is multiplied by the ratio of the event-model scale to
+the censoring-model scale, does not affect the hazard ratios this
+function reports.
 
 ## Examples
 

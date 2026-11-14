@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@
 <li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -47,6 +48,10 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul>
@@ -70,7 +75,7 @@
       <h1>Binary and continuous outcomes: the ACTG 175 analyses</h1>
       <p class="subtitle">Supplementary Section S3 of León and Anderson (2026b) and Table S3 of León and Anderson (2026a), run end to end</p>
       <p class="author">Larry Leon</p>
-      <p class="date">2026-10-31</p>
+      <p class="date">2026-11-14</p>
 
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/actg175-glm-outcomes.qmd" class="external-link"><code>vignettes/articles/actg175-glm-outcomes.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -222,9 +227,8 @@
 </div>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">in_region</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">fit</span>, <span class="va">d</span><span class="op">)</span> <span class="va">fit</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">id</span>, <span class="va">fit</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">id</span><span class="op">)</span><span class="op">]</span> <span class="op">==</span> <span class="fl">0</span></span>
-<span><span class="va">in_bin</span>  <span class="op">&lt;-</span> <span class="fu">in_region</span><span class="op">(</span><span class="va">fit_bin</span>, <span class="va">df_bin</span><span class="op">)</span></span>
-<span><span class="va">in_cont</span> <span class="op">&lt;-</span> <span class="fu">in_region</span><span class="op">(</span><span class="va">fit_cont</span>, <span class="va">df_cont</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">in_bin</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fs_in_subgroup.html">fs_in_subgroup</a></span><span class="op">(</span><span class="va">fit_bin</span>, <span class="va">df_bin</span><span class="op">)</span></span>
+<span><span class="va">in_cont</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fs_in_subgroup.html">fs_in_subgroup</a></span><span class="op">(</span><span class="va">fit_cont</span>, <span class="va">df_cont</span><span class="op">)</span></span>
 <span><span class="co"># the regions in words, checked against the package's membership</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">in_bin</span>,  <span class="va">df_bin</span><span class="op">$</span><span class="va">wtkg</span> <span class="op">&gt;</span> <span class="fl">86</span> <span class="op">&amp;</span> <span class="va">df_bin</span><span class="op">$</span><span class="va">cd40</span> <span class="op">&gt;</span> <span class="fl">380</span><span class="op">)</span>,</span>
 <span>          <span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">in_cont</span>, <span class="va">df_cont</span><span class="op">$</span><span class="va">cd40</span> <span class="op">&gt;</span> <span class="fl">507</span> <span class="op">&amp;</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">df_cont</span><span class="op">$</span><span class="va">gender</span><span class="op">)</span> <span class="op">==</span> <span class="st">"1"</span><span class="op">)</span><span class="op">)</span></span>
@@ -236,21 +240,20 @@
 <span>              <span class="va">g</span><span class="op">$</span><span class="va">timing_seconds</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; Binary     !{cd40 &lt;= 380} &amp; !{wtkg &lt;= 86}   N 72   fit 33 s (multiplier stage 1.3 s)</span></span>
-<span><span class="co">#&gt; Continuous !{cd40 &lt;= 507} &amp; {gender}        N 79   fit 35 s (multiplier stage 1.0 s)</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; Binary     !{cd40 &lt;= 380} &amp; !{wtkg &lt;= 86}   N 72   fit 37 s (multiplier stage 1.5 s)</span></span>
+<span><span class="co">#&gt; Continuous !{cd40 &lt;= 507} &amp; {gender}        N 79   fit 46 s (multiplier stage 1.1 s)</span></span></code></pre>
 </div>
 </div>
 <p>On the binary endpoint forest search returns the 72 patients weighing more than 86 kg with baseline CD4 above 380 cells per mm³; on the continuous endpoint, the 79 men with baseline CD4 above 507. The package writes a region as a conjunction of the cut indicators it searched — <code>!{cd40 &lt;= 380}</code> is “CD4 above 380” and <a href="https://github.com/lmullen/gender" class="external-link">gender</a> is “male” — and the chunk above checks each against its description in words. The two regions are selected on different endpoints of the same patients and are not the same set; each leaves a complement of about 93% of the trial.</p>
 </section><section class="level3"><h3 id="the-regions-and-their-adjusted-effects">The regions and their adjusted effects<a class="anchor" aria-label="anchor" href="#the-regions-and-their-adjusted-effects"></a>
 </h3>
-<p>Every number of Table S16 but the whole-trial row is in <code>fit$mr_inference</code>: the unadjusted and corrected estimates and the selection bias in its top level, the bounds in <code>$field</code>, and the complement’s quantities in <code>$complement</code> and <code>$field$complement</code>. The helper below reads them in the table’s order, on the outcome’s own scale.</p>
+<p>Every number of Table S16 but the whole-trial row is in <code>fit$mr_inference</code>, and <code><a href="../reference/mr_values.html">mr_values()</a></code> returns them as a row for the region and a row for its complement. The helper below reads them in the table’s order, on the outcome’s own scale.</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">s16_column</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">fit</span>, <span class="va">d</span>, <span class="va">y</span>, <span class="va">digits</span>, <span class="va">events</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">g</span>  <span class="op">&lt;-</span> <span class="va">fit</span><span class="op">$</span><span class="va">mr_inference</span>; <span class="va">cc</span> <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">complement</span></span>
-<span>  <span class="va">fb</span> <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">field</span>; <span class="va">fc</span> <span class="op">&lt;-</span> <span class="va">fb</span><span class="op">$</span><span class="va">complement</span>; <span class="va">js</span> <span class="op">&lt;-</span> <span class="va">fb</span><span class="op">$</span><span class="va">joint_s</span></span>
-<span>  <span class="va">in_H</span> <span class="op">&lt;-</span> <span class="fu">in_region</span><span class="op">(</span><span class="va">fit</span>, <span class="va">d</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">anyNA</a></span><span class="op">(</span><span class="va">in_H</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">in_H</span><span class="op">)</span> <span class="op">==</span> <span class="va">g</span><span class="op">$</span><span class="va">n_selected</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="va">in_H</span><span class="op">)</span> <span class="op">==</span> <span class="va">cc</span><span class="op">$</span><span class="va">n</span><span class="op">)</span></span>
+<span>  <span class="va">v</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mr_values.html">mr_values</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>; <span class="va">H</span> <span class="op">&lt;-</span> <span class="va">v</span><span class="op">[</span><span class="va">v</span><span class="op">$</span><span class="va">row</span> <span class="op">==</span> <span class="st">"H"</span>, <span class="op">]</span>; <span class="va">Hc</span> <span class="op">&lt;-</span> <span class="va">v</span><span class="op">[</span><span class="va">v</span><span class="op">$</span><span class="va">row</span> <span class="op">==</span> <span class="st">"Hc"</span>, <span class="op">]</span></span>
+<span>  <span class="va">in_H</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fs_in_subgroup.html">fs_in_subgroup</a></span><span class="op">(</span><span class="va">fit</span>, <span class="va">d</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">anyNA</a></span><span class="op">(</span><span class="va">in_H</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">in_H</span><span class="op">)</span> <span class="op">==</span> <span class="va">H</span><span class="op">$</span><span class="va">n_selected</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="va">in_H</span><span class="op">)</span> <span class="op">==</span> <span class="va">Hc</span><span class="op">$</span><span class="va">n</span><span class="op">)</span></span>
 <span>  <span class="va">f</span>  <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.*f"</span>, <span class="va">digits</span>, <span class="va">x</span><span class="op">)</span></span>
 <span>  <span class="va">ci</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span>, <span class="va">l</span>, <span class="va">u</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%s (%s, %s)"</span>, <span class="fu">f</span><span class="op">(</span><span class="va">e</span><span class="op">)</span>, <span class="fu">f</span><span class="op">(</span><span class="va">l</span><span class="op">)</span>, <span class="fu">f</span><span class="op">(</span><span class="va">u</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="va">n_ev</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">sel</span><span class="op">)</span> <span class="op">{</span></span>
@@ -260,16 +263,16 @@
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu">n_ev</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="cn">TRUE</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>,</span>
 <span>    <span class="fu">n_ev</span><span class="op">(</span><span class="va">in_H</span><span class="op">)</span>,</span>
-<span>    <span class="fu">ci</span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">est</span>, <span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">lower</span>, <span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span>,</span>
-<span>    <span class="fu">ci</span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">est</span>, <span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">lower</span>, <span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span>,</span>
-<span>    <span class="fu">f</span><span class="op">(</span><span class="va">fb</span><span class="op">$</span><span class="va">lower_1s</span><span class="op">)</span>,</span>
+<span>    <span class="fu">ci</span><span class="op">(</span><span class="va">H</span><span class="op">$</span><span class="va">naive_est</span>, <span class="va">H</span><span class="op">$</span><span class="va">naive_lower</span>, <span class="va">H</span><span class="op">$</span><span class="va">naive_upper</span><span class="op">)</span>,</span>
+<span>    <span class="fu">ci</span><span class="op">(</span><span class="va">H</span><span class="op">$</span><span class="va">debiased_est</span>, <span class="va">H</span><span class="op">$</span><span class="va">ij_lower</span>, <span class="va">H</span><span class="op">$</span><span class="va">ij_upper</span><span class="op">)</span>,</span>
+<span>    <span class="fu">f</span><span class="op">(</span><span class="va">H</span><span class="op">$</span><span class="va">field_lower_1s</span><span class="op">)</span>,</span>
 <span>    <span class="fu">n_ev</span><span class="op">(</span><span class="op">!</span><span class="va">in_H</span><span class="op">)</span>,</span>
-<span>    <span class="fu">ci</span><span class="op">(</span><span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">est</span>, <span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">lower</span>, <span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span>,</span>
-<span>    <span class="fu">ci</span><span class="op">(</span><span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">est</span>, <span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">lower</span>, <span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span>,</span>
-<span>    <span class="fu">f</span><span class="op">(</span><span class="va">fc</span><span class="op">$</span><span class="va">upper_1s_s</span><span class="op">)</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%s / %s"</span>, <span class="fu">f</span><span class="op">(</span><span class="va">js</span><span class="op">$</span><span class="va">bonf_lower_H</span><span class="op">)</span>, <span class="fu">f</span><span class="op">(</span><span class="va">js</span><span class="op">$</span><span class="va">bonf_upper_Hc</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>    <span class="fu">f</span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">selection_bias</span><span class="op">)</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">n_family</span>, big.mark <span class="op">=</span> <span class="st">","</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="fu">ci</span><span class="op">(</span><span class="va">Hc</span><span class="op">$</span><span class="va">naive_est</span>, <span class="va">Hc</span><span class="op">$</span><span class="va">naive_lower</span>, <span class="va">Hc</span><span class="op">$</span><span class="va">naive_upper</span><span class="op">)</span>,</span>
+<span>    <span class="fu">ci</span><span class="op">(</span><span class="va">Hc</span><span class="op">$</span><span class="va">debiased_est</span>, <span class="va">Hc</span><span class="op">$</span><span class="va">ij_lower</span>, <span class="va">Hc</span><span class="op">$</span><span class="va">ij_upper</span><span class="op">)</span>,</span>
+<span>    <span class="fu">f</span><span class="op">(</span><span class="va">Hc</span><span class="op">$</span><span class="va">field_upper_1s_s</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%s / %s"</span>, <span class="fu">f</span><span class="op">(</span><span class="va">H</span><span class="op">$</span><span class="va">bonf_lower_H_s</span><span class="op">)</span>, <span class="fu">f</span><span class="op">(</span><span class="va">Hc</span><span class="op">$</span><span class="va">bonf_upper_Hc_s</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    <span class="fu">f</span><span class="op">(</span><span class="va">H</span><span class="op">$</span><span class="va">selection_bias</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">H</span><span class="op">$</span><span class="va">n_family</span>, big.mark <span class="op">=</span> <span class="st">","</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span><span class="va">s16_rows</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Whole trial N (events)"</span>, <span class="st">"Whole-trial estimate, 95% CI"</span>, <span class="st">"Region"</span>, <span class="st">"N (events)"</span>,</span>
 <span>              <span class="st">"Unadjusted, 95% CI"</span>, <span class="st">"Corrected (two-term), IJ interval"</span>, <span class="st">"Field, lower bound"</span>,</span>
@@ -491,27 +494,22 @@
 <strong>The common reading.</strong> An unadjusted analysis of either region would report a substantial adverse effect. After correction each region’s estimate is much attenuated, with a lower bound that does not rule out a benefit; in each case the patients outside the region — the part of the trial the search was not looking at — show a benefit of the combination.</li>
 </ul></section><section class="level3"><h3 id="declaration-at-a-protected-level">Declaration at a protected level<a class="anchor" aria-label="anchor" href="#declaration-at-a-protected-level"></a>
 </h3>
-<p>Forest search declared both regions at the default screen, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>p</mi><mo>⋆</mo></msup><mo>=</mo><mn>0.90</mn></mrow><annotation encoding="application/x-tex">p^\star = 0.90</annotation></semantics></math>. Section 4 of León and Anderson (2026b) asks whether a screen calibrated to protect a clinically meaningful uniform benefit would have declared them: an odds ratio of 0.75 on the binary endpoint, and ten cells per mm³ of CD4 decline spared on the continuous one, each on a grid around it, at a family-wise level <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>α</mi><mo>=</mo><mn>0.10</mn></mrow><annotation encoding="application/x-tex">\alpha = 0.10</annotation></semantics></math>. <code><a href="../reference/fs_declaration_calibration.html">fs_declaration_calibration()</a></code> reads the answer from the multiplier draws each fit already made; nothing is redrawn (see <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> for the construction).</p>
+<p>Forest search declared both regions at the default screen, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>p</mi><mo>⋆</mo></msup><mo>=</mo><mn>0.90</mn></mrow><annotation encoding="application/x-tex">p^\star = 0.90</annotation></semantics></math>. Section 4 of León and Anderson (2026b) asks whether a screen calibrated to protect a clinically meaningful uniform benefit would have declared them: an odds ratio of 0.75 on the binary endpoint, and ten cells per mm³ of CD4 decline spared on the continuous one, each on a grid around it, at a family-wise level <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>α</mi><mo>=</mo><mn>0.10</mn></mrow><annotation encoding="application/x-tex">\alpha = 0.10</annotation></semantics></math>. <code><a href="../reference/fs_declaration_table.html">fs_declaration_table()</a></code> tabulates <code><a href="../reference/fs_declaration_calibration.html">fs_declaration_calibration()</a></code>, which reads the answer from the multiplier draws each fit already made; nothing is redrawn (see the article <a href="https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html">Interpretable subgroup identification with forestsearch</a> for the construction).</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">s17_column</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">fit</span>, <span class="va">c0_grid</span>, <span class="va">c0_primary</span>, <span class="va">fmt_c0</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">cal</span>    <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fs_declaration_calibration.html">fs_declaration_calibration</a></span><span class="op">(</span><span class="va">fit</span>, alpha <span class="op">=</span> <span class="fl">0.10</span>, c0 <span class="op">=</span> <span class="va">c0_grid</span><span class="op">)</span></span>
-<span>  <span class="va">cal_c2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fs_declaration_calibration.html">fs_declaration_calibration</a></span><span class="op">(</span><span class="va">fit</span>, alpha <span class="op">=</span> <span class="fl">0.10</span><span class="op">)</span>   <span class="co"># c0 = NULL: the claim threshold</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="va">cal</span><span class="op">$</span><span class="va">c0</span><span class="op">$</span><span class="va">source</span>, <span class="st">"capture"</span><span class="op">)</span><span class="op">)</span>            <span class="co"># read from the fit's own draws</span></span>
-<span>  <span class="va">fld</span> <span class="op">&lt;-</span> <span class="va">fit</span><span class="op">$</span><span class="va">mr_inference</span><span class="op">$</span><span class="va">declaration_field</span></span>
-<span>  <span class="va">T_H</span> <span class="op">&lt;-</span> <span class="va">cal</span><span class="op">$</span><span class="va">T_hat</span><span class="op">[[</span><span class="va">fld</span><span class="op">$</span><span class="va">family_id</span><span class="op">[</span><span class="va">fld</span><span class="op">$</span><span class="va">meta</span><span class="op">$</span><span class="va">selected_index</span><span class="op">]</span><span class="op">]</span><span class="op">]</span></span>
-<span>  <span class="va">tb</span>  <span class="op">&lt;-</span> <span class="va">cal</span><span class="op">$</span><span class="va">c0</span><span class="op">$</span><span class="va">table</span>; <span class="va">i</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">tb</span><span class="op">$</span><span class="va">c0</span> <span class="op">==</span> <span class="va">c0_primary</span><span class="op">)</span></span>
-<span>  <span class="va">admits_none</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lengths.html" class="external-link">lengths</a></span><span class="op">(</span><span class="va">cal</span><span class="op">$</span><span class="va">c0</span><span class="op">$</span><span class="va">admitted_calibrated</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">cal_c2</span><span class="op">$</span><span class="va">admitted_calibrated</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">mr_inference</span><span class="op">$</span><span class="va">n_selected</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f / %.3f"</span>, <span class="va">T_H</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">cal</span><span class="op">$</span><span class="va">T_hat</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  <span class="va">tb</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fs_declaration_table.html">fs_declaration_table</a></span><span class="op">(</span><span class="va">fit</span>, alpha <span class="op">=</span> <span class="fl">0.10</span>, c0 <span class="op">=</span> <span class="va">c0_grid</span>, c0_primary <span class="op">=</span> <span class="va">c0_primary</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">tb</span><span class="op">$</span><span class="va">source</span><span class="op">[</span><span class="va">tb</span><span class="op">$</span><span class="va">row</span> <span class="op">==</span> <span class="st">"c0"</span><span class="op">]</span><span class="op">)</span>, <span class="st">"capture"</span><span class="op">)</span><span class="op">)</span>   <span class="co"># read from the fit's own draws</span></span>
+<span>  <span class="va">p</span> <span class="op">&lt;-</span> <span class="va">tb</span><span class="op">[</span><span class="va">tb</span><span class="op">$</span><span class="va">row</span> <span class="op">==</span> <span class="st">"c0"</span> <span class="op">&amp;</span> <span class="va">tb</span><span class="op">$</span><span class="va">primary</span>, <span class="op">]</span>; <span class="va">cl</span> <span class="op">&lt;-</span> <span class="va">tb</span><span class="op">[</span><span class="va">tb</span><span class="op">$</span><span class="va">row</span> <span class="op">==</span> <span class="st">"claim_threshold"</span>, <span class="op">]</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">p</span><span class="op">$</span><span class="va">n_region</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f / %.3f"</span>, <span class="va">p</span><span class="op">$</span><span class="va">T_region</span>, <span class="va">p</span><span class="op">$</span><span class="va">T_max</span><span class="op">)</span>,</span>
 <span>    <span class="fu">fmt_c0</span><span class="op">(</span><span class="va">c0_primary</span><span class="op">)</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="va">tb</span><span class="op">$</span><span class="va">kappa_hat</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">)</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="fl">2</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">pnorm</a></span><span class="op">(</span><span class="va">tb</span><span class="op">$</span><span class="va">kappa_hat</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">)</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="va">tb</span><span class="op">$</span><span class="va">fw_size</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">)</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="va">cal_c2</span><span class="op">$</span><span class="va">kappa_hat</span><span class="op">)</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="va">cal_c2</span><span class="op">$</span><span class="va">fw_size</span><span class="op">)</span>,</span>
-<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">admits_none</span><span class="op">)</span> <span class="st">"admits nothing"</span> <span class="kw">else</span> <span class="st">"admits a candidate"</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="va">p</span><span class="op">$</span><span class="va">kappa_hat</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="va">p</span><span class="op">$</span><span class="va">implied_level</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="va">p</span><span class="op">$</span><span class="va">fw_size</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="va">cl</span><span class="op">$</span><span class="va">kappa_hat</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="va">cl</span><span class="op">$</span><span class="va">fw_size</span><span class="op">)</span>,</span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">p</span><span class="op">$</span><span class="va">admits_none</span><span class="op">)</span> <span class="st">"admits nothing"</span> <span class="kw">else</span> <span class="st">"admits a candidate"</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span><span class="va">s17_rows</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Region declared at the default level, N"</span>, <span class="st">"T of the region / largest T in the family"</span>,</span>
 <span>              <span class="st">"Primary protected level c0"</span>, <span class="st">"Calibrated cutoff, kappa-hat(c0)"</span>,</span>
@@ -726,7 +724,7 @@
 <div class="sourceCode cell-code" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fits_s3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>FS <span class="op">=</span> <span class="va">fit_s3_fs</span>, DINA <span class="op">=</span> <span class="va">fit_s3_dina</span>, GRF <span class="op">=</span> <span class="va">fit_s3_grf</span><span class="op">)</span></span>
 <span><span class="va">secs_s3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>FS <span class="op">=</span> <span class="va">sec_s3_fs</span>, DINA <span class="op">=</span> <span class="va">sec_s3_dina</span>, GRF <span class="op">=</span> <span class="va">sec_s3_grf</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="fu">in_region</span><span class="op">(</span><span class="va">fit_s3_fs</span>, <span class="va">df_bin</span><span class="op">)</span>, <span class="va">in_bin</span><span class="op">)</span><span class="op">)</span>   <span class="co"># the region of Part 1</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="fu"><a href="../reference/fs_in_subgroup.html">fs_in_subgroup</a></span><span class="op">(</span><span class="va">fit_s3_fs</span>, <span class="va">df_bin</span><span class="op">)</span>, <span class="va">in_bin</span><span class="op">)</span><span class="op">)</span>   <span class="co"># the region of Part 1</span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">m</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits_s3</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">gm</span> <span class="op">&lt;-</span> <span class="va">fits_s3</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">mr_inference</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%-4s %-38s N %3d   fit %5.1f s (multiplier stage %4.1f s)   family %d\n"</span>,</span>
@@ -734,12 +732,12 @@
 <span>              <span class="va">gm</span><span class="op">$</span><span class="va">timing_seconds</span>, <span class="va">gm</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; FS   !{cd40 &lt;= 380} &amp; !{wtkg &lt;= 86}         N  72   fit  29.2 s (multiplier stage  0.5 s)   family 2794</span></span>
-<span><span class="co">#&gt; DINA {preanti &gt;= 849.40000000000009} &amp; {cd40 &gt;= 338} N  98   fit   1.5 s (multiplier stage  0.2 s)   family 147</span></span>
-<span><span class="co">#&gt; GRF  {wtkg &gt; 84.369600000000005} &amp; {cd40 &gt; 368.20000000000005} N  95   fit   8.3 s (multiplier stage  0.4 s)   family 1289</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; FS   !{cd40 &lt;= 380} &amp; !{wtkg &lt;= 86}         N  72   fit  32.6 s (multiplier stage  0.8 s)   family 2794</span></span>
+<span><span class="co">#&gt; DINA {preanti &gt;= 849.40000000000009} &amp; {cd40 &gt;= 338} N  98   fit   2.0 s (multiplier stage  0.4 s)   family 147</span></span>
+<span><span class="co">#&gt; GRF  {wtkg &gt; 84.369600000000005} &amp; {cd40 &gt; 368.20000000000005} N  95   fit  11.4 s (multiplier stage  0.5 s)   family 1289</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">agree</span> <span class="op">&lt;-</span> <span class="fu">in_region</span><span class="op">(</span><span class="va">fit_s3_fs</span>, <span class="va">df_bin</span><span class="op">)</span> <span class="op">==</span> <span class="fu">in_region</span><span class="op">(</span><span class="va">fit_s3_grf</span>, <span class="va">df_bin</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">agree</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fs_in_subgroup.html">fs_in_subgroup</a></span><span class="op">(</span><span class="va">fit_s3_fs</span>, <span class="va">df_bin</span><span class="op">)</span> <span class="op">==</span> <span class="fu"><a href="../reference/fs_in_subgroup.html">fs_in_subgroup</a></span><span class="op">(</span><span class="va">fit_s3_grf</span>, <span class="va">df_bin</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"FS and GRF classify %d of %d patients alike\n"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">agree</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">agree</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt; FS and GRF classify 1060 of 1083 patients alike</span></span></code></pre>
@@ -767,28 +765,14 @@
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">boot_secs</span>, <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt;   FS DINA  GRF</span></span>
-<span><span class="co">#&gt; 88.1 19.6 32.0</span></span></code></pre>
+<span><span class="co">#&gt; 56.3 26.0 44.1</span></span></code></pre>
 </div>
 </div>
 </section><section class="level3"><h3 id="naive-bootstrap-and-multiplier-side-by-side">Naive, bootstrap and multiplier side by side<a class="anchor" aria-label="anchor" href="#naive-bootstrap-and-multiplier-side-by-side"></a>
 </h3>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">three_columns</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">method</span>, <span class="va">fit</span>, <span class="va">boot</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">g</span> <span class="op">&lt;-</span> <span class="va">fit</span><span class="op">$</span><span class="va">mr_inference</span>; <span class="va">cc</span> <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">complement</span></span>
-<span>  <span class="va">n_H</span> <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">n_selected</span>; <span class="va">n_Hc</span> <span class="op">&lt;-</span> <span class="va">cc</span><span class="op">$</span><span class="va">n</span></span>
-<span>  <span class="va">f2</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span>, <span class="va">l</span>, <span class="va">u</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f (%.2f, %.2f)"</span>, <span class="va">e</span>, <span class="va">l</span>, <span class="va">u</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>    method <span class="op">=</span> <span class="va">method</span>, region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"H"</span>, <span class="st">"Hc"</span><span class="op">)</span>,</span>
-<span>    n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%d (%d%%)"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">n_H</span>, <span class="va">n_Hc</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">n_H</span>, <span class="va">n_Hc</span><span class="op">)</span> <span class="op">/</span> <span class="op">(</span><span class="va">n_H</span> <span class="op">+</span> <span class="va">n_Hc</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>    naive <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu">f2</span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">est</span>, <span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">lower</span>, <span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span>,</span>
-<span>              <span class="fu">f2</span><span class="op">(</span><span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">est</span>, <span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">lower</span>, <span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>    bootstrap <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">boot</span><span class="op">$</span><span class="va">H_estimates</span><span class="op">$</span><span class="va">H2</span>, <span class="va">boot</span><span class="op">$</span><span class="va">Hc_estimates</span><span class="op">$</span><span class="va">H2</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>    multiplier <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu">f2</span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">est</span>, <span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">lower</span>, <span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span>,</span>
-<span>                   <span class="fu">f2</span><span class="op">(</span><span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">est</span>, <span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">lower</span>, <span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span><span class="va">side_by_side</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits_s3</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">m</span><span class="op">)</span></span>
-<span>  <span class="fu">three_columns</span><span class="op">(</span><span class="va">m</span>, <span class="va">fits_s3</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span>, <span class="va">boots</span><span class="op">[[</span><span class="va">m</span><span class="op">]</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">side_by_side</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mr_method_tables.html">mr_method_comparison</a></span><span class="op">(</span><span class="va">fits_s3</span>, <span class="va">boots</span>, est.scale <span class="op">=</span> <span class="st">"hr"</span>, digits <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">boot_label</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Full bootstrap estimate (B = %d / %d / %d)"</span>,</span>
 <span>                      <span class="va">B</span><span class="op">[[</span><span class="st">"FS"</span><span class="op">]</span><span class="op">]</span>, <span class="va">B</span><span class="op">[[</span><span class="st">"DINA"</span><span class="op">]</span><span class="op">]</span>, <span class="va">B</span><span class="op">[[</span><span class="st">"GRF"</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">side_by_side</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span>, align <span class="op">=</span> <span class="st">"llrrrr"</span>,</span>
@@ -820,7 +804,7 @@
 <td style="text-align: left;">H</td>
 <td style="text-align: right;">72 (7%)</td>
 <td style="text-align: right;">3.58 (1.31, 9.77)</td>
-<td style="text-align: right;">2.62</td>
+<td style="text-align: right;">2.22</td>
 <td style="text-align: right;">1.79 (0.63, 5.09)</td>
 </tr>
 <tr class="even">
@@ -828,7 +812,7 @@
 <td style="text-align: left;">Hc</td>
 <td style="text-align: right;">1011 (93%)</td>
 <td style="text-align: right;">0.59 (0.45, 0.76)</td>
-<td style="text-align: right;">0.58</td>
+<td style="text-align: right;">0.61</td>
 <td style="text-align: right;">0.62 (0.37, 1.03)</td>
 </tr>
 <tr class="odd">
@@ -966,13 +950,7 @@
 </h3>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">cost</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits_s3</span><span class="op">)</span>,</span>
-<span>  mr_seconds <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">fits_s3</span>, <span class="kw">function</span><span class="op">(</span><span class="va">f</span><span class="op">)</span> <span class="va">f</span><span class="op">$</span><span class="va">mr_inference</span><span class="op">$</span><span class="va">timing_seconds</span><span class="op">)</span>,</span>
-<span>  bootstrap_B <span class="op">=</span> <span class="va">B</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits_s3</span><span class="op">)</span><span class="op">]</span>,</span>
-<span>  bootstrap_seconds <span class="op">=</span> <span class="va">boot_secs</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits_s3</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="va">cost</span><span class="op">$</span><span class="va">seconds_per_replicate</span> <span class="op">&lt;-</span> <span class="va">cost</span><span class="op">$</span><span class="va">bootstrap_seconds</span> <span class="op">/</span> <span class="va">cost</span><span class="op">$</span><span class="va">bootstrap_B</span></span>
-<span><span class="va">cost</span><span class="op">$</span><span class="va">projected_B_1000</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cost</span><span class="op">$</span><span class="va">seconds_per_replicate</span> <span class="op">*</span> <span class="fl">1000</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">cost</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mr_method_tables.html">mr_cost_table</a></span><span class="op">(</span><span class="va">fits_s3</span>, <span class="va">boots</span>, boot_seconds <span class="op">=</span> <span class="va">boot_secs</span><span class="op">)</span></span>
 <span><span class="va">plan_label</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="va">n_workers</span> <span class="op">&gt;</span> <span class="fl">1L</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%d workers"</span>, <span class="va">n_workers</span><span class="op">)</span> <span class="kw">else</span> <span class="st">"one process"</span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">cost</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span>, digits <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>             col.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Method"</span>, <span class="st">"MR (s)"</span>, <span class="st">"B"</span>, <span class="st">"bootstrap (s)"</span>, <span class="st">"s per replicate"</span>,</span>
@@ -1003,27 +981,27 @@
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">FS</td>
-<td style="text-align: right;">0.49</td>
+<td style="text-align: right;">0.79</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">88.12</td>
-<td style="text-align: right;">3.52</td>
-<td style="text-align: right;">3525</td>
+<td style="text-align: right;">56.28</td>
+<td style="text-align: right;">2.25</td>
+<td style="text-align: right;">2251</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">DINA</td>
-<td style="text-align: right;">0.23</td>
+<td style="text-align: right;">0.35</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">19.56</td>
-<td style="text-align: right;">0.78</td>
-<td style="text-align: right;">782</td>
+<td style="text-align: right;">26.05</td>
+<td style="text-align: right;">1.04</td>
+<td style="text-align: right;">1042</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">GRF</td>
-<td style="text-align: right;">0.37</td>
+<td style="text-align: right;">0.52</td>
 <td style="text-align: right;">10</td>
-<td style="text-align: right;">32.04</td>
-<td style="text-align: right;">3.20</td>
-<td style="text-align: right;">3204</td>
+<td style="text-align: right;">44.08</td>
+<td style="text-align: right;">4.41</td>
+<td style="text-align: right;">4408</td>
 </tr>
 </tbody>
 </table>
@@ -1036,8 +1014,7 @@
 </section><section class="level2"><h2 id="where-to-go-next">Where to go next<a class="anchor" aria-label="anchor" href="#where-to-go-next"></a>
 </h2>
 <ul>
-<li>
-<code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> runs the same constructions on the breast cancer data of León and Anderson (2026b), with the declaration calibration set out step by step.</li>
+<li>The article <a href="https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html">Interpretable subgroup identification with forestsearch</a> runs the same constructions on the breast cancer data of León and Anderson (2026b), with the declaration calibration set out step by step.</li>
 <li>The <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection article</a> is Part 2’s comparison on the survival scale, Table S2 of León and Anderson (2026a), with the package’s own bootstrap summaries and the diagnostics of the multiplier correction.</li>
 <li>
 <code><a href="../reference/forestsearch.html">?forestsearch</a></code> documents every argument, with examples for the binary and continuous paths; <code><a href="../reference/fs_declaration_calibration.html">?fs_declaration_calibration</a></code>, <code><a href="../reference/forestsearch_bootstrap_dofuture.html">?forestsearch_bootstrap_dofuture</a></code>.</li>
@@ -1073,7 +1050,7 @@
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base</span></span>
 <span><span class="co">#&gt;</span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] future_1.80.0      forestsearch_0.4.0</span></span>
+<span><span class="co">#&gt; [1] future_1.82.0      forestsearch_0.5.0</span></span>
 <span><span class="co">#&gt;</span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
 <span><span class="co">#&gt;  [1] gt_1.4.0             generics_0.1.4       xml2_1.6.0</span></span>
@@ -1084,11 +1061,11 @@
 <span><span class="co">#&gt; [16] fastmap_1.2.0        foreach_1.5.2        jsonlite_2.0.0</span></span>
 <span><span class="co">#&gt; [19] Matrix_1.7-6         glmnet_5.2           survival_3.8-12</span></span>
 <span><span class="co">#&gt; [22] scales_1.4.0         weightedsurv_0.1.0   codetools_0.2-20</span></span>
-<span><span class="co">#&gt; [25] cli_3.6.6            rlang_1.3.0          parallelly_1.48.0</span></span>
+<span><span class="co">#&gt; [25] cli_3.6.6            rlang_1.3.0          parallelly_1.50.0</span></span>
 <span><span class="co">#&gt; [28] future.apply_1.21.0  leaps_3.2            splines_4.6.2</span></span>
-<span><span class="co">#&gt; [31] yaml_2.3.12          otel_0.2.0           tools_4.6.2</span></span>
+<span><span class="co">#&gt; [31] yaml_2.3.12          otel_0.3.0           tools_4.6.2</span></span>
 <span><span class="co">#&gt; [34] parallel_4.6.2       doFuture_1.4.0       dplyr_1.2.1</span></span>
-<span><span class="co">#&gt; [37] ggplot2_4.0.3        globals_0.20.0       vctrs_0.7.3</span></span>
+<span><span class="co">#&gt; [37] ggplot2_4.0.4        globals_0.20.0       vctrs_0.7.3</span></span>
 <span><span class="co">#&gt; [40] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2</span></span>
 <span><span class="co">#&gt; [43] fs_2.1.0             speff2trial_1.0.5    pkgconfig_2.0.3</span></span>
 <span><span class="co">#&gt; [46] progressr_1.1.0      pillar_1.11.1        gtable_0.3.6</span></span>
@@ -1108,7 +1085,8 @@
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }
       // Inspect non-navigation links and adorn them if external
-     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
       for (var i=0; i<links.length; i++) {
         const link = links[i];
         if (!isInternal(link.href)) {
@@ -1117,8 +1095,69 @@
           if (link.dataset.originalHref !== undefined) {
             link.href = link.dataset.originalHref;
           }
+          if (!link.classList.contains('no-external-icon')) {
+          }
         }
       }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
       const config = {
         allowHTML: true,
@@ -1132,6 +1171,7 @@
         interactiveBorder: 10,
         theme: 'light-border',
         placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
       };
       if (contentFn) {
         config.content = contentFn;

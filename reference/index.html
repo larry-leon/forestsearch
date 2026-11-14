@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -22,6 +22,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -30,6 +31,10 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -943,6 +948,13 @@
 
         <dt>
 
+          <code><a href="fs_in_subgroup.html">fs_in_subgroup()</a></code>
+
+        </dt>
+        <dd>Membership of a forestsearch fit's declared subgroup</dd>
+
+        <dt>
+
           <code><a href="dummy_encode.html">dummy_encode()</a></code>
 
         </dt>
@@ -1016,7 +1028,7 @@
           <code><a href="lasso_selection.html">lasso_selection()</a></code>
 
         </dt>
-        <dd>LASSO selection for Cox model</dd>
+        <dd>LASSO selection for survival and GLM outcomes</dd>
 
         <dt>
 
@@ -1087,13 +1099,6 @@
 
         <dt>
 
-          <code><a href="create_gbsg_dgm.html">create_gbsg_dgm()</a></code>
-
-        </dt>
-        <dd>Create GBSG-Based AFT Data Generating Mechanism</dd>
-
-        <dt>
-
           <code><a href="print.gbsg_dgm.html">print(<i>&lt;gbsg_dgm&gt;</i>)</a></code>
 
         </dt>
@@ -1119,20 +1124,6 @@
 
         </dt>
         <dd>Simulate Survival Data from AFT Data Generating Mechanism</dd>
-
-        <dt>
-
-          <code><a href="simulate_from_gbsg_dgm.html">simulate_from_gbsg_dgm()</a></code>
-
-        </dt>
-        <dd>Simulate Trial Data from GBSG DGM</dd>
-
-        <dt>
-
-          <code><a href="get_dgm_with_output.html">get_dgm_with_output()</a></code>
-
-        </dt>
-        <dd>Create DGM with Output File Path</dd>
 
         <dt>
 
@@ -1298,6 +1289,120 @@
 
         </dt>
         <dd>Validate Dataset for MRCT Simulations</dd>
+      </dl></div><div class="section level2">
+      <h2 id="mrct-consistency-analytic-layer-case-study">MRCT Consistency: Analytic Layer &amp; Case Study<a class="anchor" aria-label="anchor" href="#mrct-consistency-analytic-layer-case-study"></a></h2>
+
+      <div class="section-desc"><p>Population average hazard ratios and their design-based limits, hazard scaling of a DGM, and helpers to find and examine an MRCT case-study trial.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="ahr_population.html">ahr_population()</a></code> <code><a href="ahr_population.html">print(<i>&lt;ahr_population&gt;</i>)</a></code>
+
+        </dt>
+        <dd>The population of the analytic layer</dd>
+
+        <dt>
+
+          <code><a href="ahr_limit.html">ahr_limit()</a></code>
+
+        </dt>
+        <dd>The exact limit of the two-sample Cox estimate on a patient set</dd>
+
+        <dt>
+
+          <code><a href="ahr_design.html">ahr_design()</a></code>
+
+        </dt>
+        <dd>Design quantities and trigger probabilities at a trial size</dd>
+
+        <dt>
+
+          <code><a href="ahr_solve.html">ahr_solve()</a></code>
+
+        </dt>
+        <dd>Solve P(trigger) = target in one free parameter</dd>
+
+        <dt>
+
+          <code><a href="ahr_tables.html">ahr_truths_table()</a></code> <code><a href="ahr_tables.html">ahr_design_table()</a></code>
+
+        </dt>
+        <dd>Tables of the MRCT analytic layer, over cells and sets</dd>
+
+        <dt>
+
+          <code><a href="scale_dgm_hazard.html">scale_dgm_hazard()</a></code>
+
+        </dt>
+        <dd>Multiply every hazard of a Weibull AFT DGM by a constant</dd>
+
+        <dt>
+
+          <code><a href="mrct_core_summary.html">mrct_core_summary()</a></code>
+
+        </dt>
+        <dd>Core operating characteristics of an MRCT simulation campaign</dd>
+
+        <dt>
+
+          <code><a href="mrct_select_case.html">mrct_select_case()</a></code>
+
+        </dt>
+        <dd>Select a case-study trial from an MRCT simulation</dd>
+
+        <dt>
+
+          <code><a href="mrct_case_study.html">mrct_case_study()</a></code>
+
+        </dt>
+        <dd>Redraw and examine one trial of an MRCT simulation</dd>
+
+        <dt>
+
+          <code><a href="print.mrct_case_study.html">print(<i>&lt;mrct_case_study&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print an MRCT case study</dd>
+
+        <dt>
+
+          <code><a href="plot.mrct_case_study.html">plot(<i>&lt;mrct_case_study&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot an MRCT case study</dd>
+
+        <dt>
+
+          <code><a href="mrct_trial_analysis.html">mrct_trial_analysis()</a></code> <code><a href="mrct_trial_analysis.html">print(<i>&lt;mrct_trial_analysis&gt;</i>)</a></code> <code><a href="mrct_trial_analysis.html">plot(<i>&lt;mrct_trial_analysis&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Regional-consistency analysis of an observed multiregional trial</dd>
+
+        <dt>
+
+          <code><a href="mrct_four_sets.html">mrct_four_sets()</a></code> <code><a href="mrct_four_sets.html">print(<i>&lt;mrct_four_sets&gt;</i>)</a></code> <code><a href="mrct_four_sets.html">as.data.frame(<i>&lt;mrct_four_sets&gt;</i>)</a></code> <code><a href="mrct_four_sets.html">plot(<i>&lt;mrct_four_sets&gt;</i>)</a></code>
+
+        </dt>
+        <dd>The four patient sets of a regional-consistency analysis</dd>
+
+        <dt>
+
+          <code><a href="mrct_record.html">mrct_record()</a></code>
+
+        </dt>
+        <dd>Read a shipped record of the MRCT consistency campaign</dd>
+
+        <dt>
+
+          <code><a href="mrct_build_dgm.html">mrct_build_dgm()</a></code>
+
+        </dt>
+        <dd>Build an MRCT data-generating mechanism, keeping its warnings</dd>
       </dl></div><div class="section level2">
       <h2 id="formatting-estimation-helpers">Formatting &amp; Estimation Helpers<a class="anchor" aria-label="anchor" href="#formatting-estimation-helpers"></a></h2>
 
@@ -1748,6 +1853,13 @@
 
         <dt>
 
+          <code><a href="fs_declaration_table.html">fs_declaration_table()</a></code>
+
+        </dt>
+        <dd>Declaration at a protected level, as a table</dd>
+
+        <dt>
+
           <code><a href="fs_dgm_feasibility.html">fs_dgm_feasibility()</a></code> <code><a href="fs_dgm_feasibility.html">print(<i>&lt;fs_dgm_feasibility&gt;</i>)</a></code>
 
         </dt>
@@ -1976,6 +2088,20 @@
 
         </dt>
         <dd>Multiplier-resampling (MR) estimates table (bootstrap-table format)</dd>
+
+        <dt>
+
+          <code><a href="mr_values.html">mr_values()</a></code>
+
+        </dt>
+        <dd>Multiplier-resampling (MR) inference quantities as a tidy data frame</dd>
+
+        <dt>
+
+          <code><a href="mr_method_tables.html">mr_method_comparison()</a></code> <code><a href="mr_method_tables.html">mr_cost_table()</a></code>
+
+        </dt>
+        <dd>Naive, bootstrap and multiplier estimates, side by side, and their cost</dd>
 
         <dt>
 

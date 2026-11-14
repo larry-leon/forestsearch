@@ -70,6 +70,25 @@ If `use_gt = TRUE`, returns a list with gt table objects:
 
 If `use_gt = FALSE`, returns equivalent data.frames.
 
+## Details
+
+The estimate tables are those of `kfold_out`, formatted without
+recomputation. For GLM outcomes
+[`forestsearch_KfoldOut`](https://larry-leon.github.io/forestsearch/reference/forestsearch_KfoldOut.md)
+builds their effect column with the fit's orientation (the fit's stored
+`adverse_outcome` or, when none is stored,
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)'s
+rule: `TRUE` for binary and count outcomes, `FALSE` otherwise), while,
+for a fit with the default `est.scale = "hr"`, the arm columns
+(`Rate(C)` or `Mean(C)`, `Rate(T)` or `Mean(T)`) and their raw
+difference `Diff` (treated minus control) are the raw outcome. So for an
+unadjusted fit where a lower outcome is adverse
+(`adverse_outcome = FALSE`, the default for continuous outcomes) the
+effect and `Diff` have opposite signs. Count outcomes and the rate
+measures (IRR, IRD) are not reoriented. See
+[`sg_tables`](https://larry-leon.github.io/forestsearch/reference/sg_tables.md)
+for the details.
+
 ## See also
 
 [`cv_metrics_tables`](https://larry-leon.github.io/forestsearch/reference/cv_metrics_tables.md)

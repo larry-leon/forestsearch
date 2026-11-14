@@ -67,7 +67,7 @@ fs_oc_grid(
   gate – the `p*` of
   [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)'s
   `pconsistency.threshold`: the fraction of splits that must clear `c2`,
-  not an effect threshold. Default
+  not an effect threshold. Default `NULL`, which takes
   `forestsearch_args$pconsistency.threshold`, itself defaulting to
   [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)'s
   default (0.90); an explicit value overrides. Ignored by `"split"`.

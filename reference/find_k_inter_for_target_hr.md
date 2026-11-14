@@ -40,8 +40,10 @@ find_k_inter_for_target_hr(
 
 - continuous_vars:
 
-  Character vector of continuous variable names to be standardized and
-  included as covariates.
+  Character vector of continuous variable names to be included as
+  covariates on their original scale: the function calls
+  [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
+  at its default `standardize = FALSE` and has no argument to change it.
 
 - factor_vars:
 
@@ -104,7 +106,7 @@ find_k_inter_for_target_hr(
 
 ## Value
 
-A list of class "k_inter_result" containing:
+A plain list (no class attribute) containing:
 
 - k_inter:
 
@@ -128,11 +130,8 @@ A list of class "k_inter_result" containing:
 
 - convergence:
 
-  Integer number of iterations to convergence
-
-- method:
-
-  Character string "root-finding" indicating method used
+  Integer number of `uniroot` iterations, including any automatic
+  extensions of the search range
 
 ## Details
 
@@ -140,9 +139,10 @@ This function uses the `uniroot` algorithm to solve the equation:
 \$\$HR\_{harm}(k\_{inter}) - HR\_{target} = 0\$\$
 
 The algorithm typically converges within 5-10 iterations and achieves
-high precision (within the specified tolerance). If the root-finding
-fails, the function evaluates the boundaries and provides diagnostic
-information.
+high precision (within the specified tolerance). The search range is
+widened automatically until it brackets the target; if no root can be
+bracketed, or the achieved HR is not within `tol_rel` percent of the
+target, the call stops with an error.
 
 ## See also
 

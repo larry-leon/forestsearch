@@ -194,9 +194,8 @@ sec_cont <- proc.time()[["elapsed"]] - t0
 
 ``` r
 
-in_region <- function(fit, d) fit$df.est$treat.recommend[match(d$id, fit$df.est$id)] == 0
-in_bin  <- in_region(fit_bin, df_bin)
-in_cont <- in_region(fit_cont, df_cont)
+in_bin  <- fs_in_subgroup(fit_bin, df_bin)
+in_cont <- fs_in_subgroup(fit_cont, df_cont)
 # the regions in words, checked against the package's membership
 stopifnot(identical(in_bin,  df_bin$wtkg > 86 & df_bin$cd40 > 380),
           identical(in_cont, df_cont$cd40 > 507 & as.character(df_cont$gender) == "1"))
@@ -209,8 +208,8 @@ for (x in list(list("Binary", fit_bin, in_bin, sec_bin),
 }
 ```
 
-    #> Binary     !{cd40 <= 380} & !{wtkg <= 86}   N 72   fit 33 s (multiplier stage 1.3 s)
-    #> Continuous !{cd40 <= 507} & {gender}        N 79   fit 35 s (multiplier stage 1.0 s)
+    #> Binary     !{cd40 <= 380} & !{wtkg <= 86}   N 72   fit 37 s (multiplier stage 1.5 s)
+    #> Continuous !{cd40 <= 507} & {gender}        N 79   fit 46 s (multiplier stage 1.1 s)
 
 On the binary endpoint forest search returns the 72 patients weighing
 more than 86 kg with baseline CD4 above 380 cells per mm³; on the
@@ -225,19 +224,18 @@ same set; each leaves a complement of about 93% of the trial.
 ### The regions and their adjusted effects
 
 Every number of Table S16 but the whole-trial row is in
-`fit$mr_inference`: the unadjusted and corrected estimates and the
-selection bias in its top level, the bounds in `$field`, and the
-complement’s quantities in `$complement` and `$field$complement`. The
+`fit$mr_inference`, and
+[`mr_values()`](https://larry-leon.github.io/forestsearch/reference/mr_values.md)
+returns them as a row for the region and a row for its complement. The
 helper below reads them in the table’s order, on the outcome’s own
 scale.
 
 ``` r
 
 s16_column <- function(fit, d, y, digits, events) {
-  g  <- fit$mr_inference; cc <- g$complement
-  fb <- g$field; fc <- fb$complement; js <- fb$joint_s
-  in_H <- in_region(fit, d)
-  stopifnot(!anyNA(in_H), sum(in_H) == g$n_selected, sum(!in_H) == cc$n)
+  v  <- mr_values(fit); H <- v[v$row == "H", ]; Hc <- v[v$row == "Hc", ]
+  in_H <- fs_in_subgroup(fit, d)
+  stopifnot(!anyNA(in_H), sum(in_H) == H$n_selected, sum(!in_H) == Hc$n)
   f  <- function(x) sprintf("%.*f", digits, x)
   ci <- function(e, l, u) sprintf("%s (%s, %s)", f(e), f(l), f(u))
   n_ev <- function(sel) {
@@ -247,16 +245,16 @@ s16_column <- function(fit, d, y, digits, events) {
   c(n_ev(rep(TRUE, nrow(d))),
     paste(fit$sg.harm, collapse = " & "),
     n_ev(in_H),
-    ci(g$naive$est, g$naive$lower, g$naive$upper),
-    ci(g$debiased$est, g$debiased$lower, g$debiased$upper),
-    f(fb$lower_1s),
+    ci(H$naive_est, H$naive_lower, H$naive_upper),
+    ci(H$debiased_est, H$ij_lower, H$ij_upper),
+    f(H$field_lower_1s),
     n_ev(!in_H),
-    ci(cc$naive$est, cc$naive$lower, cc$naive$upper),
-    ci(cc$debiased$est, cc$debiased$lower, cc$debiased$upper),
-    f(fc$upper_1s_s),
-    sprintf("%s / %s", f(js$bonf_lower_H), f(js$bonf_upper_Hc)),
-    f(g$selection_bias),
-    format(g$n_family, big.mark = ","))
+    ci(Hc$naive_est, Hc$naive_lower, Hc$naive_upper),
+    ci(Hc$debiased_est, Hc$ij_lower, Hc$ij_upper),
+    f(Hc$field_upper_1s_s),
+    sprintf("%s / %s", f(H$bonf_lower_H_s), f(Hc$bonf_upper_Hc_s)),
+    f(H$selection_bias),
+    format(H$n_family, big.mark = ","))
 }
 s16_rows <- c("Whole trial N (events)", "Whole-trial estimate, 95% CI", "Region", "N (events)",
               "Unadjusted, 95% CI", "Corrected (two-term), IJ interval", "Field, lower bound",
@@ -373,32 +371,30 @@ a screen calibrated to protect a clinically meaningful uniform benefit
 would have declared them: an odds ratio of 0.75 on the binary endpoint,
 and ten cells per mm³ of CD4 decline spared on the continuous one, each
 on a grid around it, at a family-wise level $`\alpha = 0.10`$.
-[`fs_declaration_calibration()`](https://larry-leon.github.io/forestsearch/reference/fs_declaration_calibration.md)
-reads the answer from the multiplier draws each fit already made;
-nothing is redrawn (see
-[`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+[`fs_declaration_table()`](https://larry-leon.github.io/forestsearch/reference/fs_declaration_table.md)
+tabulates
+[`fs_declaration_calibration()`](https://larry-leon.github.io/forestsearch/reference/fs_declaration_calibration.md),
+which reads the answer from the multiplier draws each fit already made;
+nothing is redrawn (see the article [Interpretable subgroup
+identification with
+forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html)
 for the construction).
 
 ``` r
 
 s17_column <- function(fit, c0_grid, c0_primary, fmt_c0) {
-  cal    <- fs_declaration_calibration(fit, alpha = 0.10, c0 = c0_grid)
-  cal_c2 <- fs_declaration_calibration(fit, alpha = 0.10)   # c0 = NULL: the claim threshold
-  stopifnot(identical(cal$c0$source, "capture"))            # read from the fit's own draws
-  fld <- fit$mr_inference$declaration_field
-  T_H <- cal$T_hat[[fld$family_id[fld$meta$selected_index]]]
-  tb  <- cal$c0$table; i <- which(tb$c0 == c0_primary)
-  admits_none <- all(lengths(cal$c0$admitted_calibrated) == 0) &&
-    length(cal_c2$admitted_calibrated) == 0
-  c(fit$mr_inference$n_selected,
-    sprintf("%.3f / %.3f", T_H, max(cal$T_hat, na.rm = TRUE)),
+  tb <- fs_declaration_table(fit, alpha = 0.10, c0 = c0_grid, c0_primary = c0_primary)
+  stopifnot(identical(unique(tb$source[tb$row == "c0"]), "capture"))   # read from the fit's own draws
+  p <- tb[tb$row == "c0" & tb$primary, ]; cl <- tb[tb$row == "claim_threshold", ]
+  c(p$n_region,
+    sprintf("%.3f / %.3f", p$T_region, p$T_max),
     fmt_c0(c0_primary),
-    sprintf("%.3f", tb$kappa_hat[i]),
-    sprintf("%.3f", 2 * pnorm(tb$kappa_hat[i]) - 1),
-    sprintf("%.3f", tb$fw_size[i]),
-    sprintf("%.3f", cal_c2$kappa_hat),
-    sprintf("%.3f", cal_c2$fw_size),
-    if (admits_none) "admits nothing" else "admits a candidate")
+    sprintf("%.3f", p$kappa_hat),
+    sprintf("%.3f", p$implied_level),
+    sprintf("%.3f", p$fw_size),
+    sprintf("%.3f", cl$kappa_hat),
+    sprintf("%.3f", cl$fw_size),
+    if (p$admits_none) "admits nothing" else "admits a candidate")
 }
 s17_rows <- c("Region declared at the default level, N", "T of the region / largest T in the family",
               "Primary protected level c0", "Calibrated cutoff, kappa-hat(c0)",
@@ -551,7 +547,7 @@ sec_s3_grf <- proc.time()[["elapsed"]] - t0
 
 fits_s3 <- list(FS = fit_s3_fs, DINA = fit_s3_dina, GRF = fit_s3_grf)
 secs_s3 <- c(FS = sec_s3_fs, DINA = sec_s3_dina, GRF = sec_s3_grf)
-stopifnot(identical(in_region(fit_s3_fs, df_bin), in_bin))   # the region of Part 1
+stopifnot(identical(fs_in_subgroup(fit_s3_fs, df_bin), in_bin))   # the region of Part 1
 for (m in names(fits_s3)) {
   gm <- fits_s3[[m]]$mr_inference
   cat(sprintf("%-4s %-38s N %3d   fit %5.1f s (multiplier stage %4.1f s)   family %d\n",
@@ -560,13 +556,13 @@ for (m in names(fits_s3)) {
 }
 ```
 
-    #> FS   !{cd40 <= 380} & !{wtkg <= 86}         N  72   fit  29.2 s (multiplier stage  0.5 s)   family 2794
-    #> DINA {preanti >= 849.40000000000009} & {cd40 >= 338} N  98   fit   1.5 s (multiplier stage  0.2 s)   family 147
-    #> GRF  {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005} N  95   fit   8.3 s (multiplier stage  0.4 s)   family 1289
+    #> FS   !{cd40 <= 380} & !{wtkg <= 86}         N  72   fit  32.6 s (multiplier stage  0.8 s)   family 2794
+    #> DINA {preanti >= 849.40000000000009} & {cd40 >= 338} N  98   fit   2.0 s (multiplier stage  0.4 s)   family 147
+    #> GRF  {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005} N  95   fit  11.4 s (multiplier stage  0.5 s)   family 1289
 
 ``` r
 
-agree <- in_region(fit_s3_fs, df_bin) == in_region(fit_s3_grf, df_bin)
+agree <- fs_in_subgroup(fit_s3_fs, df_bin) == fs_in_subgroup(fit_s3_grf, df_bin)
 cat(sprintf("FS and GRF classify %d of %d patients alike\n", sum(agree), length(agree)))
 ```
 
@@ -618,27 +614,13 @@ round(boot_secs, 1)
 ```
 
     #>   FS DINA  GRF
-    #> 88.1 19.6 32.0
+    #> 56.3 26.0 44.1
 
 ### Naive, bootstrap and multiplier side by side
 
 ``` r
 
-three_columns <- function(method, fit, boot) {
-  g <- fit$mr_inference; cc <- g$complement
-  n_H <- g$n_selected; n_Hc <- cc$n
-  f2 <- function(e, l, u) sprintf("%.2f (%.2f, %.2f)", e, l, u)
-  data.frame(
-    method = method, region = c("H", "Hc"),
-    n = sprintf("%d (%d%%)", c(n_H, n_Hc), round(100 * c(n_H, n_Hc) / (n_H + n_Hc))),
-    naive = c(f2(g$naive$est, g$naive$lower, g$naive$upper),
-              f2(cc$naive$est, cc$naive$lower, cc$naive$upper)),
-    bootstrap = sprintf("%.2f", c(boot$H_estimates$H2, boot$Hc_estimates$H2)),
-    multiplier = c(f2(g$debiased$est, g$debiased$lower, g$debiased$upper),
-                   f2(cc$debiased$est, cc$debiased$lower, cc$debiased$upper)))
-}
-side_by_side <- do.call(rbind, lapply(names(fits_s3), function(m)
-  three_columns(m, fits_s3[[m]], boots[[m]])))
+side_by_side <- mr_method_comparison(fits_s3, boots, est.scale = "hr", digits = 2)
 boot_label <- sprintf("Full bootstrap estimate (B = %d / %d / %d)",
                       B[["FS"]], B[["DINA"]], B[["GRF"]])
 knitr::kable(side_by_side, row.names = FALSE, align = "llrrrr",
@@ -649,8 +631,8 @@ knitr::kable(side_by_side, row.names = FALSE, align = "llrrrr",
 
 | Method | SG | n (%) | Naive | Full bootstrap estimate (B = 25 / 25 / 10) | Multiplier (5,000 draws) |
 |:---|:---|---:|---:|---:|---:|
-| FS | H | 72 (7%) | 3.58 (1.31, 9.77) | 2.62 | 1.79 (0.63, 5.09) |
-| FS | Hc | 1011 (93%) | 0.59 (0.45, 0.76) | 0.58 | 0.62 (0.37, 1.03) |
+| FS | H | 72 (7%) | 3.58 (1.31, 9.77) | 2.22 | 1.79 (0.63, 5.09) |
+| FS | Hc | 1011 (93%) | 0.59 (0.45, 0.76) | 0.61 | 0.62 (0.37, 1.03) |
 | DINA | H | 98 (9%) | 1.94 (0.84, 4.47) | 0.80 | 0.95 (0.29, 3.10) |
 | DINA | Hc | 985 (91%) | 0.60 (0.46, 0.78) | 0.62 | 0.63 (0.38, 1.06) |
 | GRF | H | 95 (9%) | 2.25 (0.97, 5.20) | 1.08 | 1.10 (0.43, 2.80) |
@@ -715,13 +697,7 @@ Table S3 of León and Anderson (2026a), as published. {.table
 
 ``` r
 
-cost <- data.frame(
-  method = names(fits_s3),
-  mr_seconds = sapply(fits_s3, function(f) f$mr_inference$timing_seconds),
-  bootstrap_B = B[names(fits_s3)],
-  bootstrap_seconds = boot_secs[names(fits_s3)])
-cost$seconds_per_replicate <- cost$bootstrap_seconds / cost$bootstrap_B
-cost$projected_B_1000 <- round(cost$seconds_per_replicate * 1000)
+cost <- mr_cost_table(fits_s3, boots, boot_seconds = boot_secs)
 plan_label <- if (n_workers > 1L) sprintf("%d workers", n_workers) else "one process"
 knitr::kable(cost, row.names = FALSE, digits = 2,
              col.names = c("Method", "MR (s)", "B", "bootstrap (s)", "s per replicate",
@@ -734,9 +710,9 @@ knitr::kable(cost, row.names = FALSE, digits = 2,
 
 | Method | MR (s) |   B | bootstrap (s) | s per replicate | projected at B = 1,000 (s) |
 |:-------|-------:|----:|--------------:|----------------:|---------------------------:|
-| FS     |   0.49 |  25 |         88.12 |            3.52 |                       3525 |
-| DINA   |   0.23 |  25 |         19.56 |            0.78 |                        782 |
-| GRF    |   0.37 |  10 |         32.04 |            3.20 |                       3204 |
+| FS     |   0.79 |  25 |         56.28 |            2.25 |                       2251 |
+| DINA   |   0.35 |  25 |         26.05 |            1.04 |                       1042 |
+| GRF    |   0.52 |  10 |         44.08 |            4.41 |                       4408 |
 
 Wall-clock timings from this run: the multiplier stage under the fits’
 sequential plan, the bootstrap on 2 workers. The projection is linear in
@@ -764,7 +740,8 @@ first.
 
 ## Where to go next
 
-- [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+- The article [Interpretable subgroup identification with
+  forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html)
   runs the same constructions on the breast cancer data of León and
   Anderson (2026b), with the declaration calibration set out step by
   step.
@@ -830,7 +807,7 @@ sessionInfo()
     #> [1] stats     graphics  grDevices utils     datasets  methods   base
     #>
     #> other attached packages:
-    #> [1] future_1.80.0      forestsearch_0.4.0
+    #> [1] future_1.82.0      forestsearch_0.5.0
     #>
     #> loaded via a namespace (and not attached):
     #>  [1] gt_1.4.0             generics_0.1.4       xml2_1.6.0
@@ -841,11 +818,11 @@ sessionInfo()
     #> [16] fastmap_1.2.0        foreach_1.5.2        jsonlite_2.0.0
     #> [19] Matrix_1.7-6         glmnet_5.2           survival_3.8-12
     #> [22] scales_1.4.0         weightedsurv_0.1.0   codetools_0.2-20
-    #> [25] cli_3.6.6            rlang_1.3.0          parallelly_1.48.0
+    #> [25] cli_3.6.6            rlang_1.3.0          parallelly_1.50.0
     #> [28] future.apply_1.21.0  leaps_3.2            splines_4.6.2
-    #> [31] yaml_2.3.12          otel_0.2.0           tools_4.6.2
+    #> [31] yaml_2.3.12          otel_0.3.0           tools_4.6.2
     #> [34] parallel_4.6.2       doFuture_1.4.0       dplyr_1.2.1
-    #> [37] ggplot2_4.0.3        globals_0.20.0       vctrs_0.7.3
+    #> [37] ggplot2_4.0.4        globals_0.20.0       vctrs_0.7.3
     #> [40] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2
     #> [43] fs_2.1.0             speff2trial_1.0.5    pkgconfig_2.0.3
     #> [46] progressr_1.1.0      pillar_1.11.1        gtable_0.3.6

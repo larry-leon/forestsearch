@@ -52,8 +52,9 @@ fs_oc_predict(
 
   Numeric. Screening floor on the full-sample effect – the `c1` of
   [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)'s
-  `effect.threshold` (legacy `hr.threshold`). Default
-  `forestsearch_args$effect.threshold`; an explicit value overrides.
+  `effect.threshold` (legacy `hr.threshold`). Default `NULL`, which
+  takes `forestsearch_args$effect.threshold`; an explicit value
+  overrides.
 
 - c2:
 
@@ -61,8 +62,8 @@ fs_oc_predict(
   [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)'s
   `consistency.threshold` (legacy `hr.consistency`). An **effect**
   threshold, not a proportion; the proportion is `pconsistency` below.
-  Default `forestsearch_args$consistency.threshold`; an explicit value
-  overrides.
+  Default `NULL`, which takes `forestsearch_args$consistency.threshold`;
+  an explicit value overrides.
 
 - family:
 
@@ -82,7 +83,7 @@ fs_oc_predict(
   gate – the `p*` of
   [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)'s
   `pconsistency.threshold`: the fraction of splits that must clear `c2`,
-  not an effect threshold. Default
+  not an effect threshold. Default `NULL`, which takes
   `forestsearch_args$pconsistency.threshold`, itself defaulting to
   [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)'s
   default (0.90); an explicit value overrides. Ignored by `"split"`.

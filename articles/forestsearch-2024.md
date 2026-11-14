@@ -10,8 +10,9 @@
 > — the search as closed-form stability selection with its declaration
 > calibration (León and Anderson 2026b, arXiv:2610.28379) and the
 > selection-adjusted inference reported with `mr_inference = TRUE` (León
-> and Anderson 2026a, arXiv:2609.38361) — is documented in
-> [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+> and Anderson 2026a, arXiv:2609.38361) — is documented in the article
+> [Interpretable subgroup identification with
+> forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html)
 > and the [post-selection
 > article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html).
 > The code below runs as written; its settings are those of the 2024
@@ -439,7 +440,7 @@ fs <- forestsearch(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Per-arm events criteria: control >= 12, treatment >= 12
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.01 minutes
+    ## Subgroup search completed in 0 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -496,7 +497,7 @@ fs <- forestsearch(
     ## Legend: P = Pcons (consistency probability); OF = on Pareto frontier; S = selected.
     ## ==============================================================================================================
     ## 
-    ## Seconds and minutes forestsearch overall = 4.147 0.0691 
+    ## Seconds and minutes forestsearch overall = 4.846 0.0808 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0}
 
@@ -510,7 +511,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 4.2 seconds
+    ## ForestSearch completed in 4.9 seconds
 
 ### ForestSearch Results
 
@@ -669,9 +670,9 @@ summaries <- summarize_bootstrap_results(
     ## TIMING ANALYSIS:
     ## -------------------------------------------------------------
     ## Overall:
-    ##   Total bootstrap time:          0.10 minutes (0.00 hours)
-    ##   Average per iteration:         0.05 min (3.1 sec)
-    ##   Projected for 1000 boots:      50.88 min (0.85 hrs)
+    ##   Total bootstrap time:          0.13 minutes (0.00 hours)
+    ##   Average per iteration:         0.06 min (3.9 sec)
+    ##   Projected for 1000 boots:      64.41 min (1.07 hrs)
 
 ``` r
 
@@ -778,12 +779,12 @@ summaries$diagnostics_table_gt
 |                                    | Failed            | 0 (0.0%)   |
 |                                    | Success rating    | Excellent  |
 | Subgroup H (Questionable)          | Observed HR       | 1.951      |
-|                                    | Bias-corrected HR | 3.021      |
-|                                    | Bootstrap CV (%)  | 38.5%      |
+|                                    | Bias-corrected HR | 2.379      |
+|                                    | Bootstrap CV (%)  | 65.2%      |
 |                                    | N estimates       | 2          |
 | Subgroup Hc (Recommend)            | Observed HR       | 0.615      |
-|                                    | Bias-corrected HR | 0.746      |
-|                                    | Bootstrap CV (%)  | 18.1%      |
+|                                    | Bias-corrected HR | 0.818      |
+|                                    | Bootstrap CV (%)  | 64.2%      |
 |                                    | N estimates       | 2          |
 
 #### Subgroup Agreement
@@ -1242,10 +1243,10 @@ ER-negative patients may not benefit is consistent with:
 | Computational Timing |            |            |
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
-| GRF                  | 1.0        | 0.0        |
-| ForestSearch         | 4.2        | 0.1        |
-| Bootstrap            | 6.9        | 0.1        |
-| Total                | 21.9       | 0.4        |
+| GRF                  | 1.3        | 0.0        |
+| ForestSearch         | 4.9        | 0.1        |
+| Bootstrap            | 8.5        | 0.1        |
+| Total                | 28.3       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 
@@ -1309,9 +1310,9 @@ sessionInfo()
     ## 
     ## other attached packages:
     ##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.4.0     
-    ##  [4] future_1.80.0       foreach_1.5.2       policytree_1.2.5   
-    ##  [7] grf_2.6.1           gt_1.4.0            ggplot2_4.0.3      
-    ## [10] data.table_1.18.6.1 survival_3.8-12     forestsearch_0.4.0 
+    ##  [4] future_1.82.0       foreach_1.5.2       policytree_1.2.5   
+    ##  [7] grf_2.6.1           gt_1.4.0            ggplot2_4.0.4      
+    ## [10] data.table_1.18.6.1 survival_3.8-12     forestsearch_0.5.0 
     ## 
     ## loaded via a namespace (and not attached):
     ##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.62           
@@ -1321,19 +1322,19 @@ sessionInfo()
     ## [13] pkgconfig_2.0.3      Matrix_1.7-6         forestploter_1.2.0  
     ## [16] RColorBrewer_1.1-3   S7_0.2.2             desc_1.4.3          
     ## [19] lifecycle_1.0.5      compiler_4.6.2       farver_2.1.2        
-    ## [22] textshaping_1.0.5    codetools_0.2-20     litedown_0.11       
+    ## [22] textshaping_1.0.5    codetools_0.2-20     litedown_1.0        
     ## [25] htmltools_0.5.9      sass_0.4.10          yaml_2.3.12         
     ## [28] glmnet_5.2           pillar_1.11.1        pkgdown_2.2.1       
     ## [31] jquerylib_0.1.4      cachem_1.1.0         iterators_1.0.14    
-    ## [34] parallelly_1.48.0    commonmark_2.0.0     tidyselect_1.2.1    
-    ## [37] digest_0.6.39        mvtnorm_1.4-2        dplyr_1.2.1         
-    ## [40] listenv_1.1.0        labeling_0.4.3       splines_4.6.2       
-    ## [43] fastmap_1.2.0        grid_4.6.2           cli_3.6.6           
-    ## [46] magrittr_2.0.5       DiagrammeR_1.0.12    randomForest_4.7-1.2
-    ## [49] future.apply_1.21.0  withr_3.0.3          scales_1.4.0        
-    ## [52] rmarkdown_2.32       globals_0.20.0       otel_0.2.0          
-    ## [55] gridExtra_2.3.1      progressr_1.1.0      ragg_1.5.2          
-    ## [58] evaluate_1.0.5       knitr_1.52           markdown_2.1        
-    ## [61] rlang_1.3.0          Rcpp_1.1.2           glue_1.8.1          
-    ## [64] xml2_1.6.0           rstudioapi_0.19.0    jsonlite_2.0.0      
-    ## [67] R6_2.6.1             systemfonts_1.3.2    fs_2.1.0
+    ## [34] parallelly_1.50.0    tidyselect_1.2.1     digest_0.6.39       
+    ## [37] mvtnorm_1.4-2        dplyr_1.2.1          listenv_1.1.0       
+    ## [40] labeling_0.4.3       splines_4.6.2        fastmap_1.2.0       
+    ## [43] grid_4.6.2           cli_3.6.6            magrittr_2.0.5      
+    ## [46] DiagrammeR_1.0.12    randomForest_4.7-1.2 future.apply_1.21.0 
+    ## [49] withr_3.0.3          scales_1.4.0         rmarkdown_2.32      
+    ## [52] globals_0.20.0       otel_0.3.0           gridExtra_2.3.1     
+    ## [55] progressr_1.1.0      ragg_1.5.2           evaluate_1.0.5      
+    ## [58] knitr_1.52           markdown_2.1         rlang_1.3.0         
+    ## [61] Rcpp_1.1.2           glue_1.8.1           xml2_1.6.0          
+    ## [64] rstudioapi_0.19.0    jsonlite_2.0.0       R6_2.6.1            
+    ## [67] systemfonts_1.3.2    fs_2.1.0

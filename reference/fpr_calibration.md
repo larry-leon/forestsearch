@@ -100,7 +100,9 @@ fpr_calibration(
 
   Character. One of `"binary"`, `"survival"`, `"count"`, `"continuous"`.
   Used only for computing the asymptotic \\P_1\\ approximation. If
-  `NULL` (default), inferred from `fs_params$outcome_type`.
+  `NULL` (default), inferred from `fs_params$outcome_type`. If neither
+  is given, `"survival"` is used, which is the default `outcome_type` of
+  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md).
 
 - d_eff_approx:
 

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -22,6 +22,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -30,6 +31,10 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -81,10 +86,13 @@ subgroup definition, summary statistics and hazard ratio estimates.</p>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="va">fs</span> <span class="op">&lt;-</span> <span class="fu"><a href="forestsearch.html">forestsearch</a></span><span class="op">(</span><span class="va">gbsg</span>,</span></span>
+<span class="r-in"><span><span class="va">gbsg</span> <span class="op">&lt;-</span> <span class="fu">survival</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/survival/man/gbsg.html" class="external-link">gbsg</a></span></span></span>
+<span class="r-in"><span><span class="va">gbsg</span><span class="op">$</span><span class="va">grade3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">gbsg</span><span class="op">$</span><span class="va">grade</span> <span class="op">==</span> <span class="fl">3</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">fs</span> <span class="op">&lt;-</span> <span class="fu"><a href="forestsearch.html">forestsearch</a></span><span class="op">(</span><span class="va">gbsg</span>, id.name <span class="op">=</span> <span class="st">"pid"</span>,</span></span>
 <span class="r-in"><span>  confounders.name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"meno"</span>, <span class="st">"size"</span>, <span class="st">"grade3"</span>, <span class="st">"nodes"</span>, <span class="st">"pgr"</span>, <span class="st">"er"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"rfstime"</span>, treat.name <span class="op">=</span> <span class="st">"hormon"</span>, event.name <span class="op">=</span> <span class="st">"status"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="plot_subgroup.html">plot_subgroup</a></span><span class="op">(</span><span class="va">fs</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="plot_sg_results.html">plot_sg_results</a></span><span class="op">(</span><span class="va">fs</span>, outcome.name <span class="op">=</span> <span class="st">"rfstime"</span>, event.name <span class="op">=</span> <span class="st">"status"</span>,</span></span>
+<span class="r-in"><span>  treat.name <span class="op">=</span> <span class="st">"hormon"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">p</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>

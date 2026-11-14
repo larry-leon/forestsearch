@@ -11,7 +11,7 @@ treatment effect direction is consistent across splits."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -26,6 +26,7 @@ treatment effect direction is consistent across splits."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -34,6 +35,10 @@ treatment effect direction is consistent across splits."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -344,14 +349,19 @@ plain in-process loop regardless of <code>workers</code>: no future backend
 is set up and no per-batch globals resolution is paid.  A parallel
 plan with <code>workers = 1</code> is honoured as parallel (one-worker
 batched backend); pass <code>plan = "sequential"</code> to run the plain
-loop.  Results under <code>consistency_method = "resample"</code> are
-identical on every path (the closed form consumes no RNG).  Under
-<code>"split"</code> the plain loop draws from a single RNG stream seeded
-once, whereas the batched backend gives each candidate its own
-L'Ecuyer-CMRG stream indexed by global position, so a sequential
-plan's <code>p.consistency</code> values differ from a parallel plan's
-within Monte-Carlo noise at the stated <code>fs.splits</code>; invariance
-to worker count holds within any plan.</p></dd>
+loop.  Under <code>consistency_method = "resample"</code> a candidate whose
+closed form is available consumes no RNG, so its result is identical
+on every path.  Literal splitting – <code>"split"</code>, an IRD effect
+under <code>"resample"</code>, or a candidate whose closed form is not
+available and falls back to splitting – draws, in the plain loop,
+from a single RNG stream seeded once, whereas the batched backend
+gives each candidate its own L'Ecuyer-CMRG stream indexed by global
+position, so a sequential plan's <code>p.consistency</code> values can
+differ from a parallel plan's within Monte-Carlo noise at the stated
+<code>n.splits</code>, and admission and selection can differ too;
+invariance to worker count holds within any plan (with a non-NULL
+<code>seed</code>).  Under
+<code>sg_focus = "maxeff"</code> every plan runs the same plain loop.</p></dd>
 
 <dt>workers</dt>
 <dd><p>Number of parallel workers on a parallel plan.</p></dd>
@@ -361,7 +371,7 @@ to worker count holds within any plan.</p></dd>
 genuinely parallel plan – the knob for the per-batch overhead
 described above.  Smaller
 values provide finer-grained early stopping but may increase overhead.
-Default: When stop_threshold is set and sg_focus is "hr" or "minSG",
+Default: When stop_threshold is set and sg_focus is "maxeffCons",
 defaults to 1 (stop immediately when first candidate passes). For other
 sg_focus values with stop_threshold, defaults to min(workers, n_candidates/4).
 When stop_threshold is NULL, defaults to workers*2 for efficiency.</p></dd>

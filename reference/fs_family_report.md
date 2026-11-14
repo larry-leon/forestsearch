@@ -106,35 +106,53 @@ rep <- fs_family_report(
        use_lasso = FALSE, use_grf = FALSE, use_dina = FALSE),
   outcome_type = "continuous")
 print(rep)
-#> Candidate family is data-dependent: 8 of 20 stages vary with the sample; 4 are disableable, 4 are intrinsic to the method.
+#> Candidate family is data-dependent: 8 of 19 stages vary with the sample; 4 are disableable, 4 are intrinsic to the method.
 #> 
-#>  stage                            status                          
-#>  cut construction                 data-dependent (not disableable)
-#>  LASSO screen                     disabled                        
-#>  DINA / GRF subgroup paths        disabled                        
-#>  GRF variable-importance ordering disabled                        
-#>  confounder cap                   inert                           
-#>  dummy expansion                  deterministic                   
-#>  combination enumeration          deterministic                   
-#>  per-factor prevalence floor      data-dependent                  
-#>  redundancy (rmin)                data-dependent (not disableable)
-#>  subgroup size floor              data-dependent (not disableable)
-#>  per-arm floors                   inert                           
-#>  estimability boundary            inert                           
-#>  effect screen                    data-dependent                  
-#>  near-duplicate removal           data-dependent (not disableable)
-#>  candidate cap                    inert                           
-#>  m1 filter                        inert                           
-#>  consistency screen               data-dependent                  
-#>  early stopping                   data-dependent                  
-#>  winner selection                 deterministic                   
-#>  time cap                         inert                           
+#>  stage                                         
+#>  cut construction                              
+#>  LASSO screen                                  
+#>  DINA / GRF subgroup paths                     
+#>  GRF variable-importance screening (deprecated)
+#>  dummy expansion                               
+#>  combination enumeration                       
+#>  per-factor prevalence floor                   
+#>  redundancy (rmin)                             
+#>  subgroup size floor                           
+#>  per-arm floors                                
+#>  estimability boundary                         
+#>  effect screen                                 
+#>  near-duplicate removal                        
+#>  candidate cap                                 
+#>  m1 filter                                     
+#>  consistency screen                            
+#>  early stopping                                
+#>  winner selection                              
+#>  time cap                                      
+#>  status                          
+#>  data-dependent (not disableable)
+#>  disabled                        
+#>  disabled                        
+#>  inert                           
+#>  deterministic                   
+#>  deterministic                   
+#>  data-dependent                  
+#>  data-dependent (not disableable)
+#>  data-dependent (not disableable)
+#>  inert                           
+#>  inert                           
+#>  data-dependent                  
+#>  data-dependent (not disableable)
+#>  inert                           
+#>  inert                           
+#>  data-dependent                  
+#>  data-dependent                  
+#>  deterministic                   
+#>  inert                           
 #>  values                                                      
 #>  conf.cont_jcuts = list(age = 10, preanti = 10); cut_type ...
 #>  use_lasso = FALSE                                           
 #>  use_dina = FALSE; use_grf = FALSE; subgroup_method = "con...
-#>  vi.grf.min = NULL                                           
-#>  max_n_confounders = 1000                                    
+#>  vi.grf.min = NULL; max_n_confounders = 1000                 
 #>  each 2-level factor -> two indicator columns (both direct...
 #>  maxk = 2                                                    
 #>  minp = 0.025                                                
@@ -157,7 +175,7 @@ print(rep)
 #>   * subgroup size floor: sum(id.x) > n.min on the SAMPLE (subgroup.search() status 4); a floor on a sample count with no off switch
 #>   * near-duplicate removal: candidates whose (K, n, E, d1, m1, m0, HR, L, U) agree to 0.001 collapse to the first (remove_near_duplicate_subgroups(), subgroup_consistency_main.R L579); statistics are sample-fitted; NO argument disables it
 attr(rep, "verdict")
-#> [1] "Candidate family is data-dependent: 8 of 20 stages vary with the sample; 4 are disableable, 4 are intrinsic to the method."
+#> [1] "Candidate family is data-dependent: 8 of 19 stages vary with the sample; 4 are disableable, 4 are intrinsic to the method."
 
 # grounded in counts: cut columns and combinations on a data frame
 set.seed(1)

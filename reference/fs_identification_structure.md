@@ -40,7 +40,7 @@ fs_identification_structure(
 - confounders:
 
   Character vector. The analysis covariate pool, for the involvement
-  vector. Defaults to the three named roles.
+  vector. Default `NULL`, which uses the three named roles.
 
 - sg_def_col, covs_col:
 

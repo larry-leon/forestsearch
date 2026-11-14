@@ -57,7 +57,7 @@ doi:10.48550/arXiv.2610.28379
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -72,6 +72,7 @@ doi:10.48550/arXiv.2610.28379
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -80,6 +81,10 @@ doi:10.48550/arXiv.2610.28379
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -291,7 +296,13 @@ algorithm – a different quantity in different units.</p></dd>
 
 
 </dl><p>To disable parallelism entirely, pass
-<code>parallel_args = list(plan = "sequential")</code>.</p></dd>
+<code>parallel_args = list(plan = "sequential")</code>.
+A sequential and a parallel plan can give different consistency
+proportions, and possibly a different selection, whenever literal
+splitting runs (<code>consistency_method = "split"</code>, an incidence-rate
+difference (<code>effect_measure = "IRD"</code>) under <code>"resample"</code>, or a
+candidate whose closed form is not available), except under
+<code>sg_focus = "maxeff"</code>, which runs the same loop on every plan.</p></dd>
 
 
 <dt id="arg-df-predict">df.predict<a class="anchor" aria-label="anchor" href="#arg-df-predict"></a></dt>
@@ -311,7 +322,7 @@ algorithm – a different quantity in different units.</p></dd>
 
 
 <dt id="arg-est-scale">est.scale<a class="anchor" aria-label="anchor" href="#arg-est-scale"></a></dt>
-<dd><p>Character. Estimation scale ("hr" or "rmst"). Default "hr".</p></dd>
+<dd><p>Character. Estimation scale ("hr" or "1/hr"). Default "hr".</p></dd>
 
 
 <dt id="arg-use-lasso">use_lasso<a class="anchor" aria-label="anchor" href="#arg-use-lasso"></a></dt>
@@ -390,14 +401,24 @@ formerly accepted here as <code>select_statistic</code> is now the top-level
 When <code>selected_only = TRUE</code> (the default), <code>use_dina</code> screening
 contributes the cut(s) chosen by <code><a href="dina_subgroup.html">dina_subgroup</a></code> – using
 this call's <code>sg_focus</code> / <code>selection_rule</code> /
-<code>effect_neighborhood</code> / <code>n.min</code> / <code>hr.threshold</code>, i.e. the
-same cut <code>subgroup_method = "dina"</code> would select. Set <code>FALSE</code> to
-contribute the full frontier candidate set instead.</p>
+<code>effect_neighborhood</code> / <code>n.min</code> / <code>hr.threshold</code>, ranked by
+<code>sg_focus</code> with DINA's native tau-hat as the effect statistic (under
+<code>"maxSG"</code> / <code>"minSG"</code> size ranks first and tau-hat breaks
+ties).  That is the cut <code>subgroup_method = "dina"</code>
+would select only under <code>dina_select_statistic = "dina"</code>; under the
+default <code>dina_select_statistic = "effect"</code>,
+<code>subgroup_method = "dina"</code> re-ranks the qualifying family on the
+inferential effect and can select a different cut, while this screening
+step does not re-rank.  Set <code>FALSE</code> to contribute the full frontier
+candidate set instead.</p>
 <p><strong><code>m_diff</code> is the candidacy floor, on the link scale, and is
 derived rather than taken from this list.</strong>  It is the harm floor a
 candidate must clear to enter the qualifying family that <code>sg_focus</code>
 then ranks – <code>log(HR)</code> for <code>cox</code>, <code>log(OR)</code> for
-<code>binomial</code>, <code>log(IRR)</code> for <code>poisson</code>, and the raw mean
+<code>binomial</code>, the log mean-count ratio for <code>poisson</code> (DINA takes
+no exposure offset – <code>offset.name</code> is not passed to its fit – so
+this equals <code>log(IRR)</code> only when mean follow-up does not depend on
+arm given the covariates), and the raw mean
 difference for <code>gaussian</code>.  Under <code>subgroup_method = "dina"</code>
 (and under <code>selected_only = TRUE</code> screening) it is computed as
 <code>log(hr.threshold)</code> – identity for <code>gaussian</code> – from the
@@ -521,12 +542,35 @@ selection is the exact event MR de-biases (and MR's
 native-family restriction follows the effect rather than the DR score).
 <code>"effect"</code> is the default because only it ranks on the inferential
 coefficient; <code>"dr"</code> is rejected under <code>mr_inference = TRUE</code>.
+Under <code>"effect"</code>, <code>dmin.grf</code> is applied first, on the DR scale,
+as an existence gate: if no DR candidate reaches it, no subgroup is
+returned.  Otherwise it is not applied per candidate: the whole
+DR-candidate family (filtered by <code>n.min</code>, not by <code>dmin.grf</code>) is
+re-ranked, and admission uses the effect floor from <code>hr.threshold</code>
+(the resolved <code>effect.threshold</code> for GLM outcomes).  If no candidate
+can be scored on the effect, the DR winner, which did reach
+<code>dmin.grf</code>, is kept; if candidates are scored but none clears the
+effect floor, no subgroup is returned.
 Ignored for <code>grf_selection = "tree"</code> (the policy-tree leaf is the
 selection, with no enumerated family to rank).</p></dd>
 
 
 <dt id="arg-dmin-grf">dmin.grf<a class="anchor" aria-label="anchor" href="#arg-dmin-grf"></a></dt>
-<dd><p>Numeric. Minimum events for GRF. Default 0.0.</p></dd>
+<dd><p>Numeric. Harm threshold on GRF's doubly robust (DR) scale,
+not a number of events.  It is compared with a subgroup's DR harm effect,
+the subgroup mean of the DR score for control minus the subgroup mean of
+the DR score for treatment (the two columns of
+<code><a href="https://rdrr.io/pkg/policytree/man/double_robust_scores.html" class="external-link">policytree::double_robust_scores()</a></code>, computed for every patient):
+for survival a difference in restricted mean survival time up
+to the GRF horizon (see <code>frac.tau</code>); for other outcomes a difference
+on the scale of the outcome given to GRF (see <code>grf_count_transform</code>).
+Under <code>grf_selection = "tree"</code> (and in <code>use_grf</code> screening) the
+policy-tree subgroup with the largest DR harm effect must reach it; under
+<code>grf_selection = "frontier"</code> with <code>grf_select_statistic = "dr"</code>
+it is applied to every frontier candidate.  Under
+<code>grf_select_statistic = "effect"</code> it is applied first as an existence
+gate on the DR scale and is then not applied per candidate; see
+<code>grf_select_statistic</code>.  Default 0.0.</p></dd>
 
 
 <dt id="arg-frac-tau">frac.tau<a class="anchor" aria-label="anchor" href="#arg-frac-tau"></a></dt>
@@ -1011,7 +1055,7 @@ unless <code>use_lasso</code>, <code>use_grf</code> or <code>use_dina</code> is
 
 <dt id="arg-use-twostage">use_twostage<a class="anchor" aria-label="anchor" href="#arg-use-twostage"></a></dt>
 <dd><p>Logical. Use two-stage sequential consistency algorithm for
-improved performance. Default FALSE for backward compatibility. When TRUE,
+improved performance. Default TRUE. When TRUE,
 <code>fs.splits</code> becomes the maximum number of splits, and early stopping
 is enabled. See Details.  Overridden to <code>FALSE</code> under
 <code>sg_focus = "maxeff"</code> (no two-stage screening).</p></dd>
@@ -1052,11 +1096,25 @@ consistency rate admits an equivalent multiplier-resampling (MR)
 representation, and taking that representation to its analytic limit
 yields the closed form implemented here. The <code>"resample"</code> path applies to the Cox
 (survival) outcome and to GLM outcomes whose effect is a single model
-coefficient (OR, RR, RD, MD, IRR); configurations it cannot represent that
-way (IRD, propensity-adjusted effects, or a non-convergent fit on a given
-candidate) fall back to <code>"split"</code> automatically. When
+coefficient (OR, RR, RD, MD, IRR); an IRD effect, or a candidate whose
+closed form is not available (for example a non-convergent fit), falls
+back to <code>"split"</code> automatically.  The route is decided by the
+effect measure alone: propensity adjustment
+(<code>ps_adjust_method = "iptw"</code> or <code>"dr_gcomp"</code>, with
+<code>ps_method</code> other than <code>"none"</code>) does not send a supported
+measure to <code>"split"</code>.  Under propensity adjustment the
+closed form fits the treatment effect without the propensity weights,
+and without covariates (<code>adjust_covariates</code> cannot be combined with
+<code>ps_method</code> other than <code>"none"</code>), so the consistency rate is
+that of the unadjusted effect. When
 <code>use_twostage = TRUE</code>, <code>"resample"</code> bypasses the two-stage
-split screening entirely (the rate is computed directly).</p></dd>
+split screening entirely (the rate is computed directly).
+A sequential and a parallel plan can give different consistency
+proportions, and possibly a different selection, whenever literal
+splitting runs (<code>consistency_method = "split"</code>, an incidence-rate
+difference (<code>effect_measure = "IRD"</code>) under <code>"resample"</code>, or a
+candidate whose closed form is not available), except under
+<code>sg_focus = "maxeff"</code>, which runs the same loop on every plan.</p></dd>
 
 
 <dt id="arg-outcome-type">outcome_type<a class="anchor" aria-label="anchor" href="#arg-outcome-type"></a></dt>
@@ -1086,7 +1144,8 @@ column for rate-based measures (IRR, IRD).</p></dd>
 
 
 <dt id="arg-adverse-outcome">adverse_outcome<a class="anchor" aria-label="anchor" href="#arg-adverse-outcome"></a></dt>
-<dd><p>Logical or <code>NULL</code>. If <code>TRUE</code>, higher
+<dd><p>Logical or <code>NULL</code> (default, resolved by
+outcome type). If <code>TRUE</code>, higher
 outcome values indicate harm (default for binary and count).  If <code>FALSE</code>,
 higher values indicate benefit (default for continuous).</p></dd>
 
@@ -1145,8 +1204,8 @@ León and Anderson (2026a, 2026b), which use the unadjusted
 treatment-only fits.
 Character or <code>NULL</code>. Propensity score estimation
 method: <code>"grf"</code>, <code>"lasso"</code>, <code>"logistic"</code>, or
-<code>"none"</code>.  Default: <code>"none"</code> for RCT, <code>"grf"</code> for
-observational.</p>
+<code>"none"</code>.  Default: <code>NULL</code>, which resolves to <code>"none"</code>
+for RCT and <code>"grf"</code> for observational.</p>
 <p><strong>GLM outcome types only</strong> (<code>"binary"</code>, <code>"continuous"</code>,
 <code>"count"</code>). Propensity adjustment is <strong>not implemented for
 <code>outcome_type = "survival"</code></strong>: no Cox estimation path reads the
@@ -1234,7 +1293,9 @@ analogue of nonparametric-bootstrap multiplicities); also
 <code>"gaussian"</code>, <code>"rademacher"</code>.</p></dd>
 
 <dt><code>ci_method</code></dt>
-<dd><p><code>"field"</code> (default) additionally runs the
+<dd><p><code>"field"</code> (default under
+<code>subgroup_method = "consistency"</code>; the <code>"dina"</code> and
+<code>"grf"</code> methods default to <code>"ij"</code>) additionally runs the
 field-calibrated block, whose one-sided bounds are the primary
 reported products; the de-biased element, its infinitesimal-jackknife SE and its
 IJ intervals are returned in every call regardless, so nothing is
@@ -1254,10 +1315,11 @@ Passed as <code>TRUE</code> by every internal caller.</p></dd>
 <code>seedit</code>.</p></dd>
 
 <dt><code>return_reselection</code></dt>
-<dd><p>Logical, default <code>FALSE</code>.  When
+<dd><p>Logical, default <code>TRUE</code>.  When
 <code>TRUE</code> the gate's return gains the <code>reselection</code> element
 (per-draw winners and the re-selection frequencies <code>p_hat</code>);
-add-only pass-through, the default reproduces prior output exactly.</p></dd>
+nothing in the arithmetic depends on it, and <code>FALSE</code> restores
+the smaller return object.</p></dd>
 
 <dt><code>field_M_cap</code></dt>
 <dd><p>Optional override of the uniform (kappa)
@@ -1266,13 +1328,13 @@ sweep's mass-carrying cap; <code>NULL</code> (default) keeps
 <code>field_uniform = TRUE</code>.</p></dd>
 
 <dt><code>field_complement</code></dt>
-<dd><p>Logical, default <code>FALSE</code>.  Under
+<dd><p>Logical, default <code>TRUE</code>.  Under
 <code>ci_method = "field"</code> with <code>include_complement = TRUE</code>,
 also evaluate the field block for the complement subgroup, attached
 as <code>field$complement</code> with the one-sided 95\<!-- % \emph{upper} -->
 bound as its primary product (the benefit-claim orientation; see
-<code><a href="fs_mr_inference.html">fs_mr_inference</a></code>).  Add-only pass-through: the default
-reproduces prior output exactly.</p></dd>
+<code><a href="fs_mr_inference.html">fs_mr_inference</a></code>).  <code>FALSE</code> omits the complement's
+field block (the prior behaviour).</p></dd>
 
 <dt><code>ij_residual</code></dt>
 <dd><p><code>"two_term"</code> (default), <code>"winner"</code>
@@ -1414,9 +1476,10 @@ when MR did not run.  See <code><a href="fs_mr_inference.html">fs_mr_inference</
 (<code>naive</code>, <code>debiased</code>, <code>selection_bias</code>,
 <code>settings</code>, <code>harm_flag</code>, <code>timing_seconds</code>).  MR
 approximates the full bootstrap (FB) to leading order; its interval is
-the infinitesimal-jackknife analogue of the FB interval under the
-default <code>ci_method = "field"</code> and under <code>"ij"</code>, and the
-subgroup robust-SE interval under <code>"wald"</code>.  Under the default
+the infinitesimal-jackknife analogue of the FB interval under
+<code>ci_method = "field"</code> (the default under
+<code>subgroup_method = "consistency"</code>) and under <code>"ij"</code>, and the
+subgroup robust-SE interval under <code>"wald"</code>.  Under <code>"field"</code>
 the return also carries the <code>field</code> element.</p></dd>
 
 <dt>mr_harm_confirmed</dt>
@@ -1484,8 +1547,23 @@ often that bar is met.</p>
 when neither threshold is supplied, the value a run actually uses is
 resolved from the estimand.  The resolved pairs are:</p>
 <table class="table table"><tr><td><strong>resolved estimand</strong></td><td><strong>c1</strong></td><td><strong>c2</strong></td></tr><tr><td><code>HR</code> (survival)</td><td>1.25, compared by the search on the natural HR scale</td><td>1.0</td></tr><tr><td><code>OR</code>, <code>RR</code>, <code>IRR</code></td><td>log(1.25)</td><td>log(1.0), i.e. 0</td></tr><tr><td><code>RD</code></td><td>0.05</td><td>0.0</td></tr><tr><td><code>IRD</code></td><td>0.01</td><td>0.0</td></tr><tr><td><code>MD</code></td><td>0.0</td><td>0.0</td></tr></table><p>Supplying <code>effect.threshold</code> or <code>consistency.threshold</code> (or the
-legacy names) suppresses the corresponding remap and the supplied value is
-used on the scale shown above.</p>
+legacy names) suppresses the corresponding default remap, and the supplied
+value is used on the scale shown above, with one exception: for <code>RD</code>
+and <code>IRD</code> a supplied value greater than 1 is taken to be on a ratio
+scale and is replaced by the default in the table: <code>effect.threshold</code>
+by 0.05 for <code>RD</code> or 0.01 for <code>IRD</code>, with two warnings (one from
+the input check, one from the remap), and <code>consistency.threshold</code> by
+0, with one warning.  The remapped <code>effect.threshold</code>
+is the value the fit records (in <code>threshold_config</code> and
+<code>args_call_all</code>, which a bootstrap or cross-validation replay
+re-uses), and it is also the DINA harm floor wherever DINA selects a cut
+(<code>subgroup_method = "dina"</code>, or <code>use_dina = TRUE</code> screening with
+<code>selected_only = TRUE</code>): on these two routes <code>RD</code> and <code>IRD</code>
+run with DINA only on the <code>gaussian</code> family, whose floor is the
+resolved <code>effect.threshold</code> (see <code>dina_args</code>).  Screening with
+<code>selected_only = FALSE</code> has neither the restriction nor this floor:
+it contributes the frontier candidate set on any family, for <code>RD</code> and
+<code>IRD</code> too.</p>
 <p><strong>The pair rule, on the consistency path with a ratio estimand.</strong>  For
 <code>subgroup_method = "consistency"</code> with survival (HR) or binary
 <code>effect_measure = "OR"</code> – the two estimands whose <code>c1</code> and <code>c2</code> sit on
@@ -1694,9 +1772,11 @@ treatment effects using random forests. JASA.</p></li>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">fs_surv</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co">## mr_estimates_table() lays the multiplier-resampling estimates out in the</span></span></span>
-<span class="r-in"><span><span class="co">## format of the bootstrap tables, so it takes a bootstrap result as its</span></span></span>
-<span class="r-in"><span><span class="co">## template (a few replicates are enough for the layout; the</span></span></span>
-<span class="r-in"><span><span class="co">## survival-post-selection article compares the two at full size).</span></span></span>
+<span class="r-in"><span><span class="co">## format of the bootstrap tables. A bootstrap template is optional:</span></span></span>
+<span class="r-in"><span><span class="co">## mr_estimates_table(fs_surv) builds the table from fs_surv alone. With a</span></span></span>
+<span class="r-in"><span><span class="co">## template, the descriptive columns come from the bootstrap result (a few</span></span></span>
+<span class="r-in"><span><span class="co">## replicates are enough for the layout; the survival-post-selection</span></span></span>
+<span class="r-in"><span><span class="co">## article compares the two at full size).</span></span></span>
 <span class="r-in"><span><span class="va">fs_boot</span> <span class="op">&lt;-</span> <span class="fu"><a href="forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>  fs.est        <span class="op">=</span> <span class="va">fs_surv</span>,</span></span>
 <span class="r-in"><span>  nb_boots      <span class="op">=</span> <span class="fl">20</span>,</span></span>

@@ -63,8 +63,9 @@ SGplot_estimates(
 - show_summary:
 
   Logical. Annotate each violin with mean (SD) below the x-axis labels.
-  When trimming is active, displays trimmed statistics. Default: TRUE
-  when `trim_fraction` is non-NULL, FALSE otherwise.
+  When trimming is active, displays trimmed statistics. Default: `NULL`,
+  which resolves to `TRUE` when `trim_fraction` is non-NULL and `FALSE`
+  otherwise.
 
 - title:
 
@@ -107,7 +108,7 @@ for tabular summaries with trimming
 
 ``` r
 if (FALSE) { # \dontrun{
-# Default (no trimming) — backward compatible
+# Default (no trimming) -- backward compatible
 plot_results <- SGplot_estimates(
   results_alt,
   label_training = "Non-Region A, ITT",

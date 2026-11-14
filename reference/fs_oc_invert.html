@@ -13,7 +13,7 @@ read as a type-I error under a null DGM.'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -28,6 +28,7 @@ read as a type-I error under a null DGM.'></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -36,6 +37,10 @@ read as a type-I error under a null DGM.'></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -115,7 +120,7 @@ specification and floors for <code><a href="fs_oc_family_enumerate.html">fs_oc_f
 
 <dt id="arg-c-c-">c1, c2<a class="anchor" aria-label="anchor" href="#arg-c-c-"></a></dt>
 <dd><p>The fixed threshold (the one not solved for; the solved-for
-argument is ignored).  Defaults from <code>forestsearch_args</code>.</p></dd>
+argument is ignored).  Default <code>NULL</code>, which takes the value from <code>forestsearch_args</code>.</p></dd>
 
 
 <dt id="arg-family">family<a class="anchor" aria-label="anchor" href="#arg-family"></a></dt>
@@ -134,7 +139,8 @@ floor for another.</p></dd>
 for the <code>"resample"</code> gate – the <code>p*</code> of
 <code><a href="forestsearch.html">forestsearch</a></code>'s <code>pconsistency.threshold</code>: the fraction
 of splits that must clear <code>c2</code>, not an effect threshold.  Default
-<code>forestsearch_args$pconsistency.threshold</code>, itself defaulting to
+<code>NULL</code>, which takes <code>forestsearch_args$pconsistency.threshold</code>,
+itself defaulting to
 <code><a href="forestsearch.html">forestsearch()</a></code>'s default (0.90); an explicit value overrides.
 Ignored by <code>"split"</code>.</p></dd>
 

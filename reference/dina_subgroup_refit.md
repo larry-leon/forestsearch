@@ -6,11 +6,15 @@ fit the *standard* treatment-effect model on the patients in that
 subgroup: a Cox proportional-hazards model when `sg$family == "cox"`, or
 a generalized linear model otherwise. The reported effect is the
 treatment coefficient on the natural-parameter scale (log-HR for Cox,
-log-OR for binomial, log-IRR for Poisson, mean difference for Gaussian),
-directly comparable to the DINA effect returned by
+log-OR for binomial, the log mean-count ratio for Poisson, mean
+difference for Gaussian), directly comparable to the DINA effect
+returned by
 [`dina_subgroup()`](https://larry-leon.github.io/forestsearch/reference/dina_subgroup.md)
 but obtained from a conventional within-subgroup regression rather than
-from the cross-fitted CATE surface.
+from the cross-fitted CATE surface. The Poisson fit takes no exposure
+offset, so its effect equals log(IRR) only when mean follow-up does not
+depend on arm within the subgroup (given any adjustment covariates); its
+`effect_scale` label remains `"log-IRR"`.
 
 ## Usage
 

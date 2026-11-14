@@ -27,7 +27,7 @@ given argument set, in a form that cannot overpromise."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,6 +42,7 @@ given argument set, in a form that cannot overpromise."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -50,6 +51,10 @@ given argument set, in a form that cannot overpromise."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -170,35 +175,53 @@ cut at sample quantiles).</p></div>
 <span class="r-in"><span>       use_lasso <span class="op">=</span> <span class="cn">FALSE</span>, use_grf <span class="op">=</span> <span class="cn">FALSE</span>, use_dina <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  outcome_type <span class="op">=</span> <span class="st">"continuous"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">rep</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Candidate family is data-dependent: 8 of 20 stages vary with the sample; 4 are disableable, 4 are intrinsic to the method.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Candidate family is data-dependent: 8 of 19 stages vary with the sample; 4 are disableable, 4 are intrinsic to the method.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  stage                            status                          </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  cut construction                 data-dependent (not disableable)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  LASSO screen                     disabled                        </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  DINA / GRF subgroup paths        disabled                        </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  GRF variable-importance ordering disabled                        </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  confounder cap                   inert                           </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  dummy expansion                  deterministic                   </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  combination enumeration          deterministic                   </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  per-factor prevalence floor      data-dependent                  </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  redundancy (rmin)                data-dependent (not disableable)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  subgroup size floor              data-dependent (not disableable)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  per-arm floors                   inert                           </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  estimability boundary            inert                           </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  effect screen                    data-dependent                  </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  near-duplicate removal           data-dependent (not disableable)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  candidate cap                    inert                           </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  m1 filter                        inert                           </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  consistency screen               data-dependent                  </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  early stopping                   data-dependent                  </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  winner selection                 deterministic                   </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  time cap                         inert                           </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  stage                                         </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  cut construction                              </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  LASSO screen                                  </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  DINA / GRF subgroup paths                     </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  GRF variable-importance screening (deprecated)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  dummy expansion                               </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  combination enumeration                       </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  per-factor prevalence floor                   </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  redundancy (rmin)                             </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  subgroup size floor                           </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  per-arm floors                                </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  estimability boundary                         </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  effect screen                                 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  near-duplicate removal                        </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  candidate cap                                 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  m1 filter                                     </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  consistency screen                            </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  early stopping                                </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  winner selection                              </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  time cap                                      </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  status                          </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  data-dependent (not disableable)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  disabled                        </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  disabled                        </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  inert                           </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  deterministic                   </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  deterministic                   </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  data-dependent                  </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  data-dependent (not disableable)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  data-dependent (not disableable)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  inert                           </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  inert                           </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  data-dependent                  </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  data-dependent (not disableable)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  inert                           </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  inert                           </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  data-dependent                  </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  data-dependent                  </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  deterministic                   </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  inert                           </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  values                                                      </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  conf.cont_jcuts = list(age = 10, preanti = 10); cut_type ...</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  use_lasso = FALSE                                           </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  use_dina = FALSE; use_grf = FALSE; subgroup_method = "con...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  vi.grf.min = NULL                                           </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  max_n_confounders = 1000                                    </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  vi.grf.min = NULL; max_n_confounders = 1000                 </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  each 2-level factor -&gt; two indicator columns (both direct...</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  maxk = 2                                                    </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  minp = 0.025                                                </span>
@@ -221,7 +244,7 @@ cut at sample quantiles).</p></div>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * subgroup size floor: sum(id.x) &gt; n.min on the SAMPLE (subgroup.search() status 4); a floor on a sample count with no off switch</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   * near-duplicate removal: candidates whose (K, n, E, d1, m1, m0, HR, L, U) agree to 0.001 collapse to the first (remove_near_duplicate_subgroups(), subgroup_consistency_main.R L579); statistics are sample-fitted; NO argument disables it</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">rep</span>, <span class="st">"verdict"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "Candidate family is data-dependent: 8 of 20 stages vary with the sample; 4 are disableable, 4 are intrinsic to the method."</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "Candidate family is data-dependent: 8 of 19 stages vary with the sample; 4 are disableable, 4 are intrinsic to the method."</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># grounded in counts: cut columns and combinations on a data frame</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span></span>

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -22,6 +22,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -30,6 +31,10 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -68,13 +73,16 @@
 <span>  region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  x3 <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  region_treat_loghr <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  region_loghr_shift <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>  region_harm_loghr_shift <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  n_super <span class="op">=</span> <span class="fl">5000L</span>,</span>
 <span>  expand <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"copula"</span>, <span class="st">"bootstrap"</span><span class="op">)</span>,</span>
 <span>  continuous_vars_cens <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  factor_vars_cens <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  cens_type <span class="op">=</span> <span class="st">"weibull"</span>,</span>
 <span>  seed <span class="op">=</span> <span class="fl">8316951L</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  latent_R <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -112,7 +120,18 @@ the prognostic log-HR of Region (no TE modification; 0 for the paper's
 DGM; -log(5) reproduces the Feb-2026 deck's strongly prognostic region);
 scale = "rank" (ECDF) or "minmax" (the paper's <code>[0,1]</code> scaling);
 optional band = list(cut, or) (and optional var, default <code>x_pred</code>) adds
-<code>log(or) * 1(var &lt;= cut)</code> to the region logit, see make_region_model()</p></dd>
+<code>log(or) * 1(var &lt;= cut)</code> to the region logit, see make_region_model().
+Observed-region mode: <code>region = list(observed = "&lt;col&gt;", loghr = NULL)</code>
+takes the region from <code>seed_data[[col]]</code>, a 0/1 column (a 2-level factor
+is recoded as the other covariates are) that must have both levels in the
+complete seed rows. The region is then named <code>col</code> (<code>z_&lt;col&gt;</code> in
+<code>df_super</code>; <code>col</code> must not also be in <code>continuous_vars</code> or
+<code>factor_vars</code>), it is expanded with the covariates, and
+make_region_model() is not called. <code>prevalence</code>, <code>or_pred</code>, <code>x1_vars</code>,
+<code>or_x1</code>, <code>scale</code> and <code>band</code> describe the planted model, and giving any of
+them with <code>observed</code> is an error. In this mode <code>loghr = NULL</code> (the
+default) means the region's prognostic log-HR is estimated by the AFT
+fit; a number fixes it, as in the planted mode.</p></dd>
 
 
 <dt id="arg-x-">x3<a class="anchor" aria-label="anchor" href="#arg-x-"></a></dt>
@@ -125,6 +144,30 @@ fixed values), loghr = log-HR change (treatment x subgroup).</p></dd>
 <dd><p>NULL, or a log-HR for a direct treat x Region
 interaction (the residual Region-U-TE pathway).  Mutually exclusive with x3
 (the package supports one interaction term).</p></dd>
+
+
+<dt id="arg-region-loghr-shift">region_loghr_shift<a class="anchor" aria-label="anchor" href="#arg-region-loghr-shift"></a></dt>
+<dd><p>Log hazard-ratio shift \(\gamma_R\) added to
+the treatment effect of every region patient (default <code>0</code>, no shift).
+With <code>region_harm_loghr_shift</code> it gives the region-dependent effect
+$$\psi(X) = \psi_{base}(X) + \gamma_R 1\{X \in R\} +
+\gamma_{H^*R} 1\{X \in H^*\} 1\{X \in R\},$$
+where \(\psi_{base}\) is the effect built from <code>spline_spec</code> and <code>x3</code>
+and \(H^*\) is the <code>x3</code> subgroup (<code>flag_harm</code>). When the base effect is
+\(\log b\) outside \(H^*\) and \(\log h\) inside it, hazard
+ratios \(b_R\) and \(h_R\) inside the region are obtained with
+\(\gamma_R = \log(b_R/b)\) and
+\(\gamma_{H^*R} = \log(h_R/h) - \log(b_R/b)\). The shift is applied
+to the treated potential outcome (<code>theta_1</code>, <code>lin_pred_1</code>, <code>loghr_po</code>,
+and <code>lin_pred_obs</code> of treated rows) after the AFT fit, so the control arm
+and the prognostic structure are unchanged. Not available with
+<code>region_treat_loghr</code>.</p></dd>
+
+
+<dt id="arg-region-harm-loghr-shift">region_harm_loghr_shift<a class="anchor" aria-label="anchor" href="#arg-region-harm-loghr-shift"></a></dt>
+<dd><p>Log hazard-ratio shift \(\gamma_{H^*R}\)
+added for patients in both \(H^*\) and the region (default <code>0</code>). A
+non-zero value needs <code>x3</code> (which defines \(H^*\)).</p></dd>
 
 
 <dt id="arg-n-super">n_super<a class="anchor" aria-label="anchor" href="#arg-n-super"></a></dt>
@@ -146,11 +189,38 @@ interaction (the residual Region-U-TE pathway).  Mutually exclusive with x3
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>logical</p></dd>
 
+
+<dt id="arg-latent-r">latent_R<a class="anchor" aria-label="anchor" href="#arg-latent-r"></a></dt>
+<dd><p>NULL (default), or the latent correlation matrix of the
+copula expansion, passed to <code><a href="expand_covariates.html">expand_covariates()</a></code>: named rows and columns
+matching the expanded covariates (<code>continuous_vars</code>, <code>factor_vars</code>, the
+censoring covariates, the <code>x3</code> variables and, with <code>region$observed</code>, the
+region column), symmetric and positive definite (a matrix without the
+observed region column fails the check). When supplied no latentcor fit
+is made, so the super-population
+is the same on every platform; e.g. pass <code>dgm$mrct$latent_R</code> of a stored
+build to rebuild it. With NULL the matrix is fitted by latentcor when
+installed; otherwise (or if the fit fails) the normal-score correlation is
+used with a warning (see <code><a href="expand_covariates.html">expand_covariates()</a></code>). The matrix used is
+stored in <code>dgm$mrct$latent_R</code> either way.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>aft_dgm_flex with df_super = expanded population (+ <code>z_&lt;region&gt;</code>), and
-a <code>$mrct</code> element documenting the injected structure.</p>
+a <code>$mrct</code> element documenting the injected structure. <code>$mrct$region$observed</code>
+is <code>TRUE</code> in the observed-region mode, where <code>prevalence_target</code>, <code>alpha0</code>,
+<code>coefs</code>, <code>scale</code>, <code>band</code> and <code>$mrct$region_model</code> are <code>NULL</code>,
+<code>$mrct$classes$X1</code> is <code>character(0)</code>, and <code>prognostic_loghr</code> is the
+log-HR used (the fixed <code>loghr</code>, or the AFT estimate <code>model_params$b0[z_name]</code>).
+When <code>region_loghr_shift</code> or <code>region_harm_loghr_shift</code> is non-zero,
+<code>$mrct$region_effect</code> records both shifts; with both at <code>0</code> (the
+default) the object is exactly the one built without them.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>An observed region (<code>region$observed</code>) is carried through the expansion
+with the covariates; nothing about its membership is modelled.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

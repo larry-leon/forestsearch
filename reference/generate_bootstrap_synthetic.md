@@ -35,8 +35,8 @@ generate_bootstrap_synthetic(
 
 - n:
 
-  Number of synthetic observations to generate (default: same as
-  original)
+  Number of synthetic observations to generate (default: NULL, meaning
+  same as original)
 
 - seed:
 
@@ -52,7 +52,8 @@ generate_bootstrap_synthetic(
 
 - cat_flip_prob:
 
-  Probability of flipping categorical values (default: noise_level/2)
+  Probability of flipping categorical values (default: NULL, giving
+  noise_level/2)
 
 - preserve_bounds:
 
@@ -61,8 +62,18 @@ generate_bootstrap_synthetic(
 
 - ordinal_vars:
 
-  Optional character vector of ordinal categorical variables (these will
-  be perturbed to adjacent values rather than randomly flipped)
+  Optional character vector naming which of the `cat_vars` are ordinal.
+  A numeric or character variable listed in both `cat_vars` and
+  `ordinal_vars` is changed to a neighbouring level (in sorted order)
+  instead of a random other level. A factor listed in both is set to NA,
+  with a warning, at each row selected for change, unless its levels are
+  "1", "2", ... in that order. A variable listed only in `ordinal_vars`
+  is not perturbed: it is kept as resampled and is named in the 'kept
+  as-is' message. Known limitation: for a numeric-coded variable at its
+  lowest or highest level, the new value is not always the adjacent
+  level (with codes 1, ..., k, a row at 1 that is selected for change
+  keeps its value half the time, and a row at k moves to any of 1, ...,
+  k - 1 with equal probability).
 
 ## Value
 
@@ -77,6 +88,8 @@ synth_gbsg <- generate_bootstrap_synthetic(
   data = survival::gbsg,
   continuous_vars = c("age", "size", "nodes", "pgr", "er", "rfstime"),
   cat_vars = c("meno", "hormon", "status"),
+  # listed only in ordinal_vars, so it is resampled but not perturbed;
+  # list it in cat_vars as well to perturb it
   ordinal_vars = c("grade"),
   id_var = "pid",
   n = 1000,
@@ -101,6 +114,8 @@ synth_data <- generate_bootstrap_synthetic(
   data = my_data,
   continuous_vars = c("height", "weight", "age"),
   cat_vars = c("gender", "smoker"),
+  # listed only in ordinal_vars, so it is resampled but not perturbed;
+  # list it in cat_vars as well to perturb it
   ordinal_vars = c("education"),
   id_var = "id",
   n = 150,

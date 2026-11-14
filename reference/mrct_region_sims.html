@@ -13,7 +13,7 @@ performance on the testing region."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -28,6 +28,7 @@ performance on the testing region."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -36,6 +37,10 @@ performance on the testing region."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -84,7 +89,8 @@ performance on the testing region.</p>
 <span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"multisession"</span>, workers <span class="op">=</span> <span class="cn">NULL</span>, show_message <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
 <span>  details <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  verbose_n_sims <span class="op">=</span> <span class="fl">2L</span>,</span>
-<span>  seed <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  record <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"point"</span>, <span class="st">"full"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -143,12 +149,21 @@ Default: 0.90</p></dd>
 
 <dt id="arg-confounders-name">confounders.name<a class="anchor" aria-label="anchor" href="#arg-confounders-name"></a></dt>
 <dd><p>Character vector. Confounder variable names for ForestSearch.
-If NULL, automatically extracted from dgm</p></dd>
+If NULL, automatically extracted from dgm: the columns of
+<code>dgm$df_super</code> whose names start with <code>z_</code>, <code>ecog</code> or
+<code>strat</code>, except that, for a mechanism built with a spline
+(<code>dgm$model_params$spline_info</code>), the three internal columns of the
+spline variable <code>&lt;var&gt;</code> are left out by their exact names
+<code>&lt;var&gt;_treat</code>, <code>&lt;var&gt;_k</code> and <code>&lt;var&gt;_k_treat</code> (for
+<code><a href="create_dgm_for_mrct.html">create_dgm_for_mrct</a></code>: <code>z_bm_treat</code>, <code>z_bm_k</code>,
+<code>z_bm_k_treat</code>). A covariate such as <code>z_prior_treat</code> and the
+region indicator stay in the set.</p></dd>
 
 
 <dt id="arg-conf-force">conf_force<a class="anchor" aria-label="anchor" href="#arg-conf-force"></a></dt>
 <dd><p>Character vector. Forced cuts to consider in ForestSearch.
-Default: c("z_age &lt;= 65", "z_bm &lt;= 0", "z_bm &lt;= 1", "z_bm &lt;= 2", "z_bm &lt;= 5")</p></dd>
+Default: NULL, which resolves to
+c("z_age &lt;= 65", "z_bm &lt;= 0", "z_bm &lt;= 1", "z_bm &lt;= 2", "z_bm &lt;= 5")</p></dd>
 
 
 <dt id="arg-fs-args">fs_args<a class="anchor" aria-label="anchor" href="#arg-fs-args"></a></dt>
@@ -168,7 +183,12 @@ Default: list() (uses forestsearch defaults)</p></dd>
 <dt id="arg-sim-args">sim_args<a class="anchor" aria-label="anchor" href="#arg-sim-args"></a></dt>
 <dd><p>Named list. Additional arguments passed to
 <code><a href="simulate_from_dgm.html">simulate_from_dgm</a></code> inside each replicate (e.g.,
-<code>rand_ratio</code>, <code>draw_treatment</code>).
+<code>rand_ratio</code>, <code>draw_treatment</code>, <code>max_entry</code>, or
+<code>entry_delay = list(var = "z_region", delay = a)</code> for a region
+enrolling <code>a</code> time units later, redrawn every replicate).
+If <code>dgm$df_super</code> has a column <code>entrytime</code>, it is passed as
+<code>entry_var = "entrytime"</code> (one fixed entry time per
+super-population row) and takes precedence over <code>entry_delay</code>.
 Parameters already in the <code>mrct_region_sims</code> signature
 (<code>analysis_time</code>, <code>cens_adjust</code>) take precedence.
 Default: list(rand_ratio = 1, draw_treatment = TRUE)</p></dd>
@@ -204,6 +224,13 @@ output, or <code>Inf</code> to print all. Default: 2</p></dd>
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
 <dd><p>Integer. Base random seed for reproducibility. Default: NULL</p></dd>
+
+
+<dt id="arg-record">record<a class="anchor" aria-label="anchor" href="#arg-record"></a></dt>
+<dd><p>Character. <code>"point"</code> (default) returns the point
+estimates only, exactly as before this argument existed. <code>"full"</code>
+adds, from the same simulated trials (nothing is redrawn), the
+per-replicate record described under <em>Full record</em> below.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -263,7 +290,18 @@ output, or <code>Inf</code> to print all. Default: 2</p></dd>
 <dd><p>Subgroup HR when found, NA otherwise</p></dd>
 
 
-</dl></div>
+</dl><p>With <code>record = "full"</code>, the same table followed by the columns
+<code>TP_nonregion</code>, <code>FP_nonregion</code>, <code>FN_nonregion</code>,
+<code>TN_nonregion</code>, <code>TP_region</code>, <code>FP_region</code>,
+<code>FN_region</code>, <code>TN_region</code>, then the multiplier-resampling
+columns <code>mr_ci_method</code>, <code>mr_debiased_H</code>, <code>mr_ij_lower_H</code>,
+<code>mr_ij_upper_H</code>, <code>mr_field_lower_1s_H</code>, <code>mr_debiased_Hc</code>,
+<code>mr_ij_lower_Hc</code>, <code>mr_ij_upper_Hc</code>,
+<code>mr_field_upper_1s_Hc</code>, <code>mr_field_upper_1s_s_Hc</code>,
+<code>mr_bonf_lower_H</code>, <code>mr_bonf_upper_Hc</code>, <code>mr_p_hat_H</code>,
+<code>mr_selection_rate</code>, and the attribute <code>"estimators"</code> (see
+<em>Full record</em>).</p>
+    </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
 
@@ -287,6 +325,90 @@ output, or <code>Inf</code> to print all. Default: 2</p></dd>
 populations. It does not imply any prognostic effect. To include prognostic
 confounder effects, specify them when creating the DGM using
 <code><a href="create_dgm_for_mrct.html">create_dgm_for_mrct</a></code> or <code><a href="generate_aft_dgm_flex.html">generate_aft_dgm_flex</a></code>.</p>
+</div>
+
+<div class="section">
+<h3 id="full-record">Full record<a class="anchor" aria-label="anchor" href="#full-record"></a></h3>
+
+
+<p>With <code>record = "full"</code> the returned table is the <code>"point"</code>
+table with twenty-two columns added (eight counts, then fourteen
+multiplier-resampling columns) and a second table attached as an
+attribute, <code>est &lt;- attr(res, "estimators")</code>; <code>res$hr_itt</code>,
+<code>nrow(res)</code> and every <code>"point"</code> column are unchanged. (A
+data.table subset such as <code>res[order(sim)]</code> drops the attribute:
+take it first.)</p>
+<p><code>estimators</code> has one row per trial and patient set:
+<code>itt_all</code> (all patients), <code>itt_nonregion</code>
+(<code>region_var == 0</code>), <code>itt_region</code> (<code>region_var == 1</code>),
+<code>region_Ghat</code> (the region outside the declared harm subgroup
+\(\hat H\); the whole region in an undeclared trial),
+<code>region_Gstar</code> (the region with <code>flag_harm == 0</code>) and
+<code>Hstar_nonregion</code> (the non-region patients with
+<code>flag_harm == 1</code>). Columns: <code>sim</code>, <code>estimator</code>,
+<code>n</code>, <code>n_exp</code>, <code>events_exp</code>, <code>events_ctl</code>; the
+unadjusted two-sample Cox fit <code>Surv(y_sim, event_sim) ~ treat_sim</code>
+on the set, <code>hr</code>, <code>lo</code>, <code>hi</code> (Wald 95\<!-- %) and -->
+<code>se_loghr</code> (a fit with an arm without events is kept; a fit that
+errors, e.g. on an empty set, gives <code>NA</code>); the targets on the same
+patients, <code>ahr</code> = <code>exp(mean(loghr_po))</code> and <code>cde</code> =
+<code>mean(exp(theta_1)) / mean(exp(theta_0))</code> (<code>NA</code> when the
+simulated trial lacks those columns); and <code>declared</code> (0/1, the
+trial's <code>any_found</code>). <code>itt_all</code> is unadjusted, so it equals
+<code>hr_itt</code> only when the trial has no <code>strat</code> column.</p>
+<p>The added columns of the per-trial table are the 2 x 2 counts of
+\(\hat H\) membership against <code>flag_harm == 1</code> over the
+non-region patients and over the region patients. \(\hat H\) is
+evaluated from the selected definition with <code><a href="get_dfpred.html">get_dfpred</a></code>
+(the route of <code>df.test</code>); it is empty in an undeclared trial, whose
+counts are kept.</p>
+<p>When the simulated trial has no <code>flag_harm</code> column, the
+<code>region_Gstar</code> and <code>Hstar_nonregion</code> rows are omitted and the
+counts are <code>NA</code>, with a message.</p>
+<p>After the counts come fourteen columns read from the trial's
+<code><a href="forestsearch.html">forestsearch()</a></code> result <code>fs$mr_inference</code> (multiplier
+resampling, <code>fs_args = list(mr_inference = TRUE, ...)</code>; see
+<code><a href="fs_mr_inference.html">fs_mr_inference</a></code>), on the effect (HR) scale:</p><dl><dt><code>mr_ci_method</code></dt>
+<dd><p><code>ci_method</code>.</p></dd>
+
+<dt><code>mr_debiased_H</code>, <code>mr_ij_lower_H</code>,
+<code>mr_ij_upper_H</code></dt>
+<dd><p><code>debiased$est</code>, <code>$lower</code>,
+<code>$upper</code>: the de-biased estimate on \(\hat H\) and its
+interval (IJ SE under <code>"ij"</code> and <code>"field"</code>, robust SE under
+<code>"wald"</code>).</p></dd>
+
+<dt><code>mr_field_lower_1s_H</code></dt>
+<dd><p><code>field$lower_1s</code>.</p></dd>
+
+<dt><code>mr_debiased_Hc</code>, <code>mr_ij_lower_Hc</code>,
+<code>mr_ij_upper_Hc</code></dt>
+<dd><p><code>complement$debiased$est</code>,
+<code>$lower</code>, <code>$upper</code>.</p></dd>
+
+<dt><code>mr_field_upper_1s_Hc</code>,
+<code>mr_field_upper_1s_s_Hc</code></dt>
+<dd><p><code>field$complement$upper_1s</code> and
+its studentized companion <code>field$complement$upper_1s_s</code>.</p></dd>
+
+<dt><code>mr_bonf_lower_H</code>, <code>mr_bonf_upper_Hc</code></dt>
+<dd><p><code>field$joint$bonf_lower_H</code>, <code>field$joint$bonf_upper_Hc</code>.</p></dd>
+
+<dt><code>mr_p_hat_H</code></dt>
+<dd><p><code>reselection$p_hat[selected_index]</code>.</p></dd>
+
+<dt><code>mr_selection_rate</code></dt>
+<dd><p><code>selection_rate</code>.</p></dd>
+
+
+</dl><p>Each is <code>NA</code> when its element is absent: every one in a trial
+without <code>mr_inference</code> or without a declared subgroup (nothing to
+de-bias), or with the short MR return; the
+complement columns without <code>include_complement = TRUE</code>; the field
+columns unless <code>ci_method = "field"</code>; the complement field and
+Bonferroni columns without <code>field_complement = TRUE</code>;
+<code>mr_p_hat_H</code> without <code>return_reselection = TRUE</code>. Under
+<code>record = "point"</code> none of these columns is added.</p>
 </div>
 
     </div>

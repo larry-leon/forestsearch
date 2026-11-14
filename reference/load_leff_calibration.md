@@ -18,7 +18,8 @@ load_leff_calibration(outcome_type, output_dir = NULL, verbose = TRUE)
 
 - output_dir:
 
-  Character. Directory containing .rds files. Default: `"_data"`.
+  Character. Directory containing .rds files. Default: `NULL`, which
+  resolves to `"_data"`.
 
 - verbose:
 

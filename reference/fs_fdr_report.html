@@ -19,7 +19,7 @@ under a null:"></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -34,6 +34,7 @@ under a null:"></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -42,6 +43,10 @@ under a null:"></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -129,7 +134,7 @@ is inert; here it annotates the null's operating characteristics only.</p></dd>
 
 <dt id="arg-n">n<a class="anchor" aria-label="anchor" href="#arg-n"></a></dt>
 <dd><p>Integer or <code>NULL</code>; simulated trial size.  Default
-<code>nrow(df_analysis)</code>.  The published reference baseline used
+<code>NULL</code>, giving <code>nrow(df_analysis)</code>.  The published reference baseline used
 <code>n = 700</code>; pass that to reproduce it exactly.</p></dd>
 
 
@@ -141,7 +146,13 @@ the GBSG covariate set when the analysis carried none.</p></dd>
 
 
 <dt id="arg-n-super">n_super<a class="anchor" aria-label="anchor" href="#arg-n-super"></a></dt>
-<dd><p>Integer; super-population size for the DGM.  Default 25000.</p></dd>
+<dd><p>Integer; super-population size for the DGM.  Default 25000.
+Under <code>null = "harm"</code>, <code>k_inter</code> is calibrated by
+<code><a href="calibrate_k_inter.html">calibrate_k_inter</a></code> on the GBSG builder's default
+super-population size (5000), not on <code>n_super</code>; the calibrated value
+does not depend on that size beyond the root-finding tolerance (1e-6),
+because the root is fixed by the AFT coefficients fitted to
+<code><a href="https://rdrr.io/pkg/survival/man/gbsg.html" class="external-link">survival::gbsg</a></code>.</p></dd>
 
 
 <dt id="arg-analysis-time">analysis_time<a class="anchor" aria-label="anchor" href="#arg-analysis-time"></a></dt>
@@ -259,6 +270,16 @@ is forced <code>TRUE</code> so B is computable.</p>
 
     </div>
     <div class="section level2">
+    <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
+    <p>This function builds its null data through the superseded GBSG wrapper
+(<code><a href="setup_gbsg_dgm.html">setup_gbsg_dgm</a></code>, with <code><a href="calibrate_k_inter.html">calibrate_k_inter</a></code> for
+the <code>"harm"</code> null), in which the censoring model is fitted to the
+resampled super-population and its covariate term is multiplied by the
+ratio of the event-model scale to the censoring-model scale; this changes
+the simulated censoring times, and with them the rates in <code>fdr</code>, but
+not the true hazard ratios in <code>hr_structure</code>.</p>
+    </div>
+    <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="forestsearch.html">forestsearch</a></code> (and its vocabulary section),
 <code><a href="fs_mr_inference.html">fs_mr_inference</a></code> for the MR step this forces on,
@@ -272,6 +293,13 @@ is forced <code>TRUE</code> so B is computable.</p>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+<span class="r-in"><span><span class="co"># The GBSG trial with time in months and the column names used below</span></span></span>
+<span class="r-in"><span><span class="va">gbsg_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/with.html" class="external-link">within</a></span><span class="op">(</span><span class="fu">survival</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/survival/man/gbsg.html" class="external-link">gbsg</a></span>, <span class="op">{</span></span></span>
+<span class="r-in"><span>  <span class="va">id</span>    <span class="op">&lt;-</span> <span class="va">pid</span></span></span>
+<span class="r-in"><span>  <span class="va">time</span>  <span class="op">&lt;-</span> <span class="va">rfstime</span> <span class="op">/</span> <span class="fl">30.4375</span></span></span>
+<span class="r-in"><span>  <span class="va">treat</span> <span class="op">&lt;-</span> <span class="va">hormon</span></span></span>
+<span class="r-in"><span><span class="op">}</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># A fitted survival/Cox analysis (thresholds and knobs live on the object)</span></span></span>
 <span class="r-in"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="forestsearch.html">forestsearch</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>  df.analysis <span class="op">=</span> <span class="va">gbsg_df</span>,</span></span>
@@ -285,12 +313,12 @@ is forced <code>TRUE</code> so B is computable.</p>
 <span class="r-in"><span>  mr_inference <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Characterize its operating FDR and whether harm confirmation helps</span></span></span>
-<span class="r-in"><span><span class="va">rep</span> <span class="op">&lt;-</span> <span class="fu">fs_fdr_report</span><span class="op">(</span><span class="va">fit</span>, <span class="va">gbsg_df</span>, nsims <span class="op">=</span> <span class="fl">1000</span>, n_workers <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">rep</span> <span class="op">&lt;-</span> <span class="fu">fs_fdr_report</span><span class="op">(</span><span class="va">fit</span>, <span class="va">gbsg_df</span>, nsims <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">rep</span>                       <span class="co"># prints the realized-HR table and the A/B table</span></span></span>
 <span class="r-in"><span><span class="va">rep</span><span class="op">$</span><span class="va">fdr</span>                   <span class="co"># one row per null x c_confirm</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Reproduce the published reference (n = 700): A ~ 0.138 (hom), 0.278 (harm)</span></span></span>
-<span class="r-in"><span><span class="fu">fs_fdr_report</span><span class="op">(</span><span class="va">fit</span>, <span class="va">gbsg_df</span>, n <span class="op">=</span> <span class="fl">700</span>, nsims <span class="op">=</span> <span class="fl">1000</span>, n_workers <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">fs_fdr_report</span><span class="op">(</span><span class="va">fit</span>, <span class="va">gbsg_df</span>, n <span class="op">=</span> <span class="fl">700</span>, nsims <span class="op">=</span> <span class="fl">1000</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

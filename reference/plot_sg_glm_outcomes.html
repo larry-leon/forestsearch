@@ -11,7 +11,7 @@ plot_sg_weighted_km for survival endpoints."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -26,6 +26,7 @@ plot_sg_weighted_km for survival endpoints."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -34,6 +35,10 @@ plot_sg_weighted_km for survival endpoints."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -235,6 +240,20 @@ treatment arm within each subgroup.  For continuous outcomes, displays
 point-and-errorbar charts of means (+/- SE) by treatment arm.  Both
 are annotated with the effect estimate and optional bias-corrected
 estimate from the bootstrap.</p>
+<p>The effect annotation follows the fit's orientation: its estimator is
+built with the fit's stored <code>adverse_outcome</code>
+(<code>fs.est$args_call_all$adverse_outcome</code>) or, when none is stored,
+with <code><a href="forestsearch.html">forestsearch</a></code>'s rule (<code>TRUE</code> for binary and count
+outcomes, <code>FALSE</code> otherwise), so it is on the scale of the fit's
+own estimates, sign included.  The plotted per-arm rates or means (and
+the returned <code>data</code>) are the raw outcome and do not follow it.  So
+for an unadjusted fit where a lower outcome is adverse
+(<code>adverse_outcome = FALSE</code>, the default for continuous outcomes)
+the annotated effect and the treated-minus-control difference of the
+plotted values have opposite signs (for OR and RR, the log of the
+effect): an MD annotation is the control mean minus the treated mean.
+Count outcomes and the rate measures (IRR, IRD) are not reoriented (see
+<code><a href="make_effect_estimator.html">make_effect_estimator</a></code>).</p>
     </div>
 
     <div class="section level2">

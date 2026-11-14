@@ -30,12 +30,14 @@ This DGM family is the one behind the published simulation studies. León
 and Anderson (2026a, Section 7) evaluate the post-selection correction
 on an accelerated-failure-time super-population built from the GBSG data
 by
-[`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
 and
 [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 (their Supplementary Section S9), and 2026b (Section 5.1) builds its
 survival design from the same trial’s covariate structure, censoring and
 event rates.
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+uses the same internal builder as the removed `create_gbsg_dgm()`.
 
 ## 2 The Weibull AFT/Cox Model
 

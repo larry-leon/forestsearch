@@ -41,7 +41,22 @@ forestsearch_KfoldOut(res, details = FALSE, outall = FALSE, digits = 4)
 
 If `outall=FALSE`, a list with `sens_metrics_original` and
 `find_metrics`. If `outall=TRUE`, a list with summary tables and
-metrics.
+metrics. For GLM outcomes the tables (`itt_tab`, `SG_tab_original`,
+`SG_tab_Kfold`, `tab_all`) are built by
+[`SG_tab_estimates_glm`](https://larry-leon.github.io/forestsearch/reference/SG_tab_estimates_glm.md).
+Their effect column follows the fit's orientation (the fit's stored
+`adverse_outcome` or, when none is stored,
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)'s
+rule: `TRUE` for binary and count outcomes, `FALSE` otherwise), while,
+for a fit with the default `est.scale = "hr"`, the arm columns
+(`Rate(C)` or `Mean(C)`, `Rate(T)` or `Mean(T)`) and their raw
+difference `Diff` (treated minus control) do not. So for an unadjusted
+fit where a lower outcome is adverse (`adverse_outcome = FALSE`, the
+default for continuous outcomes) the effect and `Diff` have opposite
+signs. Count outcomes and the rate measures (IRR, IRD) are not
+reoriented. See
+[`sg_tables`](https://larry-leon.github.io/forestsearch/reference/sg_tables.md)
+for the details.
 
 ## Examples
 

@@ -11,7 +11,7 @@ optional subgroup definition footnote."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -26,6 +26,7 @@ optional subgroup definition footnote."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -34,6 +35,10 @@ optional subgroup definition footnote."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -69,7 +74,8 @@ optional subgroup definition footnote.</p>
 <span>  boot_success_rate <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  sg_definition <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  title <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  subtitle <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  subtitle <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  bc_footnote <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -105,6 +111,15 @@ optional subgroup definition footnote.</p>
 <dt id="arg-subtitle">subtitle<a class="anchor" aria-label="anchor" href="#arg-subtitle"></a></dt>
 <dd><p>Character. Custom subtitle (optional)</p></dd>
 
+
+<dt id="arg-bc-footnote">bc_footnote<a class="anchor" aria-label="anchor" href="#arg-bc-footnote"></a></dt>
+<dd><p>Character or <code>NULL</code> (default). The footnote on the
+bias-corrected column. <code>NULL</code> writes the bootstrap footnote
+("Bootstrap-adjusted estimate using infinitesimal jackknife method
+(<code>nb_boots</code> iterations)"); <code><a href="mr_estimates_table.html">mr_estimates_table</a></code> passes
+the multiplier-resampling one when it uses a bootstrap result as its
+template.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -114,12 +129,14 @@ optional subgroup definition footnote.</p>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="va">fs</span> <span class="op">&lt;-</span> <span class="fu"><a href="forestsearch.html">forestsearch</a></span><span class="op">(</span><span class="va">gbsg</span>,</span></span>
+<span class="r-in"><span><span class="va">gbsg</span> <span class="op">&lt;-</span> <span class="fu">survival</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/survival/man/gbsg.html" class="external-link">gbsg</a></span></span></span>
+<span class="r-in"><span><span class="va">gbsg</span><span class="op">$</span><span class="va">grade3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">gbsg</span><span class="op">$</span><span class="va">grade</span> <span class="op">==</span> <span class="fl">3</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">fs</span> <span class="op">&lt;-</span> <span class="fu"><a href="forestsearch.html">forestsearch</a></span><span class="op">(</span><span class="va">gbsg</span>, id.name <span class="op">=</span> <span class="st">"pid"</span>,</span></span>
 <span class="r-in"><span>  confounders.name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"meno"</span>, <span class="st">"size"</span>, <span class="st">"grade3"</span>, <span class="st">"nodes"</span>, <span class="st">"pgr"</span>, <span class="st">"er"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"rfstime"</span>, treat.name <span class="op">=</span> <span class="st">"hormon"</span>, event.name <span class="op">=</span> <span class="st">"status"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">fs_bc</span> <span class="op">&lt;-</span> <span class="fu"><a href="forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture</a></span><span class="op">(</span><span class="va">fs</span>, nb_boots <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">summaries</span> <span class="op">&lt;-</span> <span class="fu"><a href="summarize_bootstrap_results.html">summarize_bootstrap_results</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">sg.harm</span>, <span class="va">fs_bc</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu">format_bootstrap_table</span><span class="op">(</span><span class="va">summaries</span><span class="op">$</span><span class="va">table_data</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">format_bootstrap_table</span><span class="op">(</span><span class="va">fs_bc</span><span class="op">$</span><span class="va">FSsg_tab</span>, nb_boots <span class="op">=</span> <span class="fl">100</span>,</span></span>
+<span class="r-in"><span>  sg_definition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

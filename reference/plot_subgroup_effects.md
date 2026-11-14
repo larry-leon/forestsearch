@@ -35,7 +35,7 @@ plot_subgroup_effects(
 - hrz_crit:
 
   Critical hazard ratio threshold for defining optimal subgroup. Default
-  is 1 (HR=1 on log scale is 0).
+  is 0 (on the log scale, HR=1).
 
 - log.hrs:
 

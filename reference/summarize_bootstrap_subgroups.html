@@ -19,7 +19,7 @@ summarize_bootstrap_results instead."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -34,6 +34,7 @@ summarize_bootstrap_results instead."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -42,6 +43,10 @@ summarize_bootstrap_results instead."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -105,10 +110,22 @@ analysis (e.g., c("{age&gt;=50}", "{nodes&gt;=3}") for a 2-factor subgroup)</p><
 <dd><p>Data.table of summary statistics</p></dd>
 
 <dt>consistency_dist</dt>
-<dd><p>Data.table of Pcons distribution by bins</p></dd>
+<dd><p>Data.table of Pcons distribution by bins
+(columns <code>Consistency Range</code>, <code>Count</code>, <code>Percent</code> =
+<code>100 * Count / n_found</code>).  The bins are closed on the left:
+a label <code>"a-b"</code> holds <code>a &lt;= Pcons &lt; b</code> (for example
+<code>"0.85-0.95"</code> holds <code>0.85 &lt;= Pcons &lt; 0.95</code>),
+<code>"&lt;0.5"</code> holds <code>Pcons &lt; 0.5</code>, and the top bin
+<code>"&gt;=0.95"</code> holds <code>0.95 &lt;= Pcons &lt;= 1</code>.  A value on a
+break counts in the bin that starts there (0.95 is in
+<code>"&gt;=0.95"</code>).</p></dd>
 
 <dt>size_dist</dt>
-<dd><p>Data.table of subgroup size distribution</p></dd>
+<dd><p>Data.table of subgroup size distribution
+(columns <code>Size Range</code>, <code>Count</code>, <code>Percent</code>), with
+bins closed on the left in the same way: <code>"&lt;50"</code> holds
+<code>N_sg &lt; 50</code>, <code>"50-99"</code> holds <code>50 &lt;= N_sg &lt; 100</code>,
+and so on to <code>"&gt;=300"</code>, which holds <code>N_sg &gt;= 300</code>.</p></dd>
 
 <dt>factor_freq</dt>
 <dd><p>Data.table of factor frequencies by position</p></dd>

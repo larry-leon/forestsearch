@@ -1,6 +1,9 @@
-# LASSO selection for Cox model
+# LASSO selection for survival and GLM outcomes
 
-Performs LASSO variable selection using Cox regression.
+Performs LASSO variable selection with `glmnet`: a Cox model for
+`outcome_type = "survival"`, and a logistic (binomial), linear
+(gaussian) or Poisson model for binary, continuous and count outcomes
+(Poisson also for a binary outcome when `offset.name` is given).
 
 ## Usage
 
@@ -51,6 +54,8 @@ lasso_selection(
 ## Value
 
 List with selected, omitted variables, coefficients, lambda, and fits.
+`selected` and `omitted` contain confounders only; the `"(Intercept)"`
+of a GLM fit is in neither, but is kept in `coefficients`.
 
 ## Examples
 

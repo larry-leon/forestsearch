@@ -9,7 +9,7 @@ hazard ratio in the harm subgroup."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -24,6 +24,7 @@ hazard ratio in the harm subgroup."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -32,6 +33,10 @@ hazard ratio in the harm subgroup."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -118,7 +123,10 @@ Default: FALSE</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Additional arguments passed to <code><a href="create_gbsg_dgm.html">create_gbsg_dgm</a></code></p></dd>
+<dd><p>Additional arguments passed to the internal GBSG builder that
+<code><a href="setup_gbsg_dgm.html">setup_gbsg_dgm</a></code> also calls: <code>k_z3</code>,
+<code>z1_quantile</code>, <code>n_super</code>, <code>use_rand_params</code> and
+<code>seed</code>, with the meanings given there.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -130,6 +138,21 @@ Default: FALSE</p></dd>
     <p>This function uses <code>uniroot</code> to find the k_inter value such that
 the empirical HR (or AHR) in the harm subgroup equals target_hr_harm.</p>
     </div>
+    <div class="section level2">
+    <h2 id="superseded">Superseded<a class="anchor" aria-label="anchor" href="#superseded"></a></h2>
+
+
+<p>This function is kept so that published simulations can be reproduced; it
+calibrates <code>k_inter</code> for <code><a href="setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code>. New work
+should use <code><a href="find_k_inter_for_target_hr.html">find_k_inter_for_target_hr()</a></code>, which calibrates
+<code>k_inter</code> for <code><a href="generate_aft_dgm_flex.html">generate_aft_dgm_flex()</a></code> on any survival
+dataset with a 0/1 treatment column. It targets the Cox-based harm-subgroup hazard ratio, as
+<code>use_ahr = FALSE</code> does here; there is no packaged equivalent of
+<code>use_ahr = TRUE</code>. The calibrated quantity does not depend on the
+censoring model, so the censoring step of the GBSG wrapper (see
+<code><a href="setup_gbsg_dgm.html">setup_gbsg_dgm</a></code>) does not affect the calibrated value. This
+function will be deprecated in a future release.</p>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -138,12 +161,12 @@ the empirical HR (or AHR) in the harm subgroup equals target_hr_harm.</p>
 <span class="r-in"><span><span class="va">k</span> <span class="op">&lt;-</span> <span class="fu">calibrate_k_inter</span><span class="op">(</span>target_hr_harm <span class="op">=</span> <span class="fl">1.5</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Verify</span></span></span>
-<span class="r-in"><span><span class="va">dgm</span> <span class="op">&lt;-</span> <span class="fu"><a href="create_gbsg_dgm.html">create_gbsg_dgm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="st">"alt"</span>, k_inter <span class="op">=</span> <span class="va">k</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">dgm</span> <span class="op">&lt;-</span> <span class="fu"><a href="setup_gbsg_dgm.html">setup_gbsg_dgm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="st">"alt"</span>, k_inter <span class="op">=</span> <span class="va">k</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">$</span><span class="va">hr_H_true</span><span class="op">)</span>  <span class="co"># Should be close to 1.5</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Calibrate to AHR instead</span></span></span>
 <span class="r-in"><span><span class="va">k_ahr</span> <span class="op">&lt;-</span> <span class="fu">calibrate_k_inter</span><span class="op">(</span>target_hr_harm <span class="op">=</span> <span class="fl">1.5</span>, use_ahr <span class="op">=</span> <span class="cn">TRUE</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">dgm_ahr</span> <span class="op">&lt;-</span> <span class="fu"><a href="create_gbsg_dgm.html">create_gbsg_dgm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="st">"alt"</span>, k_inter <span class="op">=</span> <span class="va">k_ahr</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">dgm_ahr</span> <span class="op">&lt;-</span> <span class="fu"><a href="setup_gbsg_dgm.html">setup_gbsg_dgm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="st">"alt"</span>, k_inter <span class="op">=</span> <span class="va">k_ahr</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">dgm_ahr</span><span class="op">$</span><span class="va">AHR_H_true</span><span class="op">)</span>  <span class="co"># Should be close to 1.5</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>

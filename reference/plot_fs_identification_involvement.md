@@ -18,8 +18,8 @@ plot_fs_identification_involvement(x, roles = NULL, palette = NULL)
 
 - roles:
 
-  Character vector. Which covariates to draw; defaults to the
-  anchor/partner/proxy triple.
+  Character vector. Which covariates to draw; default `NULL`, which uses
+  the anchor/partner/proxy triple.
 
 - palette:
 

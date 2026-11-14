@@ -47,7 +47,7 @@ make_region_model(
 
 - scale_ref:
 
-  data.frame used to define the scaling (defaults to pop)
+  data.frame used to define the scaling (default NULL, meaning pop)
 
 - scale:
 

@@ -46,9 +46,14 @@ top-to-bottom); consult it for the exact incantation of a rare task
 (e.g. corrupt-install recovery, pkgdown deploy). - Vignettes/articles
 are Quarto (`.qmd`) under `quarto/` and `vignettes/`; render with
 `quarto render <file>.qmd`. Preserve `embed-resources: true`. The
-package `vignettes/forestsearch.Rmd` is the knitr-built one. - If
-package install/load errors with a corrupt `.rdb`, remove the installed
-copy (`rm -rf ~/R/x86_64-pc-linux-gnu-library/<ver>/forestsearch`) and
+package `vignettes/forestsearch.Rmd` is the knitr-built one. - Rendered
+article `.html` never stays in `vignettes/` or `vignettes/articles/`;
+renders go to a scratch directory or to `dev/article_renders/`. A
+sibling’s `.html` there gets copied into the site and pkgdown skips the
+fresh page (`dev/reports/REPORT_site_render_0.5.0_2026-11-13.md`, note
+1). - If package install/load errors with a corrupt `.rdb`, remove the
+installed copy
+(`rm -rf ~/R/x86_64-pc-linux-gnu-library/<ver>/forestsearch`) and
 restart R before reinstalling.
 
 ## Architecture
@@ -178,6 +183,11 @@ forest plot), `plot_sg_weighted_km.R`, `plot_km_band_forestsearch.R`,
 - When a test fails, confirm the fault is in the test before editing it.
   Do not modify tests to pass without an actionable reason — the author
   has explicitly flagged this as a recurring problem.
+- No test requires bit-identical floating-point results. Compare numbers
+  with expect_equal(tolerance = 1e-8); use expect_identical only for
+  values that are exact by nature (integers, strings, logicals, the
+  selected subgroup definition). Exactness to the last digit is not a
+  requirement of this package.
 
 ## Working style (author preferences)
 
@@ -226,3 +236,7 @@ These reflect standing instructions the author keeps in
   `RSTUDIO_PANDOC=/usr/lib/rstudio/resources/app/bin/quarto/bin/tools/x86_64`
   (or put it on `PATH`) or `R CMD build` fails with “Pandoc is required
   to build R Markdown vignettes but not available”.
+  - macOS: `RSTUDIO_PANDOC=/Applications/quarto/bin/tools/aarch64`
+    (needed for
+    [`pkgdown::build_article()`](https://pkgdown.r-lib.org/reference/build_articles.html),
+    which otherwise fails with “Pandoc not available”).

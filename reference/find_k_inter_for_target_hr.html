@@ -11,7 +11,7 @@ the most efficient method for single target calibration."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -26,6 +26,7 @@ the most efficient method for single target calibration."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -34,6 +35,10 @@ the most efficient method for single target calibration."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -96,7 +101,9 @@ the harm subgroup. Must be positive.</p></dd>
 
 <dt id="arg-continuous-vars">continuous_vars<a class="anchor" aria-label="anchor" href="#arg-continuous-vars"></a></dt>
 <dd><p>Character vector of continuous variable names to be
-standardized and included as covariates.</p></dd>
+included as covariates on their original scale: the function calls
+<code><a href="generate_aft_dgm_flex.html">generate_aft_dgm_flex</a></code> at its default
+<code>standardize = FALSE</code> and has no argument to change it.</p></dd>
 
 
 <dt id="arg-factor-vars">factor_vars<a class="anchor" aria-label="anchor" href="#arg-factor-vars"></a></dt>
@@ -159,7 +166,7 @@ Default is TRUE.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list of class "k_inter_result" containing:</p><dl><dt>k_inter</dt>
+    <p>A plain list (no class attribute) containing:</p><dl><dt>k_inter</dt>
 <dd><p>Numeric value of optimal k_inter parameter</p></dd>
 
 <dt>achieved_hr_harm</dt>
@@ -175,10 +182,8 @@ Default is TRUE.</p></dd>
 <dd><p>Object of class "aft_dgm_flex" containing the final DGM</p></dd>
 
 <dt>convergence</dt>
-<dd><p>Integer number of iterations to convergence</p></dd>
-
-<dt>method</dt>
-<dd><p>Character string "root-finding" indicating method used</p></dd>
+<dd><p>Integer number of <code>uniroot</code> iterations, including
+any automatic extensions of the search range</p></dd>
 
 
 </dl></div>
@@ -187,8 +192,10 @@ Default is TRUE.</p></dd>
     <p>This function uses the <code>uniroot</code> algorithm to solve the equation:
 $$HR_{harm}(k_{inter}) - HR_{target} = 0$$</p>
 <p>The algorithm typically converges within 5-10 iterations and achieves high
-precision (within the specified tolerance). If the root-finding fails, the
-function evaluates the boundaries and provides diagnostic information.</p>
+precision (within the specified tolerance). The search range is widened
+automatically until it brackets the target; if no root can be bracketed, or
+the achieved HR is not within <code>tol_rel</code> percent of the target, the call
+stops with an error.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

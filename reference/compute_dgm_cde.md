@@ -16,14 +16,17 @@ compute_dgm_cde(dgm, harm_col = NULL)
 
 - dgm:
 
-  A DGM object (e.g., from `create_gbsg_dgm` or
-  `generate_aft_dgm_flex`). Must contain `df_super_rand` with columns
-  `theta_0` and `theta_1`.
+  A DGM object (e.g., from `generate_aft_dgm_flex` or `setup_gbsg_dgm`).
+  The super-population is read from `dgm$df_super_rand` when present (as
+  from `setup_gbsg_dgm`), otherwise from `dgm$df_super` (as from
+  `generate_aft_dgm_flex`); it must have columns `theta_0` and
+  `theta_1`. If neither data frame is present, or those columns are
+  missing, the function warns and returns `dgm` unchanged.
 
 - harm_col:
 
-  Character. Name of the subgroup indicator column in
-  `dgm$df_super_rand`. If `NULL` (default), auto-detected from
+  Character. Name of the subgroup indicator column in that
+  super-population data frame. If `NULL` (default), auto-detected from
   `flag.harm`, `flag_harm`, or `H`.
 
 ## Value
@@ -56,7 +59,7 @@ data frame.
 
 ``` r
 if (FALSE) { # \dontrun{
-dgm <- create_gbsg_dgm(model = "alt", k_inter = 2.0)
+dgm <- setup_gbsg_dgm(model = "alt", k_inter = 2.0)
 dgm <- compute_dgm_cde(dgm)
 dgm$hazard_ratios$CDE_harm   # theta-ddagger(H)
 dgm$hazard_ratios$CDE         # theta-ddagger overall

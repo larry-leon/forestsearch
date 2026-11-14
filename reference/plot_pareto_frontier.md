@@ -42,8 +42,9 @@ plot_pareto_frontier(
 
 - effect_neighborhood:
 
-  Numeric. Override of the band width; defaults to the value used in the
-  original `forestsearch` call (or `0.10` if not recoverable).
+  Numeric. Override of the band width; default `NULL`, which uses the
+  value from the original `forestsearch` call (or `0.10` if not
+  recoverable).
 
 - label_members:
 

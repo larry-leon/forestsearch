@@ -13,8 +13,9 @@
 > current methodology — the selection-adjusted bounds, the two-subgroup
 > claim and the declaration calibration — are reported in León and
 > Anderson (2026a, arXiv:2609.38361) and (2026b, arXiv:2610.28379); the
-> methodology is documented in
-> [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+> methodology is documented in the article [Interpretable subgroup
+> identification with
+> forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html)
 > and the [post-selection
 > article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html).
 > The settings below (`hr.threshold = 1.25`, LASSO and GRF candidate
@@ -338,10 +339,11 @@ The super-population data (`dgm$df_super_rand`) now contains:
 [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
 is a **GBSG-specific convenience wrapper**. It encodes the particular
 data preparation choices made in León et al. (2024) — the subgroup
-definition (ER ≤ q25, premenopausal), the binary discretisation of
-continuous covariates, the Weibull outcome and censoring models — so
-that a calibrated DGM for the GBSG simulation setting can be created
-with a single call:
+definition (ER ≤ q25, premenopausal), the discretisation of continuous
+covariates (age, progesterone receptor and nodes in quartile groups;
+tumour size in three groups cut at 20 and 50 mm), the Weibull outcome
+and censoring models — so that a calibrated DGM for the GBSG simulation
+setting can be created with a single call:
 
 Code
 
@@ -364,14 +366,15 @@ and
 
 ------------------------------------------------------------------------
 
-### 3.3 Replicating `setup_gbsg_dgm()` with `generate_aft_dgm_flex()`
+### 3.3 A comparable construction with `generate_aft_dgm_flex()`
 
 [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 is the general DGM builder. It requires the analyst to supply the
-dataset and make every modelling choice explicitly. The GBSG DGM in
-[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
-is equivalent to the following call — it simply automates this
-preparation:
+dataset and make every modelling choice explicitly. The call below is a
+comparable construction of the GBSG mechanism with the general
+generator. It is not numerically equivalent to
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md);
+the differences are listed after the code.
 
 Code
 
@@ -421,11 +424,51 @@ dgm_flex <- generate_aft_dgm_flex(
 )
 ```
 
+The block and
 [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
-is preferred for the GBSG simulation setting because it guarantees exact
-replication of the León et al. (2024) covariate construction and
-subgroup definition without requiring the analyst to reproduce all
-preparation steps by hand.
+share the source data, the outcome time in months, the subgroup $`H`$
+(ER at or below its 25th percentile and premenopausal), `k_treat`,
+`k_inter`, `n_super` and `seed`. With the same seed they resample the
+same source rows into the super-population, so the random draws are not
+what differs. The super-population’s treatment column does differ:
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+assigns treatment to half of the resampled rows (share 0.5), while the
+block, with the default `draw_treatment = FALSE` of
+[`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md),
+keeps the observed `hormon` (share about 0.36). In a simulated trial
+this column matters only when treatment is not redrawn;
+[`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
+redraws it in every trial by default (`draw_treatment = TRUE`). The
+models differ:
+
+- **Covariates and cut points.**
+  [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+  fits the Weibull outcome model on treatment, the ER and premenopausal
+  indicators, and the quartile group (1 to 4, entered as a number) of
+  age, progesterone receptor and nodes, plus the treatment-by-$`H`$
+  interaction; tumour size and grade are analysis factors only. The
+  block uses median splits (0/1) of age, progesterone receptor and
+  nodes, and adds tumour size (median split) and grade 3 to the outcome
+  model.
+- **Interaction.** Both builders multiply the fitted interaction
+  coefficient by `k_inter`, but the coefficient comes from a different
+  outcome model, so `k_inter = 2.5` does not give the same interaction:
+  the true hazard ratio in $`H`$ is about 4.4 from
+  [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+  and 4.1 from the block.
+- **Censoring.**
+  [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+  fits a Weibull censoring model to the resampled super-population, in
+  which treatment is the arm assigned for simulation, and multiplies its
+  covariate term by the ratio of the event-model scale to the
+  censoring-model scale
+  ([`?setup_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md),
+  section Superseded).
+  [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md),
+  with its default `select_censoring = TRUE`, fits the censoring model
+  to the source data and chooses by AIC among Weibull and log-normal
+  models with and without covariates; for this call it chooses an
+  intercept-only Weibull model.
 
 ------------------------------------------------------------------------
 
@@ -434,18 +477,19 @@ preparation steps by hand.
 | Scenario | Recommended function |
 |----|----|
 | Replicating León et al. (2024) simulations | [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md) |
-| GBSG-based simulation with custom parameters | [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md) |
+| New GBSG-based simulation with custom parameters | [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md) |
 | DGM based on a different dataset | [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md) |
 | Custom subgroup definition or covariate structure | [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md) |
 | Multi-regional or MRCT simulation | [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md) via [`create_dgm_for_mrct()`](https://larry-leon.github.io/forestsearch/reference/create_dgm_for_mrct.md) |
 
 [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
-is not deprecated in the sense of being removed or discouraged for GBSG
-work — it remains the correct entry point for the simulation studies in
-this package. The general function
+is used in this article to reproduce the published simulations, and the
+package keeps it for that purpose. It is superseded for new work and
+will be deprecated in a future release: new simulations, on the GBSG
+data or another dataset, should use
 [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
-is the right choice when the simulation is based on a **different
-dataset or subgroup structure**.
+with
+[`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md).
 
 ------------------------------------------------------------------------
 
@@ -1513,16 +1557,16 @@ results_alt <- foreach(
     Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406
     Per-arm events criteria: control >= 12, treatment >= 12
     Sample size criteria: n >= 60
-    Subgroup search completed in 0.02 minutes
+    Subgroup search completed in 0.01 minutes
 
     --- Filtering Summary ---
       Combinations evaluated: 406
       Passed variance check: 375
       Passed prevalence (>= 0.025 ): 375
       Passed redundancy check: 358
-      Passed events counts (d0>= 12, d1>= 12): 308
-      Passed sample size (n>= 60 ): 299
-      Cox model fit successfully: 299
+      Passed events counts (d0>= 12, d1>= 12): 312
+      Passed sample size (n>= 60 ): 303
+      Cox model fit successfully: 303
       Passed effect threshold (effect >= 1.2500): 3
     -------------------------
 
@@ -1537,7 +1581,7 @@ results_alt <- foreach(
     Subgroup 3: resample Pcons=0.82 (threshold 0.9)
     Evaluated 3 of 3 candidates (complete)
     No subgroups found meeting consistency threshold
-    Seconds and minutes forestsearch overall = 4.509 0.0751
+    Seconds and minutes forestsearch overall = 3.337 0.0556
     Consistency algorithm used: twostage
     tau, maxdepth = 47.90727 2
        leaf.node control.mean control.size control.se depth
@@ -1558,7 +1602,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    Completed in 1.4 minutes
+    Completed in 1.3 minutes
 
 Code
 
@@ -1665,7 +1709,7 @@ results_null <- foreach(
     Subgroup 2: resample Pcons=0.57 (threshold 0.9)
     Evaluated 2 of 2 candidates (complete)
     No subgroups found meeting consistency threshold
-    Seconds and minutes forestsearch overall = 4.289 0.0715
+    Seconds and minutes forestsearch overall = 2.97 0.0495
     Consistency algorithm used: twostage
     tau, maxdepth = 43.8823 2
       leaf.node control.mean control.size control.se depth
@@ -1686,7 +1730,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    Completed in 1.3 minutes
+    Completed in 1.2 minutes
 
 ## 6 Summarizing Results
 
@@ -1991,9 +2035,9 @@ build_classification_table(
 | M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72 |  |  |
 | any(H) | 0.89 | 0.61 |
 | sens(H) | 0.77 | 0.61 |
-| sens(Hc) | 0.98 | 0.95 |
+| sens(Hc) | 0.99 | 0.99 |
 | ppv(H) | 0.80 | 0.58 |
-| ppv(Hc) | 0.98 | 1.00 |
+| ppv(Hc) | 0.97 | 0.95 |
 | avg\|H\| | 83.00 | 96.00 |
 
 ## 7 Theoretical Subgroup Detection Rate Approximation
@@ -2332,10 +2376,10 @@ Code
 
 ``` r
 
-for (analysis in unique(results_alt$analysis)) {
-  res <- results_alt[results_alt$analysis == analysis, ]
+for (this_analysis in unique(results_alt$analysis)) {
+  res <- results_alt[results_alt$analysis == this_analysis, ]
   cat(sprintf("  %s: Power = %.3f, Sens = %.3f, Spec = %.3f, PPV = %.3f\n",
-              analysis,
+              this_analysis,
               mean(res$any.H),
               mean(res$sens, na.rm = TRUE),
               mean(res$spec, na.rm = TRUE),
@@ -2343,8 +2387,8 @@ for (analysis in unique(results_alt$analysis)) {
 }
 ```
 
-      FS: Power = 0.750, Sens = 0.692, Spec = 0.961, PPV = 0.691
-      GRF: Power = 0.750, Sens = 0.692, Spec = 0.961, PPV = 0.691
+      FS: Power = 0.886, Sens = 0.774, Spec = 0.990, PPV = 0.804
+      GRF: Power = 0.614, Sens = 0.610, Spec = 0.992, PPV = 0.578
 
 Code
 
@@ -2360,16 +2404,16 @@ Code
 
 ``` r
 
-for (analysis in unique(results_null$analysis)) {
-  res <- results_null[results_null$analysis == analysis, ]
+for (this_analysis in unique(results_null$analysis)) {
+  res <- results_null[results_null$analysis == this_analysis, ]
   cat(sprintf("  %s: Type I Error = %.4f\n",
-              analysis,
+              this_analysis,
               mean(res$any.H)))
 }
 ```
 
-      FS: Type I Error = 0.0341
-      GRF: Type I Error = 0.0341
+      FS: Type I Error = 0.0455
+      GRF: Type I Error = 0.0227
 
 ## 8 Using `format_oc_results()`
 
@@ -2658,16 +2702,16 @@ reproducibility information.
 |----|----|----|----|
 | 44 H1 + 44 H0 simulations, 3 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
-| DGM creation (H1) | 0.1 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 4.9 | 0.08 | 2.5 |
-| Calibrate k_inter (AHR) | 1.8 | 0.03 | 1.0 |
-| Validate k_inter | 0.6 | 0.01 | 0.3 |
+| DGM creation (H1) | 0.2 | 0.00 | 0.1 |
+| Calibrate k_inter (Cox) | 7.2 | 0.12 | 3.8 |
+| Calibrate k_inter (AHR) | 2.8 | 0.05 | 1.5 |
+| Validate k_inter | 0.9 | 0.01 | 0.4 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 82.1 | 1.37 | 42.5 |
-| Simulations H0 | 78.8 | 1.31 | 40.8 |
-| Summarize H1 | 0.1 | 0.00 | 0.1 |
+| Simulations H1 | 75.2 | 1.25 | 39.5 |
+| Simulations H0 | 69.4 | 1.16 | 36.4 |
+| Summarize H1 | 0.2 | 0.00 | 0.1 |
 | Summarize H0 | 0.1 | 0.00 | 0.1 |
-| Total vignette | 193.1 | 3.22 | 100.0 |
+| Total vignette | 190.4 | 3.17 | 100.0 |
 | ¹ Parallel backend: 3 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -2790,7 +2834,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-      H1: 1.9 sec/sim (wall) across 44 sims on 3 workers
+      H1: 1.7 sec/sim (wall) across 44 sims on 3 workers
 
 Code
 
@@ -2801,7 +2845,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-      H0: 1.8 sec/sim (wall) across 44 sims on 3 workers
+      H0: 1.6 sec/sim (wall) across 44 sims on 3 workers
 
 ## 12 Complete Example Script
 
@@ -4048,8 +4092,8 @@ gc(verbose = FALSE)
 ```
 
               used  (Mb) gc trigger  (Mb) max used  (Mb)
-    Ncells 2766629 147.8    4655220 248.7  4655220 248.7
-    Vcells 5824720  44.5   12274584  93.7 10162154  77.6
+    Ncells 2853089 152.4    4892921 261.4  4892921 261.4
+    Vcells 5962030  45.5   12273597  93.7 10161331  77.6
 
 ## 18 Session Info
 
@@ -4081,10 +4125,10 @@ sessionInfo()
     [1] stats     graphics  grDevices utils     datasets  methods   base
 
     other attached packages:
-     [1] katex_1.5.0         doFuture_1.4.0      future_1.80.0
-     [4] foreach_1.5.2       gt_1.4.0            ggplot2_4.0.3
+     [1] katex_1.5.0         doFuture_1.4.0      future_1.82.0
+     [4] foreach_1.5.2       gt_1.4.0            ggplot2_4.0.4
      [7] survival_3.8-12     data.table_1.18.6.1 weightedsurv_0.1.0
-    [10] forestsearch_0.4.0
+    [10] forestsearch_0.5.0
 
     loaded via a namespace (and not attached):
      [1] sass_0.4.10          generics_0.1.4       xml2_1.6.0
@@ -4095,19 +4139,18 @@ sessionInfo()
     [16] mvtnorm_1.4-2        fastmap_1.2.0        jsonlite_2.0.0
     [19] Matrix_1.7-6         glmnet_5.2           scales_1.4.0
     [22] codetools_0.2-20     cli_3.6.6            rlang_1.3.0
-    [25] litedown_0.11        parallelly_1.48.0    future.apply_1.21.0
-    [28] commonmark_2.0.0     splines_4.6.2        base64enc_0.1-6
-    [31] withr_3.0.3          yaml_2.3.12          otel_0.2.0
-    [34] tools_4.6.2          parallel_4.6.2       dplyr_1.2.1
-    [37] globals_0.20.0       curl_8.1.0           vctrs_0.7.3
-    [40] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2
-    [43] V8_8.2.1             fs_2.1.0             pkgconfig_2.0.3
-    [46] progressr_1.1.0      pillar_1.11.1        gtable_0.3.6
-    [49] glue_1.8.1           Rcpp_1.1.2           xfun_0.62
-    [52] tibble_3.3.1         tidyselect_1.2.1     knitr_1.52
-    [55] farver_2.1.2         patchwork_1.3.2      htmltools_0.5.9
-    [58] rmarkdown_2.32       compiler_4.6.2       S7_0.2.2
-    [61] markdown_2.1        
+    [25] litedown_1.0         parallelly_1.50.0    future.apply_1.21.0
+    [28] splines_4.6.2        base64enc_0.1-6      withr_3.0.3
+    [31] yaml_2.3.12          otel_0.3.0           tools_4.6.2
+    [34] parallel_4.6.2       dplyr_1.2.1          globals_0.20.0
+    [37] curl_8.1.0           vctrs_0.7.3          R6_2.6.1
+    [40] lifecycle_1.0.5      randomForest_4.7-1.2 V8_8.2.1
+    [43] fs_2.1.0             pkgconfig_2.0.3      progressr_1.1.0
+    [46] pillar_1.11.1        gtable_0.3.6         glue_1.8.1
+    [49] Rcpp_1.1.2           xfun_0.62            tibble_3.3.1
+    [52] tidyselect_1.2.1     knitr_1.52           farver_2.1.2
+    [55] patchwork_1.3.2      htmltools_0.5.9      rmarkdown_2.32
+    [58] compiler_4.6.2       S7_0.2.2             markdown_2.1        
 
 ## 19 References
 

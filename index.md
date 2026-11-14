@@ -73,10 +73,11 @@ pak::pak("larry-leon/forestsearch")
 ## Quick start
 
 This is the forest-search analysis of the German Breast Cancer Study
-Group trial in Table 1 of León and Anderson (2026b).
-[`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
-runs it in full, with the two model-based identifiers, and reads every
-number.
+Group trial in Table 1 of León and Anderson (2026b). The article
+*Interpretable subgroup identification with forestsearch*, listed under
+Articles on the [package
+website](https://larry-leon.github.io/forestsearch/articles/), runs it
+in full, with the two model-based identifiers, and reads every number.
 
 ``` r
 
@@ -130,13 +131,15 @@ fs_declaration_calibration(fit, alpha = 0.10, c0 = c(0.70, 0.75, 0.80, 0.85))
 | [`forestsearch_bootstrap_dofuture()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md), [`summarize_bootstrap_results()`](https://larry-leon.github.io/forestsearch/reference/summarize_bootstrap_results.md) | The full bootstrap bias correction of León et al. (2024) |
 | [`forestsearch_Kfold()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_Kfold.md), [`forestsearch_tenfold()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_tenfold.md), [`cv_metrics_tables()`](https://larry-leon.github.io/forestsearch/reference/cv_metrics_tables.md) | Cross-validation of the identification |
 | [`plot_subgroup_results_forestplot()`](https://larry-leon.github.io/forestsearch/reference/plot_subgroup_results_forestplot.md), [`plot_sg_weighted_km()`](https://larry-leon.github.io/forestsearch/reference/plot_sg_weighted_km.md) | Forest plots and weighted Kaplan-Meier curves |
-| [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md), [`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md), [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md) | Data-generating mechanisms and the simulation framework |
+| [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md), [`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md), [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md) | Data-generating mechanisms and the simulation framework |
 | [`mrct_region_sims()`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md), [`create_dgm_for_mrct()`](https://larry-leon.github.io/forestsearch/reference/create_dgm_for_mrct.md) | Regional consistency in multi-regional trials |
 
 ## Documentation
 
-- [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md):
-  the analysis above, end to end.
+- The article *Interpretable subgroup identification with forestsearch*,
+  listed under Articles on the [package
+  website](https://larry-leon.github.io/forestsearch/articles/): the
+  analysis above, end to end.
 - The package website, <https://larry-leon.github.io/forestsearch/>, has
   articles on post-selection inference for the same trial (the full
   bootstrap beside multiplier resampling), on the binary and continuous

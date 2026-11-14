@@ -16,7 +16,12 @@ fs_attach_betaHhat(
   outcome.name = "y_sim",
   event.name = "event_sim",
   treat.name = "treat_sim",
-  sg_def_structs = NULL
+  sg_def_structs = NULL,
+  method = c("frame", "exact"),
+  dgm = NULL,
+  analysis_time = 84,
+  max_entry = 24,
+  cens_adjust = log(1.5)
 )
 ```
 
@@ -39,6 +44,19 @@ fs_attach_betaHhat(
 - sg_def_structs:
 
   Optional named list of structured GRF definitions.
+
+- method, dgm, analysis_time, max_entry, cens_adjust:
+
+  Passed to
+  [`fs_betaHhat_one()`](https://larry-leon.github.io/forestsearch/reference/fs_betaHhat_one.md).
+  `method = "frame"` (default) is the route above, unchanged.
+  `method = "exact"` (survival only, administrative censoring only)
+  replaces the fit on `frame` by the analytic limit on `dgm`'s
+  super-population, built once; the returned columns are the same. See
+  *The exact route* in
+  [`fs_betaHhat_one()`](https://larry-leon.github.io/forestsearch/reference/fs_betaHhat_one.md).
+  Under `"exact"`, `frame` is not used and the counts are over
+  `dgm$df_super`.
 
 ## Value
 

@@ -64,8 +64,10 @@ calibrate_k_inter(
 
 - ...:
 
-  Additional arguments passed to
-  [`create_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
+  Additional arguments passed to the internal GBSG builder that
+  [`setup_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+  also calls: `k_z3`, `z1_quantile`, `n_super`, `use_rand_params` and
+  `seed`, with the meanings given there.
 
 ## Value
 
@@ -76,6 +78,24 @@ Numeric value of k_inter that achieves the target HR
 This function uses `uniroot` to find the k_inter value such that the
 empirical HR (or AHR) in the harm subgroup equals target_hr_harm.
 
+## Superseded
+
+This function is kept so that published simulations can be reproduced;
+it calibrates `k_inter` for
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md).
+New work should use
+[`find_k_inter_for_target_hr()`](https://larry-leon.github.io/forestsearch/reference/find_k_inter_for_target_hr.md),
+which calibrates `k_inter` for
+[`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
+on any survival dataset with a 0/1 treatment column. It targets the
+Cox-based harm-subgroup hazard ratio, as `use_ahr = FALSE` does here;
+there is no packaged equivalent of `use_ahr = TRUE`. The calibrated
+quantity does not depend on the censoring model, so the censoring step
+of the GBSG wrapper (see
+[`setup_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md))
+does not affect the calibrated value. This function will be deprecated
+in a future release.
+
 ## Examples
 
 ``` r
@@ -84,12 +104,12 @@ if (FALSE) { # \dontrun{
 k <- calibrate_k_inter(target_hr_harm = 1.5, verbose = TRUE)
 
 # Verify
-dgm <- create_gbsg_dgm(model = "alt", k_inter = k, verbose = TRUE)
+dgm <- setup_gbsg_dgm(model = "alt", k_inter = k, verbose = TRUE)
 print(dgm$hr_H_true)  # Should be close to 1.5
 
 # Calibrate to AHR instead
 k_ahr <- calibrate_k_inter(target_hr_harm = 1.5, use_ahr = TRUE, verbose = TRUE)
-dgm_ahr <- create_gbsg_dgm(model = "alt", k_inter = k_ahr, verbose = TRUE)
+dgm_ahr <- setup_gbsg_dgm(model = "alt", k_inter = k_ahr, verbose = TRUE)
 print(dgm_ahr$AHR_H_true)  # Should be close to 1.5
 } # }
 ```

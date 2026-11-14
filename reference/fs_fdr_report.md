@@ -65,9 +65,9 @@ fs_fdr_report(
 
 - n:
 
-  Integer or `NULL`; simulated trial size. Default `nrow(df_analysis)`.
-  The published reference baseline used `n = 700`; pass that to
-  reproduce it exactly.
+  Integer or `NULL`; simulated trial size. Default `NULL`, giving
+  `nrow(df_analysis)`. The published reference baseline used `n = 700`;
+  pass that to reproduce it exactly.
 
 - confounders:
 
@@ -78,7 +78,14 @@ fs_fdr_report(
 
 - n_super:
 
-  Integer; super-population size for the DGM. Default 25000.
+  Integer; super-population size for the DGM. Default 25000. Under
+  `null = "harm"`, `k_inter` is calibrated by
+  [`calibrate_k_inter`](https://larry-leon.github.io/forestsearch/reference/calibrate_k_inter.md)
+  on the GBSG builder's default super-population size (5000), not on
+  `n_super`; the calibrated value does not depend on that size beyond
+  the root-finding tolerance (1e-6), because the root is fixed by the
+  AFT coefficients fitted to
+  [`survival::gbsg`](https://rdrr.io/pkg/survival/man/gbsg.html).
 
 - analysis_time:
 
@@ -190,6 +197,18 @@ column names and the confounder set – are rebound to the DGM, because
 emits fixed names (`y_sim / event_sim / treat_sim / id / flag_harm`).
 `mr_inference` is forced `TRUE` so B is computable.
 
+## Note
+
+This function builds its null data through the superseded GBSG wrapper
+([`setup_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md),
+with
+[`calibrate_k_inter`](https://larry-leon.github.io/forestsearch/reference/calibrate_k_inter.md)
+for the `"harm"` null), in which the censoring model is fitted to the
+resampled super-population and its covariate term is multiplied by the
+ratio of the event-model scale to the censoring-model scale; this
+changes the simulated censoring times, and with them the rates in `fdr`,
+but not the true hazard ratios in `hr_structure`.
+
 ## See also
 
 [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
@@ -208,6 +227,13 @@ for the full bootstrap,
 
 ``` r
 if (FALSE) { # \dontrun{
+# The GBSG trial with time in months and the column names used below
+gbsg_df <- within(survival::gbsg, {
+  id    <- pid
+  time  <- rfstime / 30.4375
+  treat <- hormon
+})
+
 # A fitted survival/Cox analysis (thresholds and knobs live on the object)
 fit <- forestsearch(
   df.analysis = gbsg_df,
@@ -221,11 +247,11 @@ fit <- forestsearch(
   mr_inference = TRUE)
 
 # Characterize its operating FDR and whether harm confirmation helps
-rep <- fs_fdr_report(fit, gbsg_df, nsims = 1000, n_workers = 100)
+rep <- fs_fdr_report(fit, gbsg_df, nsims = 1000)
 rep                       # prints the realized-HR table and the A/B table
 rep$fdr                   # one row per null x c_confirm
 
 # Reproduce the published reference (n = 700): A ~ 0.138 (hom), 0.278 (harm)
-fs_fdr_report(fit, gbsg_df, n = 700, nsims = 1000, n_workers = 100)
+fs_fdr_report(fit, gbsg_df, n = 700, nsims = 1000)
 } # }
 ```

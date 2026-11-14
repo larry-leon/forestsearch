@@ -194,7 +194,13 @@ forestsearch(
       different units.
 
   To disable parallelism entirely, pass
-  `parallel_args = list(plan = "sequential")`.
+  `parallel_args = list(plan = "sequential")`. A sequential and a
+  parallel plan can give different consistency proportions, and possibly
+  a different selection, whenever literal splitting runs
+  (`consistency_method = "split"`, an incidence-rate difference
+  (`effect_measure = "IRD"`) under `"resample"`, or a candidate whose
+  closed form is not available), except under `sg_focus = "maxeff"`,
+  which runs the same loop on every plan.
 
 - df.predict:
 
@@ -214,7 +220,7 @@ forestsearch(
 
 - est.scale:
 
-  Character. Estimation scale ("hr" or "rmst"). Default "hr".
+  Character. Estimation scale ("hr" or "1/hr"). Default "hr".
 
 - use_lasso:
 
@@ -297,20 +303,29 @@ forestsearch(
   the cut(s) chosen by
   [`dina_subgroup`](https://larry-leon.github.io/forestsearch/reference/dina_subgroup.md)
   – using this call's `sg_focus` / `selection_rule` /
-  `effect_neighborhood` / `n.min` / `hr.threshold`, i.e. the same cut
-  `subgroup_method = "dina"` would select. Set `FALSE` to contribute the
-  full frontier candidate set instead.
+  `effect_neighborhood` / `n.min` / `hr.threshold`, ranked by `sg_focus`
+  with DINA's native tau-hat as the effect statistic (under `"maxSG"` /
+  `"minSG"` size ranks first and tau-hat breaks ties). That is the cut
+  `subgroup_method = "dina"` would select only under
+  `dina_select_statistic = "dina"`; under the default
+  `dina_select_statistic = "effect"`, `subgroup_method = "dina"`
+  re-ranks the qualifying family on the inferential effect and can
+  select a different cut, while this screening step does not re-rank.
+  Set `FALSE` to contribute the full frontier candidate set instead.
 
   **`m_diff` is the candidacy floor, on the link scale, and is derived
   rather than taken from this list.** It is the harm floor a candidate
   must clear to enter the qualifying family that `sg_focus` then ranks –
-  `log(HR)` for `cox`, `log(OR)` for `binomial`, `log(IRR)` for
-  `poisson`, and the raw mean difference for `gaussian`. Under
-  `subgroup_method = "dina"` (and under `selected_only = TRUE`
-  screening) it is computed as `log(hr.threshold)` – identity for
-  `gaussian` – from the resolved `effect.threshold`, and an `m_diff`
-  supplied here is **ignored**. Set the floor with `effect.threshold` /
-  `hr.threshold`. The key remains meaningful only where the raw
+  `log(HR)` for `cox`, `log(OR)` for `binomial`, the log mean-count
+  ratio for `poisson` (DINA takes no exposure offset – `offset.name` is
+  not passed to its fit – so this equals `log(IRR)` only when mean
+  follow-up does not depend on arm given the covariates), and the raw
+  mean difference for `gaussian`. Under `subgroup_method = "dina"` (and
+  under `selected_only = TRUE` screening) it is computed as
+  `log(hr.threshold)` – identity for `gaussian` – from the resolved
+  `effect.threshold`, and an `m_diff` supplied here is **ignored**. Set
+  the floor with `effect.threshold` / `hr.threshold`. The key remains
+  meaningful only where the raw
   [`dina_frontier`](https://larry-leon.github.io/forestsearch/reference/dina_frontier.md)
   candidate set is used directly.
 
@@ -430,13 +445,35 @@ forestsearch(
   exact event MR de-biases (and MR's native-family restriction follows
   the effect rather than the DR score). `"effect"` is the default
   because only it ranks on the inferential coefficient; `"dr"` is
-  rejected under `mr_inference = TRUE`. Ignored for
+  rejected under `mr_inference = TRUE`. Under `"effect"`, `dmin.grf` is
+  applied first, on the DR scale, as an existence gate: if no DR
+  candidate reaches it, no subgroup is returned. Otherwise it is not
+  applied per candidate: the whole DR-candidate family (filtered by
+  `n.min`, not by `dmin.grf`) is re-ranked, and admission uses the
+  effect floor from `hr.threshold` (the resolved `effect.threshold` for
+  GLM outcomes). If no candidate can be scored on the effect, the DR
+  winner, which did reach `dmin.grf`, is kept; if candidates are scored
+  but none clears the effect floor, no subgroup is returned. Ignored for
   `grf_selection = "tree"` (the policy-tree leaf is the selection, with
   no enumerated family to rank).
 
 - dmin.grf:
 
-  Numeric. Minimum events for GRF. Default 0.0.
+  Numeric. Harm threshold on GRF's doubly robust (DR) scale, not a
+  number of events. It is compared with a subgroup's DR harm effect, the
+  subgroup mean of the DR score for control minus the subgroup mean of
+  the DR score for treatment (the two columns of
+  [`policytree::double_robust_scores()`](https://rdrr.io/pkg/policytree/man/double_robust_scores.html),
+  computed for every patient): for survival a difference in restricted
+  mean survival time up to the GRF horizon (see `frac.tau`); for other
+  outcomes a difference on the scale of the outcome given to GRF (see
+  `grf_count_transform`). Under `grf_selection = "tree"` (and in
+  `use_grf` screening) the policy-tree subgroup with the largest DR harm
+  effect must reach it; under `grf_selection = "frontier"` with
+  `grf_select_statistic = "dr"` it is applied to every frontier
+  candidate. Under `grf_select_statistic = "effect"` it is applied first
+  as an existence gate on the DR scale and is then not applied per
+  candidate; see `grf_select_statistic`. Default 0.0.
 
 - frac.tau:
 
@@ -941,10 +978,10 @@ forestsearch(
 - use_twostage:
 
   Logical. Use two-stage sequential consistency algorithm for improved
-  performance. Default FALSE for backward compatibility. When TRUE,
-  `fs.splits` becomes the maximum number of splits, and early stopping
-  is enabled. See Details. Overridden to `FALSE` under
-  `sg_focus = "maxeff"` (no two-stage screening).
+  performance. Default TRUE. When TRUE, `fs.splits` becomes the maximum
+  number of splits, and early stopping is enabled. See Details.
+  Overridden to `FALSE` under `sg_focus = "maxeff"` (no two-stage
+  screening).
 
 - twostage_args:
 
@@ -987,11 +1024,24 @@ forestsearch(
   representation, and taking that representation to its analytic limit
   yields the closed form implemented here. The `"resample"` path applies
   to the Cox (survival) outcome and to GLM outcomes whose effect is a
-  single model coefficient (OR, RR, RD, MD, IRR); configurations it
-  cannot represent that way (IRD, propensity-adjusted effects, or a
-  non-convergent fit on a given candidate) fall back to `"split"`
-  automatically. When `use_twostage = TRUE`, `"resample"` bypasses the
-  two-stage split screening entirely (the rate is computed directly).
+  single model coefficient (OR, RR, RD, MD, IRR); an IRD effect, or a
+  candidate whose closed form is not available (for example a
+  non-convergent fit), falls back to `"split"` automatically. The route
+  is decided by the effect measure alone: propensity adjustment
+  (`ps_adjust_method = "iptw"` or `"dr_gcomp"`, with `ps_method` other
+  than `"none"`) does not send a supported measure to `"split"`. Under
+  propensity adjustment the closed form fits the treatment effect
+  without the propensity weights, and without covariates
+  (`adjust_covariates` cannot be combined with `ps_method` other than
+  `"none"`), so the consistency rate is that of the unadjusted effect.
+  When `use_twostage = TRUE`, `"resample"` bypasses the two-stage split
+  screening entirely (the rate is computed directly). A sequential and a
+  parallel plan can give different consistency proportions, and possibly
+  a different selection, whenever literal splitting runs
+  (`consistency_method = "split"`, an incidence-rate difference
+  (`effect_measure = "IRD"`) under `"resample"`, or a candidate whose
+  closed form is not available), except under `sg_focus = "maxeff"`,
+  which runs the same loop on every plan.
 
 - outcome_type:
 
@@ -1018,9 +1068,9 @@ forestsearch(
 
 - adverse_outcome:
 
-  Logical or `NULL`. If `TRUE`, higher outcome values indicate harm
-  (default for binary and count). If `FALSE`, higher values indicate
-  benefit (default for continuous).
+  Logical or `NULL` (default, resolved by outcome type). If `TRUE`,
+  higher outcome values indicate harm (default for binary and count). If
+  `FALSE`, higher values indicate benefit (default for continuous).
 
 - overdispersion:
 
@@ -1075,8 +1125,8 @@ forestsearch(
   manuscript analyses or the simulation studies of León and Anderson
   (2026a, 2026b), which use the unadjusted treatment-only fits.
   Character or `NULL`. Propensity score estimation method: `"grf"`,
-  `"lasso"`, `"logistic"`, or `"none"`. Default: `"none"` for RCT,
-  `"grf"` for observational.
+  `"lasso"`, `"logistic"`, or `"none"`. Default: `NULL`, which resolves
+  to `"none"` for RCT and `"grf"` for observational.
 
   **GLM outcome types only** (`"binary"`, `"continuous"`, `"count"`).
   Propensity adjustment is **not implemented for
@@ -1170,16 +1220,18 @@ forestsearch(
 
   `ci_method`
 
-  :   `"field"` (default) additionally runs the field-calibrated block,
-      whose one-sided bounds are the primary reported products; the
-      de-biased element, its infinitesimal-jackknife SE and its IJ
-      intervals are returned in every call regardless, so nothing is
-      removed – only a per-fit Monte Carlo cost is added. `"ij"`
-      restores the previous default: the de-biased interval from the
-      infinitesimal-jackknife variance, the leading-order analogue of
-      the full-bootstrap interval, with the field block omitted.
-      `"wald"` uses the subgroup robust SE and also omits the field
-      block. The naive interval always uses the robust SE.
+  :   `"field"` (default under `subgroup_method = "consistency"`; the
+      `"dina"` and `"grf"` methods default to `"ij"`) additionally runs
+      the field-calibrated block, whose one-sided bounds are the primary
+      reported products; the de-biased element, its
+      infinitesimal-jackknife SE and its IJ intervals are returned in
+      every call regardless, so nothing is removed – only a per-fit
+      Monte Carlo cost is added. `"ij"` restores the previous default:
+      the de-biased interval from the infinitesimal-jackknife variance,
+      the leading-order analogue of the full-bootstrap interval, with
+      the field block omitted. `"wald"` uses the subgroup robust SE and
+      also omits the field block. The naive interval always uses the
+      robust SE.
 
   `include_complement`
 
@@ -1192,10 +1244,10 @@ forestsearch(
 
   `return_reselection`
 
-  :   Logical, default `FALSE`. When `TRUE` the gate's return gains the
+  :   Logical, default `TRUE`. When `TRUE` the gate's return gains the
       `reselection` element (per-draw winners and the re-selection
-      frequencies `p_hat`); add-only pass-through, the default
-      reproduces prior output exactly.
+      frequencies `p_hat`); nothing in the arithmetic depends on it, and
+      `FALSE` restores the smaller return object.
 
   `field_M_cap`
 
@@ -1206,14 +1258,13 @@ forestsearch(
 
   `field_complement`
 
-  :   Logical, default `FALSE`. Under `ci_method = "field"` with
+  :   Logical, default `TRUE`. Under `ci_method = "field"` with
       `include_complement = TRUE`, also evaluate the field block for the
       complement subgroup, attached as `field$complement` with the
       one-sided 95\\ bound as its primary product (the benefit-claim
       orientation; see
       [`fs_mr_inference`](https://larry-leon.github.io/forestsearch/reference/fs_mr_inference.md)).
-      Add-only pass-through: the default reproduces prior output
-      exactly.
+      `FALSE` omits the complement's field block (the prior behaviour).
 
   `ij_residual`
 
@@ -1382,9 +1433,10 @@ A list of class "forestsearch" containing:
   for fields (`naive`, `debiased`, `selection_bias`, `settings`,
   `harm_flag`, `timing_seconds`). MR approximates the full bootstrap
   (FB) to leading order; its interval is the infinitesimal-jackknife
-  analogue of the FB interval under the default `ci_method = "field"`
-  and under `"ij"`, and the subgroup robust-SE interval under `"wald"`.
-  Under the default the return also carries the `field` element.
+  analogue of the FB interval under `ci_method = "field"` (the default
+  under `subgroup_method = "consistency"`) and under `"ij"`, and the
+  subgroup robust-SE interval under `"wald"`. Under `"field"` the return
+  also carries the `field` element.
 
 - mr_harm_confirmed:
 
@@ -1473,8 +1525,22 @@ The resolved pairs are:
 | `MD` | 0.0 | 0.0 |
 
 Supplying `effect.threshold` or `consistency.threshold` (or the legacy
-names) suppresses the corresponding remap and the supplied value is used
-on the scale shown above.
+names) suppresses the corresponding default remap, and the supplied
+value is used on the scale shown above, with one exception: for `RD` and
+`IRD` a supplied value greater than 1 is taken to be on a ratio scale
+and is replaced by the default in the table: `effect.threshold` by 0.05
+for `RD` or 0.01 for `IRD`, with two warnings (one from the input check,
+one from the remap), and `consistency.threshold` by 0, with one warning.
+The remapped `effect.threshold` is the value the fit records (in
+`threshold_config` and `args_call_all`, which a bootstrap or
+cross-validation replay re-uses), and it is also the DINA harm floor
+wherever DINA selects a cut (`subgroup_method = "dina"`, or
+`use_dina = TRUE` screening with `selected_only = TRUE`): on these two
+routes `RD` and `IRD` run with DINA only on the `gaussian` family, whose
+floor is the resolved `effect.threshold` (see `dina_args`). Screening
+with `selected_only = FALSE` has neither the restriction nor this floor:
+it contributes the frontier candidate set on any family, for `RD` and
+`IRD` too.
 
 **The pair rule, on the consistency path with a ratio estimand.** For
 `subgroup_method = "consistency"` with survival (HR) or binary
@@ -1703,9 +1769,11 @@ fs_surv <- forestsearch(
 print(fs_surv)
 
 ## mr_estimates_table() lays the multiplier-resampling estimates out in the
-## format of the bootstrap tables, so it takes a bootstrap result as its
-## template (a few replicates are enough for the layout; the
-## survival-post-selection article compares the two at full size).
+## format of the bootstrap tables. A bootstrap template is optional:
+## mr_estimates_table(fs_surv) builds the table from fs_surv alone. With a
+## template, the descriptive columns come from the bootstrap result (a few
+## replicates are enough for the layout; the survival-post-selection
+## article compares the two at full size).
 fs_boot <- forestsearch_bootstrap_dofuture(
   fs.est        = fs_surv,
   nb_boots      = 20,

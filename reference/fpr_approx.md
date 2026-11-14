@@ -104,7 +104,7 @@ fpr_approx(
 - thresholds:
 
   Numeric vector. Additional thresholds to evaluate besides `c1`.
-  Default `c(1.0, 1.5, 2.0)`.
+  Default `NULL` (only `c1` is evaluated).
 
 - verbose:
 

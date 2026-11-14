@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@
 <li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -47,6 +48,10 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul>
@@ -70,7 +75,7 @@
       <h1>Post-selection inference for an identified survival subgroup</h1>
       <p class="subtitle">The GBSG analysis of León and Anderson (2026a): naive, full-bootstrap and multiplier-resampling estimates for three identifiers</p>
       <p class="author">Larry Leon</p>
-      <p class="date">2026-10-31</p>
+      <p class="date">2026-11-14</p>
 
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/survival-post-selection.qmd" class="external-link"><code>vignettes/articles/survival-post-selection.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -105,7 +110,7 @@
 <li>
 <strong>Model-generated families.</strong> For DINA and GRF the candidate family is proposed from a surface fitted to the outcome, so a bootstrap regenerates it. There MR remains valid for the same conditional target — the effect of the selected region given the family proposed — which the bootstrap reproduces only under further conditions.</li>
 </ul>
-<p><strong>This vignette</strong> runs the GBSG analysis of León and Anderson (2026a) for the three identifiers — forest search (FS), DINA and GRF — at the manuscript’s settings, with the multiplier correction in full (5,000 draws) and the full bootstrap implemented and run at a small number of replicates to show the machinery and its cost. The manuscript’s Table S2 (Supplementary Section S6), computed with B = 1,000 bootstrap replicates, is reproduced for comparison. <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> runs the companion analysis of León and Anderson (2026b) on the same trial — the search, the one-sided bounds and the declaration calibration; this vignette is about the two-sided correction and the bootstrap it replaces.</p>
+<p><strong>This vignette</strong> runs the GBSG analysis of León and Anderson (2026a) for the three identifiers — forest search (FS), DINA and GRF — at the manuscript’s settings, with the multiplier correction in full (5,000 draws) and the full bootstrap implemented and run at a small number of replicates to show the machinery and its cost. The manuscript’s Table S2 (Supplementary Section S6), computed with B = 1,000 bootstrap replicates, is reproduced for comparison. The article <a href="https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html">Interpretable subgroup identification with forestsearch</a> runs the companion analysis of León and Anderson (2026b) on the same trial — the search, the one-sided bounds and the declaration calibration; this vignette is about the two-sided correction and the bootstrap it replaces.</p>
 <section class="level2"><h2 id="the-data">The data<a class="anchor" aria-label="anchor" href="#the-data"></a>
 </h2>
 <div class="cell" data-layout-align="center">
@@ -135,11 +140,11 @@
 <li>
 <strong>Forest search</strong> screens at a hazard ratio of 1.0 and requires splitting consistency at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>p</mi><mo>⋆</mo></msup><mo>=</mo><mn>0.90</mn></mrow><annotation encoding="application/x-tex">p^\star = 0.90</annotation></semantics></math>, evaluated in closed form (<code>consistency_method = "resample"</code>); <code>stop_threshold = NULL</code> has every screened candidate evaluated.</li>
 <li>
-<strong>The selection rule</strong> is <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mi mathvariant="script">𝒜</mi></msub><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mi>ε</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\max_{\mathcal{A}} N(\varepsilon)</annotation></semantics></math> at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>=</mo><mn>0.10</mn></mrow><annotation encoding="application/x-tex">\varepsilon = 0.10</annotation></semantics></math>: the largest admitted region whose effect is within 10% of the largest effect over the family. The companion vignette uses <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>=</mo><mn>0.20</mn></mrow><annotation encoding="application/x-tex">\varepsilon = 0.20</annotation></semantics></math> and returns a larger forest-search region (N 75); at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>=</mo><mn>0.10</mn></mrow><annotation encoding="application/x-tex">\varepsilon = 0.10</annotation></semantics></math> the rule returns the 61 patients with no measured estrogen receptor and tumour size at most 35 mm — the effect-maximising region of that vignette’s candidate table.</li>
+<strong>The selection rule</strong> is <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mi mathvariant="script">𝒜</mi></msub><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mi>ε</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\max_{\mathcal{A}} N(\varepsilon)</annotation></semantics></math> at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>=</mo><mn>0.10</mn></mrow><annotation encoding="application/x-tex">\varepsilon = 0.10</annotation></semantics></math>: the largest admitted region whose effect is within 10% of the largest effect over the family. The companion article uses <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>=</mo><mn>0.20</mn></mrow><annotation encoding="application/x-tex">\varepsilon = 0.20</annotation></semantics></math> and returns a larger forest-search region (N 75); at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>=</mo><mn>0.10</mn></mrow><annotation encoding="application/x-tex">\varepsilon = 0.10</annotation></semantics></math> the rule returns the 61 patients with no measured estrogen receptor and tumour size at most 35 mm — the effect-maximising region of that article’s candidate table.</li>
 <li>
 <strong>DINA</strong> is re-ranked on the Cox coefficient against a floor of 0.90, with a two-fold cross-fit surface. The floor of 0.90 is the one in the document that produced Table S2, which this call reproduces; Section 6 of the paper gives a hazard ratio of 1.0. <strong>GRF</strong> uses the frontier of its covariate grid, re-ranked on the Cox coefficient, at depth 2 with a doubly-robust-score floor of 0.</li>
 <li>
-<strong>Multiplier resampling</strong> at 5,000 draws, reported as the two-term corrected estimate with its IJ two-sided 95% interval (<code>ci_method = "ij"</code> for DINA and GRF). The forest-search fit asks for <code>ci_method = "field"</code> with <code>field_recovery = TRUE</code>: the two-term estimate and the IJ interval are the same under both settings, and the field adds the one-sided bounds of the companion vignette and the membership-recovery diagnostics used below.</li>
+<strong>Multiplier resampling</strong> at 5,000 draws, reported as the two-term corrected estimate with its IJ two-sided 95% interval (<code>ci_method = "ij"</code> for DINA and GRF). The forest-search fit asks for <code>ci_method = "field"</code> with <code>field_recovery = TRUE</code>: the two-term estimate and the IJ interval are the same under both settings, and the field adds the one-sided bounds of the companion article and the membership-recovery diagnostics used below.</li>
 </ul></section><section class="level2"><h2 id="the-three-fits">The three fits<a class="anchor" aria-label="anchor" href="#the-three-fits"></a>
 </h2>
 <p>The fits run on one core here (<code>parallel_args = list(plan = "sequential")</code>); the bootstrap below uses up to two, the limit a CRAN check imposes. The package’s default plan is parallel.</p>
@@ -204,9 +209,9 @@
 <span>              <span class="va">gm</span><span class="op">$</span><span class="va">timing_seconds</span>, <span class="va">gm</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; FS   {er &lt;= 0} &amp; {size &lt;= 35}     N  61   fit  24.0 s (multiplier stage 0.9 s)   family 1744</span></span>
-<span><span class="co">#&gt; DINA {grade3 &gt;= 1} &amp; {pgr &lt;= 10}  N  89   fit   1.1 s (multiplier stage 0.2 s)   family 84</span></span>
-<span><span class="co">#&gt; GRF  {er &lt;= 0}                    N  82   fit   7.4 s (multiplier stage 0.2 s)   family 858</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; FS   {er &lt;= 0} &amp; {size &lt;= 35}     N  61   fit  29.6 s (multiplier stage 1.0 s)   family 1744</span></span>
+<span><span class="co">#&gt; DINA {grade3 &gt;= 1} &amp; {pgr &lt;= 10}  N  89   fit   1.4 s (multiplier stage 0.3 s)   family 84</span></span>
+<span><span class="co">#&gt; GRF  {er &lt;= 0}                    N  82   fit   9.8 s (multiplier stage 0.5 s)   family 858</span></span></code></pre>
 </div>
 </div>
 </section><section class="level2"><h2 id="the-multiplier-correction">The multiplier correction<a class="anchor" aria-label="anchor" href="#the-multiplier-correction"></a>
@@ -259,7 +264,7 @@
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">boot_secs</span>, <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt;   FS DINA  GRF</span></span>
-<span><span class="co">#&gt; 55.2 23.6 24.5</span></span></code></pre>
+<span><span class="co">#&gt; 45.6 32.8 35.2</span></span></code></pre>
 </div>
 </div>
 <p>The package’s own summaries, shown for forest search. The first is the bootstrap table: the naive estimate beside the bootstrap-corrected one, for the region and its complement.</p>
@@ -286,30 +291,30 @@
 <span><span class="co">#&gt; TIMING ANALYSIS:</span></span>
 <span><span class="co">#&gt; -------------------------------------------------------------</span></span>
 <span><span class="co">#&gt; Overall:</span></span>
-<span><span class="co">#&gt;   Total bootstrap time:          0.90 minutes (0.02 hours)</span></span>
-<span><span class="co">#&gt;   Average per iteration:         0.04 min (2.2 sec)</span></span>
-<span><span class="co">#&gt;   Projected for 1000 boots:      36.12 min (0.60 hrs)</span></span></code></pre>
+<span><span class="co">#&gt;   Total bootstrap time:          0.74 minutes (0.01 hours)</span></span>
+<span><span class="co">#&gt;   Average per iteration:         0.03 min (1.8 sec)</span></span>
+<span><span class="co">#&gt;   Projected for 1000 boots:      29.65 min (0.49 hrs)</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">summ_fs</span><span class="op">$</span><span class="va">table</span></span></code></pre></div>
 <div class="cell-output-display">
-<div id="ppjflwfsyz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#ppjflwfsyz table {
+<div id="neywaaguxp" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#neywaaguxp table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#ppjflwfsyz thead, #ppjflwfsyz tbody, #ppjflwfsyz tfoot, #ppjflwfsyz tr, #ppjflwfsyz td, #ppjflwfsyz th {
+#neywaaguxp thead, #neywaaguxp tbody, #neywaaguxp tfoot, #neywaaguxp tr, #neywaaguxp td, #neywaaguxp th {
   border-style: none;
 }
 
-#ppjflwfsyz p {
+#neywaaguxp p {
   margin: 0;
   padding: 0;
 }
 
-#ppjflwfsyz .gt_table {
+#neywaaguxp .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -335,12 +340,12 @@
   border-left-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_caption {
+#neywaaguxp .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#ppjflwfsyz .gt_title {
+#neywaaguxp .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -352,7 +357,7 @@
   border-bottom-width: 0;
 }
 
-#ppjflwfsyz .gt_subtitle {
+#neywaaguxp .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -364,7 +369,7 @@
   border-top-width: 0;
 }
 
-#ppjflwfsyz .gt_heading {
+#neywaaguxp .gt_heading {
   background-color: #FFFFFF;
   text-align: left;
   border-bottom-color: #FFFFFF;
@@ -376,13 +381,13 @@
   border-right-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_bottom_border {
+#neywaaguxp .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #333333;
 }
 
-#ppjflwfsyz .gt_col_headings {
+#neywaaguxp .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -397,7 +402,7 @@
   border-right-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_col_heading {
+#neywaaguxp .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -417,7 +422,7 @@
   overflow-x: hidden;
 }
 
-#ppjflwfsyz .gt_column_spanner_outer {
+#neywaaguxp .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -429,15 +434,15 @@
   padding-right: 4px;
 }
 
-#ppjflwfsyz .gt_column_spanner_outer:first-child {
+#neywaaguxp .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#ppjflwfsyz .gt_column_spanner_outer:last-child {
+#neywaaguxp .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#ppjflwfsyz .gt_column_spanner {
+#neywaaguxp .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #333333;
@@ -449,11 +454,11 @@
   width: 100%;
 }
 
-#ppjflwfsyz .gt_spanner_row {
+#neywaaguxp .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#ppjflwfsyz .gt_group_heading {
+#neywaaguxp .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -479,7 +484,7 @@
   text-align: left;
 }
 
-#ppjflwfsyz .gt_empty_group_heading {
+#neywaaguxp .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -494,15 +499,15 @@
   vertical-align: middle;
 }
 
-#ppjflwfsyz .gt_from_md > :first-child {
+#neywaaguxp .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#ppjflwfsyz .gt_from_md > :last-child {
+#neywaaguxp .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#ppjflwfsyz .gt_row {
+#neywaaguxp .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -521,7 +526,7 @@
   overflow-x: hidden;
 }
 
-#ppjflwfsyz .gt_stub {
+#neywaaguxp .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -534,7 +539,7 @@
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_stub_row_group {
+#neywaaguxp .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -548,15 +553,15 @@
   vertical-align: top;
 }
 
-#ppjflwfsyz .gt_row_group_first td {
+#neywaaguxp .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#ppjflwfsyz .gt_row_group_first th {
+#neywaaguxp .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#ppjflwfsyz .gt_summary_row {
+#neywaaguxp .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -566,16 +571,16 @@
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_first_summary_row {
+#neywaaguxp .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_first_summary_row.thick {
+#neywaaguxp .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#ppjflwfsyz .gt_last_summary_row {
+#neywaaguxp .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -585,7 +590,7 @@
   border-bottom-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_grand_summary_row {
+#neywaaguxp .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -595,7 +600,7 @@
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_first_grand_summary_row {
+#neywaaguxp .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -605,7 +610,7 @@
   border-top-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_last_grand_summary_row_top {
+#neywaaguxp .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -615,11 +620,11 @@
   border-bottom-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_striped {
+#neywaaguxp .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#ppjflwfsyz .gt_table_body {
+#neywaaguxp .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -628,7 +633,7 @@
   border-bottom-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_footnotes {
+#neywaaguxp .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -642,7 +647,7 @@
   border-right-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_footnote {
+#neywaaguxp .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -651,7 +656,7 @@
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_sourcenotes {
+#neywaaguxp .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -665,7 +670,7 @@
   border-right-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_sourcenote {
+#neywaaguxp .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -673,72 +678,72 @@
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_left {
+#neywaaguxp .gt_left {
   text-align: left;
 }
 
-#ppjflwfsyz .gt_center {
+#neywaaguxp .gt_center {
   text-align: center;
 }
 
-#ppjflwfsyz .gt_right {
+#neywaaguxp .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#ppjflwfsyz .gt_font_normal {
+#neywaaguxp .gt_font_normal {
   font-weight: normal;
 }
 
-#ppjflwfsyz .gt_font_bold {
+#neywaaguxp .gt_font_bold {
   font-weight: bold;
 }
 
-#ppjflwfsyz .gt_font_italic {
+#neywaaguxp .gt_font_italic {
   font-style: italic;
 }
 
-#ppjflwfsyz .gt_super {
+#neywaaguxp .gt_super {
   font-size: 65%;
 }
 
-#ppjflwfsyz .gt_footnote_marks {
+#neywaaguxp .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#ppjflwfsyz .gt_asterisk {
+#neywaaguxp .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#ppjflwfsyz .gt_indent_1 {
+#neywaaguxp .gt_indent_1 {
   text-indent: 5px;
 }
 
-#ppjflwfsyz .gt_indent_2 {
+#neywaaguxp .gt_indent_2 {
   text-indent: 10px;
 }
 
-#ppjflwfsyz .gt_indent_3 {
+#neywaaguxp .gt_indent_3 {
   text-indent: 15px;
 }
 
-#ppjflwfsyz .gt_indent_4 {
+#neywaaguxp .gt_indent_4 {
   text-indent: 20px;
 }
 
-#ppjflwfsyz .gt_indent_5 {
+#neywaaguxp .gt_indent_5 {
   text-indent: 25px;
 }
 
-#ppjflwfsyz .katex-display {
+#neywaaguxp .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#ppjflwfsyz div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#neywaaguxp div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -801,7 +806,7 @@ Treatment Effect
 <td class="gt_row gt_right" headers="m0">48</td>
 <td class="gt_row gt_right" headers="RMST">-19</td>
 <td class="gt_row gt_right" headers="HR-(95%-CI)">2.54 (1.25, 5.17)</td>
-<td class="gt_row gt_right" headers="HR*">1.88 (0.01,485.27)</td>
+<td class="gt_row gt_right" headers="HR*">1.39 (0.00,1012.15)</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Subgroup">Recmnd</td>
@@ -812,7 +817,7 @@ Treatment Effect
 <td class="gt_row gt_right" headers="m0">52.2</td>
 <td class="gt_row gt_right" headers="RMST">9.6</td>
 <td class="gt_row gt_right" headers="HR-(95%-CI)">0.61 (0.47, 0.79)</td>
-<td class="gt_row gt_right" headers="HR*">0.63 (0.34,1.20)</td>
+<td class="gt_row gt_right" headers="HR*">0.66 (0.41,1.06)</td>
 </tr>
 </tbody>
 <tfoot>
@@ -842,23 +847,23 @@ Treatment Effect
 <div class="sourceCode cell-code" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/mr_estimates_table.html">mr_estimates_table</a></span><span class="op">(</span><span class="va">fit_fs</span>, boot_results <span class="op">=</span> <span class="va">boots</span><span class="op">$</span><span class="va">FS</span>, est.scale <span class="op">=</span> <span class="st">"hr"</span>, digits <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
-<div id="knzabjqler" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#knzabjqler table {
+<div id="sxmpzhlwbn" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#sxmpzhlwbn table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#knzabjqler thead, #knzabjqler tbody, #knzabjqler tfoot, #knzabjqler tr, #knzabjqler td, #knzabjqler th {
+#sxmpzhlwbn thead, #sxmpzhlwbn tbody, #sxmpzhlwbn tfoot, #sxmpzhlwbn tr, #sxmpzhlwbn td, #sxmpzhlwbn th {
   border-style: none;
 }
 
-#knzabjqler p {
+#sxmpzhlwbn p {
   margin: 0;
   padding: 0;
 }
 
-#knzabjqler .gt_table {
+#sxmpzhlwbn .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -884,12 +889,12 @@ Treatment Effect
   border-left-color: #D3D3D3;
 }
 
-#knzabjqler .gt_caption {
+#sxmpzhlwbn .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#knzabjqler .gt_title {
+#sxmpzhlwbn .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -901,7 +906,7 @@ Treatment Effect
   border-bottom-width: 0;
 }
 
-#knzabjqler .gt_subtitle {
+#sxmpzhlwbn .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -913,7 +918,7 @@ Treatment Effect
   border-top-width: 0;
 }
 
-#knzabjqler .gt_heading {
+#sxmpzhlwbn .gt_heading {
   background-color: #FFFFFF;
   text-align: left;
   border-bottom-color: #FFFFFF;
@@ -925,13 +930,13 @@ Treatment Effect
   border-right-color: #D3D3D3;
 }
 
-#knzabjqler .gt_bottom_border {
+#sxmpzhlwbn .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #333333;
 }
 
-#knzabjqler .gt_col_headings {
+#sxmpzhlwbn .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -946,7 +951,7 @@ Treatment Effect
   border-right-color: #D3D3D3;
 }
 
-#knzabjqler .gt_col_heading {
+#sxmpzhlwbn .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -966,7 +971,7 @@ Treatment Effect
   overflow-x: hidden;
 }
 
-#knzabjqler .gt_column_spanner_outer {
+#sxmpzhlwbn .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -978,15 +983,15 @@ Treatment Effect
   padding-right: 4px;
 }
 
-#knzabjqler .gt_column_spanner_outer:first-child {
+#sxmpzhlwbn .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#knzabjqler .gt_column_spanner_outer:last-child {
+#sxmpzhlwbn .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#knzabjqler .gt_column_spanner {
+#sxmpzhlwbn .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #333333;
@@ -998,11 +1003,11 @@ Treatment Effect
   width: 100%;
 }
 
-#knzabjqler .gt_spanner_row {
+#sxmpzhlwbn .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#knzabjqler .gt_group_heading {
+#sxmpzhlwbn .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1028,7 +1033,7 @@ Treatment Effect
   text-align: left;
 }
 
-#knzabjqler .gt_empty_group_heading {
+#sxmpzhlwbn .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -1043,15 +1048,15 @@ Treatment Effect
   vertical-align: middle;
 }
 
-#knzabjqler .gt_from_md > :first-child {
+#sxmpzhlwbn .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#knzabjqler .gt_from_md > :last-child {
+#sxmpzhlwbn .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#knzabjqler .gt_row {
+#sxmpzhlwbn .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1070,7 +1075,7 @@ Treatment Effect
   overflow-x: hidden;
 }
 
-#knzabjqler .gt_stub {
+#sxmpzhlwbn .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1083,7 +1088,7 @@ Treatment Effect
   padding-right: 5px;
 }
 
-#knzabjqler .gt_stub_row_group {
+#sxmpzhlwbn .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1097,15 +1102,15 @@ Treatment Effect
   vertical-align: top;
 }
 
-#knzabjqler .gt_row_group_first td {
+#sxmpzhlwbn .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#knzabjqler .gt_row_group_first th {
+#sxmpzhlwbn .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#knzabjqler .gt_summary_row {
+#sxmpzhlwbn .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1115,16 +1120,16 @@ Treatment Effect
   padding-right: 5px;
 }
 
-#knzabjqler .gt_first_summary_row {
+#sxmpzhlwbn .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#knzabjqler .gt_first_summary_row.thick {
+#sxmpzhlwbn .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#knzabjqler .gt_last_summary_row {
+#sxmpzhlwbn .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1134,7 +1139,7 @@ Treatment Effect
   border-bottom-color: #D3D3D3;
 }
 
-#knzabjqler .gt_grand_summary_row {
+#sxmpzhlwbn .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1144,7 +1149,7 @@ Treatment Effect
   padding-right: 5px;
 }
 
-#knzabjqler .gt_first_grand_summary_row {
+#sxmpzhlwbn .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1154,7 +1159,7 @@ Treatment Effect
   border-top-color: #D3D3D3;
 }
 
-#knzabjqler .gt_last_grand_summary_row_top {
+#sxmpzhlwbn .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1164,11 +1169,11 @@ Treatment Effect
   border-bottom-color: #D3D3D3;
 }
 
-#knzabjqler .gt_striped {
+#sxmpzhlwbn .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#knzabjqler .gt_table_body {
+#sxmpzhlwbn .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1177,7 +1182,7 @@ Treatment Effect
   border-bottom-color: #D3D3D3;
 }
 
-#knzabjqler .gt_footnotes {
+#sxmpzhlwbn .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1191,7 +1196,7 @@ Treatment Effect
   border-right-color: #D3D3D3;
 }
 
-#knzabjqler .gt_footnote {
+#sxmpzhlwbn .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -1200,7 +1205,7 @@ Treatment Effect
   padding-right: 5px;
 }
 
-#knzabjqler .gt_sourcenotes {
+#sxmpzhlwbn .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1214,7 +1219,7 @@ Treatment Effect
   border-right-color: #D3D3D3;
 }
 
-#knzabjqler .gt_sourcenote {
+#sxmpzhlwbn .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -1222,72 +1227,72 @@ Treatment Effect
   padding-right: 5px;
 }
 
-#knzabjqler .gt_left {
+#sxmpzhlwbn .gt_left {
   text-align: left;
 }
 
-#knzabjqler .gt_center {
+#sxmpzhlwbn .gt_center {
   text-align: center;
 }
 
-#knzabjqler .gt_right {
+#sxmpzhlwbn .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#knzabjqler .gt_font_normal {
+#sxmpzhlwbn .gt_font_normal {
   font-weight: normal;
 }
 
-#knzabjqler .gt_font_bold {
+#sxmpzhlwbn .gt_font_bold {
   font-weight: bold;
 }
 
-#knzabjqler .gt_font_italic {
+#sxmpzhlwbn .gt_font_italic {
   font-style: italic;
 }
 
-#knzabjqler .gt_super {
+#sxmpzhlwbn .gt_super {
   font-size: 65%;
 }
 
-#knzabjqler .gt_footnote_marks {
+#sxmpzhlwbn .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#knzabjqler .gt_asterisk {
+#sxmpzhlwbn .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#knzabjqler .gt_indent_1 {
+#sxmpzhlwbn .gt_indent_1 {
   text-indent: 5px;
 }
 
-#knzabjqler .gt_indent_2 {
+#sxmpzhlwbn .gt_indent_2 {
   text-indent: 10px;
 }
 
-#knzabjqler .gt_indent_3 {
+#sxmpzhlwbn .gt_indent_3 {
   text-indent: 15px;
 }
 
-#knzabjqler .gt_indent_4 {
+#sxmpzhlwbn .gt_indent_4 {
   text-indent: 20px;
 }
 
-#knzabjqler .gt_indent_5 {
+#sxmpzhlwbn .gt_indent_5 {
   text-indent: 25px;
 }
 
-#knzabjqler .katex-display {
+#sxmpzhlwbn .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#knzabjqler div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#sxmpzhlwbn div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -1371,7 +1376,7 @@ Treatment Effect
 </tr>
 <tr class="gt_footnotes even">
 <td colspan="9" class="gt_footnote">
-<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>2</sup></span> <strong>Bias-corrected HR</strong>: Bootstrap-adjusted estimate using infinitesimal jackknife method (5000 iterations). Corrects for optimism in subgroup selection.</td>
+<span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>2</sup></span> <strong>Bias-corrected HR</strong>: multiplier-resampling (MR) de-biased estimate (5000 draws), with its 95% interval from the infinitesimal-jackknife (IJ) variance computed on the multiplier draws. Corrects for optimism in subgroup selection.</td>
 </tr>
 <tr class="gt_footnotes odd">
 <td colspan="9" class="gt_footnote">
@@ -1391,23 +1396,7 @@ Treatment Effect
 <p>The three columns for the three identifiers, assembled from the fit objects and the bootstrap objects. The bootstrap column carries the point estimate only: at this B its interval is not a result (the package’s own table above shows what the machinery returns for it).</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb21"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">three_columns</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">method</span>, <span class="va">fit</span>, <span class="va">boot</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">g</span> <span class="op">&lt;-</span> <span class="va">fit</span><span class="op">$</span><span class="va">mr_inference</span>; <span class="va">cc</span> <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">complement</span></span>
-<span>  <span class="va">n_H</span> <span class="op">&lt;-</span> <span class="va">g</span><span class="op">$</span><span class="va">n_selected</span>; <span class="va">n_Hc</span> <span class="op">&lt;-</span> <span class="va">cc</span><span class="op">$</span><span class="va">n</span></span>
-<span>  <span class="va">f2</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span>, <span class="va">l</span>, <span class="va">u</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f (%.2f, %.2f)"</span>, <span class="va">e</span>, <span class="va">l</span>, <span class="va">u</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>    method <span class="op">=</span> <span class="va">method</span>, region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"H"</span>, <span class="st">"Hc"</span><span class="op">)</span>,</span>
-<span>    n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%d (%d%%)"</span>, <span class="va">n_H</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span> <span class="op">*</span> <span class="va">n_H</span> <span class="op">/</span> <span class="op">(</span><span class="va">n_H</span> <span class="op">+</span> <span class="va">n_Hc</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>          <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%d (%d%%)"</span>, <span class="va">n_Hc</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">100</span> <span class="op">*</span> <span class="va">n_Hc</span> <span class="op">/</span> <span class="op">(</span><span class="va">n_H</span> <span class="op">+</span> <span class="va">n_Hc</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>    naive <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu">f2</span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">est</span>, <span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">lower</span>, <span class="va">g</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span>,</span>
-<span>              <span class="fu">f2</span><span class="op">(</span><span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">est</span>, <span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">lower</span>, <span class="va">cc</span><span class="op">$</span><span class="va">naive</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>    bootstrap <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">boot</span><span class="op">$</span><span class="va">H_estimates</span><span class="op">$</span><span class="va">H2</span>, <span class="va">boot</span><span class="op">$</span><span class="va">Hc_estimates</span><span class="op">$</span><span class="va">H2</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>    multiplier <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu">f2</span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">est</span>, <span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">lower</span>, <span class="va">g</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span>,</span>
-<span>                   <span class="fu">f2</span><span class="op">(</span><span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">est</span>, <span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">lower</span>, <span class="va">cc</span><span class="op">$</span><span class="va">debiased</span><span class="op">$</span><span class="va">upper</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span><span class="va">side_by_side</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu">three_columns</span><span class="op">(</span><span class="st">"FS"</span>, <span class="va">fit_fs</span>, <span class="va">boots</span><span class="op">$</span><span class="va">FS</span><span class="op">)</span>,</span>
-<span>                      <span class="fu">three_columns</span><span class="op">(</span><span class="st">"DINA"</span>, <span class="va">fit_dina</span>, <span class="va">boots</span><span class="op">$</span><span class="va">DINA</span><span class="op">)</span>,</span>
-<span>                      <span class="fu">three_columns</span><span class="op">(</span><span class="st">"GRF"</span>, <span class="va">fit_grf</span>, <span class="va">boots</span><span class="op">$</span><span class="va">GRF</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">side_by_side</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mr_method_tables.html">mr_method_comparison</a></span><span class="op">(</span><span class="va">fits</span>, <span class="va">boots</span>, est.scale <span class="op">=</span> <span class="st">"hr"</span>, digits <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">boot_label</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Full bootstrap estimate (B = %d / %d / %d)"</span>,</span>
 <span>                      <span class="va">B</span><span class="op">[[</span><span class="st">"FS"</span><span class="op">]</span><span class="op">]</span>, <span class="va">B</span><span class="op">[[</span><span class="st">"DINA"</span><span class="op">]</span><span class="op">]</span>, <span class="va">B</span><span class="op">[[</span><span class="st">"GRF"</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">side_by_side</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span>, align <span class="op">=</span> <span class="st">"llrrrr"</span>,</span>
@@ -1440,7 +1429,7 @@ Treatment Effect
 <td style="text-align: left;">H</td>
 <td style="text-align: right;">61 (9%)</td>
 <td style="text-align: right;">2.54 (1.25, 5.17)</td>
-<td style="text-align: right;">1.88</td>
+<td style="text-align: right;">1.39</td>
 <td style="text-align: right;">1.44 (0.62, 3.36)</td>
 </tr>
 <tr class="even">
@@ -1448,7 +1437,7 @@ Treatment Effect
 <td style="text-align: left;">Hc</td>
 <td style="text-align: right;">625 (91%)</td>
 <td style="text-align: right;">0.61 (0.47, 0.79)</td>
-<td style="text-align: right;">0.63</td>
+<td style="text-align: right;">0.66</td>
 <td style="text-align: right;">0.64 (0.40, 1.03)</td>
 </tr>
 <tr class="odd">
@@ -1588,13 +1577,7 @@ Treatment Effect
 </h3>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">cost</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits</span><span class="op">)</span>,</span>
-<span>  mr_seconds <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">fits</span>, <span class="kw">function</span><span class="op">(</span><span class="va">f</span><span class="op">)</span> <span class="va">f</span><span class="op">$</span><span class="va">mr_inference</span><span class="op">$</span><span class="va">timing_seconds</span><span class="op">)</span>,</span>
-<span>  bootstrap_B <span class="op">=</span> <span class="va">B</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits</span><span class="op">)</span><span class="op">]</span>,</span>
-<span>  bootstrap_seconds <span class="op">=</span> <span class="va">boot_secs</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fits</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="va">cost</span><span class="op">$</span><span class="va">seconds_per_replicate</span> <span class="op">&lt;-</span> <span class="va">cost</span><span class="op">$</span><span class="va">bootstrap_seconds</span> <span class="op">/</span> <span class="va">cost</span><span class="op">$</span><span class="va">bootstrap_B</span></span>
-<span><span class="va">cost</span><span class="op">$</span><span class="va">projected_B_1000</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cost</span><span class="op">$</span><span class="va">seconds_per_replicate</span> <span class="op">*</span> <span class="fl">1000</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">cost</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mr_method_tables.html">mr_cost_table</a></span><span class="op">(</span><span class="va">fits</span>, <span class="va">boots</span>, boot_seconds <span class="op">=</span> <span class="va">boot_secs</span><span class="op">)</span></span>
 <span><span class="va">plan_label</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="va">n_workers</span> <span class="op">&gt;</span> <span class="fl">1L</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%d workers"</span>, <span class="va">n_workers</span><span class="op">)</span> <span class="kw">else</span> <span class="st">"one process"</span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">cost</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span>, digits <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>             col.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Method"</span>, <span class="st">"MR (s)"</span>, <span class="st">"B"</span>, <span class="st">"bootstrap (s)"</span>, <span class="st">"s per replicate"</span>,</span>
@@ -1625,27 +1608,27 @@ Treatment Effect
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">FS</td>
-<td style="text-align: right;">0.86</td>
+<td style="text-align: right;">0.99</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">55.15</td>
-<td style="text-align: right;">2.21</td>
-<td style="text-align: right;">2206</td>
+<td style="text-align: right;">45.60</td>
+<td style="text-align: right;">1.82</td>
+<td style="text-align: right;">1824</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">DINA</td>
-<td style="text-align: right;">0.17</td>
+<td style="text-align: right;">0.25</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">23.63</td>
-<td style="text-align: right;">0.95</td>
-<td style="text-align: right;">945</td>
+<td style="text-align: right;">32.83</td>
+<td style="text-align: right;">1.31</td>
+<td style="text-align: right;">1313</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">GRF</td>
-<td style="text-align: right;">0.25</td>
+<td style="text-align: right;">0.53</td>
 <td style="text-align: right;">10</td>
-<td style="text-align: right;">24.54</td>
-<td style="text-align: right;">2.45</td>
-<td style="text-align: right;">2454</td>
+<td style="text-align: right;">35.20</td>
+<td style="text-align: right;">3.52</td>
+<td style="text-align: right;">3520</td>
 </tr>
 </tbody>
 </table>
@@ -1703,12 +1686,11 @@ Treatment Effect
 <p>Read together: the median draw retains 66% of the region’s members, at least a tenth of the draws retain none of them, and 2% of draws contain all of it. Exact re-selection is rare; what moves from draw to draw is the boundary. These diagnostics measure re-selection within the fixed candidate family under multiplier perturbation; the bootstrap’s and the cross-validation’s recovery rates (<code><a href="../reference/forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture()</a></code>, <code><a href="../reference/forestsearch_Kfold.html">forestsearch_Kfold()</a></code>) measure re-discovery from resampled data with the family rebuilt, which is stronger and costs a full re-run each time.</p>
 </section></section><section class="level2"><h2 id="scope">Scope<a class="anchor" aria-label="anchor" href="#scope"></a>
 </h2>
-<p>The coverage result of León and Anderson (2026a) is for a fixed, enumerated family — forest search’s. DINA and GRF propose their families from the outcomes, and a bootstrap regenerates them; for those identifiers the multiplier correction targets the effect of the selected region conditional on the family proposed, and the results above are empirical evaluations of how the correction behaves on such families, not instances of the theorem. The one-sided bounds, the two-subgroup claim and the declaration calibration that build on this correction are the subject of León and Anderson (2026b) and of <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>.</p>
+<p>The coverage result of León and Anderson (2026a) is for a fixed, enumerated family — forest search’s. DINA and GRF propose their families from the outcomes, and a bootstrap regenerates them; for those identifiers the multiplier correction targets the effect of the selected region conditional on the family proposed, and the results above are empirical evaluations of how the correction behaves on such families, not instances of the theorem. The one-sided bounds, the two-subgroup claim and the declaration calibration that build on this correction are the subject of León and Anderson (2026b) and of the article <a href="https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html">Interpretable subgroup identification with forestsearch</a>.</p>
 </section><section class="level2"><h2 id="where-to-go-next">Where to go next<a class="anchor" aria-label="anchor" href="#where-to-go-next"></a>
 </h2>
 <ul>
-<li>
-<code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>: the same trial under the identification paper — the search, the three identifiers at the <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mi mathvariant="script">𝒜</mi></msub><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mi>ε</mi><mo>=</mo><mn>0.20</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\max_{\mathcal{A}} N(\varepsilon = 0.20)</annotation></semantics></math> rule, the one-sided field bounds, the two-subgroup claim and the declaration calibration.</li>
+<li>The article <a href="https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html">Interpretable subgroup identification with forestsearch</a>: the same trial under the identification paper — the search, the three identifiers at the <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mi mathvariant="script">𝒜</mi></msub><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mi>ε</mi><mo>=</mo><mn>0.20</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\max_{\mathcal{A}} N(\varepsilon = 0.20)</annotation></semantics></math> rule, the one-sided field bounds, the two-subgroup claim and the declaration calibration.</li>
 <li>The package website’s article <em>Exploratory subgroup identification with forestsearch (the 2024 workflow)</em>: the full bootstrap at a working B with its diagnostics and plots, and K-fold cross-validation.</li>
 <li>
 <code><a href="../reference/forestsearch_bootstrap_dofuture.html">?forestsearch_bootstrap_dofuture</a></code>, <code><a href="../reference/summarize_bootstrap_results.html">?summarize_bootstrap_results</a></code>, <code><a href="../reference/mr_estimates_table.html">?mr_estimates_table</a></code>.</li>
@@ -1743,7 +1725,7 @@ Treatment Effect
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base</span></span>
 <span><span class="co">#&gt;</span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] future_1.80.0      survival_3.8-12    forestsearch_0.4.0</span></span>
+<span><span class="co">#&gt; [1] future_1.82.0      survival_3.8-12    forestsearch_0.5.0</span></span>
 <span><span class="co">#&gt;</span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
 <span><span class="co">#&gt;  [1] gt_1.4.0             sass_0.4.10          generics_0.1.4</span></span>
@@ -1754,20 +1736,19 @@ Treatment Effect
 <span><span class="co">#&gt; [16] mvtnorm_1.4-2        fastmap_1.2.0        foreach_1.5.2</span></span>
 <span><span class="co">#&gt; [19] jsonlite_2.0.0       Matrix_1.7-6         glmnet_5.2</span></span>
 <span><span class="co">#&gt; [22] scales_1.4.0         weightedsurv_0.1.0   codetools_0.2-20</span></span>
-<span><span class="co">#&gt; [25] cli_3.6.6            rlang_1.3.0          litedown_0.11</span></span>
-<span><span class="co">#&gt; [28] parallelly_1.48.0    future.apply_1.21.0  commonmark_2.0.0</span></span>
-<span><span class="co">#&gt; [31] splines_4.6.2        base64enc_0.1-6      withr_3.0.3</span></span>
-<span><span class="co">#&gt; [34] yaml_2.3.12          otel_0.2.0           tools_4.6.2</span></span>
-<span><span class="co">#&gt; [37] parallel_4.6.2       doFuture_1.4.0       dplyr_1.2.1</span></span>
-<span><span class="co">#&gt; [40] ggplot2_4.0.3        globals_0.20.0       vctrs_0.7.3</span></span>
-<span><span class="co">#&gt; [43] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2</span></span>
-<span><span class="co">#&gt; [46] fs_2.1.0             pkgconfig_2.0.3      progressr_1.1.0</span></span>
-<span><span class="co">#&gt; [49] pillar_1.11.1        gtable_0.3.6         data.table_1.18.6.1</span></span>
-<span><span class="co">#&gt; [52] glue_1.8.1           Rcpp_1.1.2           xfun_0.62</span></span>
-<span><span class="co">#&gt; [55] tibble_3.3.1         tidyselect_1.2.1     knitr_1.52</span></span>
-<span><span class="co">#&gt; [58] farver_2.1.2         patchwork_1.3.2      htmltools_0.5.9</span></span>
-<span><span class="co">#&gt; [61] rmarkdown_2.32       compiler_4.6.2       S7_0.2.2</span></span>
-<span><span class="co">#&gt; [64] markdown_2.1</span></span></code></pre>
+<span><span class="co">#&gt; [25] cli_3.6.6            rlang_1.3.0          litedown_1.0</span></span>
+<span><span class="co">#&gt; [28] parallelly_1.50.0    future.apply_1.21.0  splines_4.6.2</span></span>
+<span><span class="co">#&gt; [31] base64enc_0.1-6      withr_3.0.3          yaml_2.3.12</span></span>
+<span><span class="co">#&gt; [34] otel_0.3.0           tools_4.6.2          parallel_4.6.2</span></span>
+<span><span class="co">#&gt; [37] doFuture_1.4.0       dplyr_1.2.1          ggplot2_4.0.4</span></span>
+<span><span class="co">#&gt; [40] globals_0.20.0       vctrs_0.7.3          R6_2.6.1</span></span>
+<span><span class="co">#&gt; [43] lifecycle_1.0.5      randomForest_4.7-1.2 fs_2.1.0</span></span>
+<span><span class="co">#&gt; [46] pkgconfig_2.0.3      progressr_1.1.0      pillar_1.11.1</span></span>
+<span><span class="co">#&gt; [49] gtable_0.3.6         data.table_1.18.6.1  glue_1.8.1</span></span>
+<span><span class="co">#&gt; [52] Rcpp_1.1.2           xfun_0.62            tibble_3.3.1</span></span>
+<span><span class="co">#&gt; [55] tidyselect_1.2.1     knitr_1.52           farver_2.1.2</span></span>
+<span><span class="co">#&gt; [58] patchwork_1.3.2      htmltools_0.5.9      rmarkdown_2.32</span></span>
+<span><span class="co">#&gt; [61] compiler_4.6.2       S7_0.2.2             markdown_2.1</span></span></code></pre>
 </div>
 </div>
 </section><script id="quarto-html-after-body" type="application/javascript">
@@ -1779,7 +1760,8 @@ Treatment Effect
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }
       // Inspect non-navigation links and adorn them if external
-     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
       for (var i=0; i<links.length; i++) {
         const link = links[i];
         if (!isInternal(link.href)) {
@@ -1788,8 +1770,69 @@ Treatment Effect
           if (link.dataset.originalHref !== undefined) {
             link.href = link.dataset.originalHref;
           }
+          if (!link.classList.contains('no-external-icon')) {
+          }
         }
       }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
       const config = {
         allowHTML: true,
@@ -1803,6 +1846,7 @@ Treatment Effect
         interactiveBorder: 10,
         theme: 'light-border',
         placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
       };
       if (contentFn) {
         config.content = contentFn;

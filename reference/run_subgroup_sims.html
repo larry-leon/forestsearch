@@ -23,7 +23,7 @@ unchanged."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,7 @@ unchanged."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -46,6 +47,10 @@ unchanged."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -250,6 +255,28 @@ generic-threshold duty for GLM outcomes in <code><a href="forestsearch.html">for
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+<span class="r-in"><span><span class="co"># Uniform-effect DGM on the GBSG trial, as in the extreme-subgroups</span></span></span>
+<span class="r-in"><span><span class="co"># article: k_treat calibrated so that the average hazard ratio is 0.70,</span></span></span>
+<span class="r-in"><span><span class="co"># the censoring shift calibrated to the observed censoring rate.</span></span></span>
+<span class="r-in"><span><span class="va">gbsg</span> <span class="op">&lt;-</span> <span class="fu">survival</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/survival/man/gbsg.html" class="external-link">gbsg</a></span></span></span>
+<span class="r-in"><span><span class="va">gbsg</span><span class="op">$</span><span class="va">time_months</span> <span class="op">&lt;-</span> <span class="va">gbsg</span><span class="op">$</span><span class="va">rfstime</span> <span class="op">/</span> <span class="fl">30.4375</span></span></span>
+<span class="r-in"><span><span class="va">base_args</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  data <span class="op">=</span> <span class="va">gbsg</span>, continuous_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"size"</span>, <span class="st">"nodes"</span>, <span class="st">"pgr"</span>, <span class="st">"er"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  factor_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"meno"</span>, <span class="st">"grade"</span><span class="op">)</span>, outcome_var <span class="op">=</span> <span class="st">"time_months"</span>,</span></span>
+<span class="r-in"><span>  event_var <span class="op">=</span> <span class="st">"status"</span>, treatment_var <span class="op">=</span> <span class="st">"hormon"</span>, model <span class="op">=</span> <span class="st">"null"</span>,</span></span>
+<span class="r-in"><span>  n_super <span class="op">=</span> <span class="fl">5000</span>, seed <span class="op">=</span> <span class="fl">99</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">k_treat_uniform</span> <span class="op">&lt;-</span> <span class="fu"><a href="calibrate_k_treat.html">calibrate_k_treat</a></span><span class="op">(</span>target_hr_overall <span class="op">=</span> <span class="fl">0.70</span>,</span></span>
+<span class="r-in"><span>  base_args <span class="op">=</span> <span class="va">base_args</span>, use_ahr <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">dgm_uniform</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">generate_aft_dgm_flex</span>,</span></span>
+<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">base_args</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>k_treat <span class="op">=</span> <span class="va">k_treat_uniform</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">cal_uniform</span> <span class="op">&lt;-</span> <span class="fu"><a href="calibrate_cens_adjust.html">calibrate_cens_adjust</a></span><span class="op">(</span><span class="va">dgm_uniform</span>, target <span class="op">=</span> <span class="st">"rate"</span>,</span></span>
+<span class="r-in"><span>  n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">dgm_uniform</span><span class="op">$</span><span class="va">df_source</span><span class="op">)</span>, n_eval <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">dgm_uniform</span><span class="op">$</span><span class="va">df_source</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  analysis_time <span class="op">=</span> <span class="fl">84</span>, max_entry <span class="op">=</span> <span class="fl">24</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span>, baseline <span class="op">=</span> <span class="st">"fixed"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">subgroups</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"meno == 0"</span>,      name <span class="op">=</span> <span class="st">"Pre-menopausal"</span>, grp <span class="op">=</span> <span class="st">"Clinical"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"age &lt;= age_med"</span>, name <span class="op">=</span> <span class="st">"Age (young)"</span>,    grp <span class="op">=</span> <span class="st">"Continuous"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"random60 == 1"</span>,  name <span class="op">=</span> <span class="st">"random60"</span>,       grp <span class="op">=</span> <span class="st">"Random (N~60)"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">sims</span> <span class="op">&lt;-</span> <span class="fu">run_subgroup_sims</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  dgm <span class="op">=</span> <span class="va">dgm_uniform</span>, subgroups <span class="op">=</span> <span class="va">subgroups</span>, n_sims <span class="op">=</span> <span class="fl">1000</span>,</span></span>
 <span class="r-in"><span>  fit <span class="op">=</span> <span class="fu"><a href="subgroup_cox.html">subgroup_cox</a></span><span class="op">(</span><span class="fu">survival</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">y_sim</span>, <span class="va">event_sim</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat_sim</span> <span class="op">+</span></span></span>
@@ -260,7 +287,7 @@ generic-threshold duty for GLM outcomes in <code><a href="forestsearch.html">for
 <span class="r-in"><span>  cutpoints <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>age_med <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/median.html" class="external-link">median</a></span><span class="op">(</span><span class="va">gbsg</span><span class="op">$</span><span class="va">age</span><span class="op">)</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  hr_true <span class="op">=</span> <span class="fl">0.70</span>, k_treat <span class="op">=</span> <span class="va">k_treat_uniform</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS</a></span><span class="op">(</span><span class="va">sims</span>, <span class="st">"results/extreme_sims_fixed_1000_payload.rds"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS</a></span><span class="op">(</span><span class="va">sims</span>, <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"extreme_sims_fixed_1000_payload.rds"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

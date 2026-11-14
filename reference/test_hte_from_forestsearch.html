@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -22,6 +22,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -30,6 +31,10 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -101,7 +106,36 @@
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>List with hte_test, covariates_used, source.</p>
+    <p>List with <code>hte_test</code> (the <code><a href="test_hte.html">test_hte</a></code> result),
+<code>covariates_used</code> (the <code>df</code> columns entered in the test),
+<code>n_covariates</code> (their number), <code>n_candidates</code>
+(<code>length(fs_result$find.grps$max_sg_est)</code>, <code>NA</code> when that
+is absent) and <code>source</code>; or <code>NULL</code> with a warning when no
+covariate is found.</p>
+<p>The covariates come from <code>fs_result$confounders.evaluated</code> when
+it is non-empty, else from <code>fs_result$confounders.candidate</code>,
+taken as column names.  Each <code>confounders.evaluated</code> label is
+mapped to columns of <code>df</code>: a label that is exactly a column name
+(a categorical confounder such as <code>"meno"</code>, including a
+non-syntactic name such as <code>"ER-pos"</code>) is that column; any other
+label (a cut such as <code>"age &lt;= 53"</code>) is parsed, and its variables
+that are columns of <code>df</code> are used.  Each column is used once, in
+the order first met.  Two warnings: a label that resolves to no column
+of <code>df</code> warns that it "cannot be resolved to a column of df" and
+is skipped; and when no covariate column is left, the function warns
+"No covariate found in df for the ForestSearch covariates" and returns
+<code>NULL</code>.  (When neither field is present it warns "No covariates
+found." and returns <code>NULL</code>.)  Factor and character columns enter
+the test as their level codes minus 1, other columns as numbers.</p>
+<p><code>source</code> names the field used:
+<code>"confounders.evaluated (GRF/LASSO selected)"</code> or
+<code>"confounders.candidate (all candidates)"</code>.  The first string is
+fixed.  On the default (consistency) route
+<code>confounders.evaluated</code> holds the fit's candidate factor labels,
+which are LASSO-screened or include GRF cuts only when the fit used
+<code>use_lasso</code> or <code>use_grf</code> (both <code>FALSE</code> by default); on
+the <code>subgroup_method = "dina"</code> and <code>"grf"</code> routes it is the
+fit's <code>confounders.name</code>.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

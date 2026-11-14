@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -37,6 +37,7 @@
 <li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -45,6 +46,10 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul>
@@ -76,7 +81,7 @@ Study Group (GBSG) Analysis</h3>
                         <h4 data-toc-skip class="author">Larry F.
 León</h4>
             
-            <h4 data-toc-skip class="date">2026-10-31</h4>
+            <h4 data-toc-skip class="date">2026-11-14</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/forestsearch-2024.Rmd" class="external-link"><code>vignettes/articles/forestsearch-2024.Rmd</code></a></small>
       <div class="d-none name"><code>forestsearch-2024.Rmd</code></div>
@@ -95,8 +100,8 @@ available in the package. The current methodology — the search as
 closed-form stability selection with its declaration calibration (León
 and Anderson 2026b, arXiv:2610.28379) and the selection-adjusted
 inference reported with <code>mr_inference = TRUE</code> (León and
-Anderson 2026a, arXiv:2609.38361) — is documented in
-<code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> and the <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection
+Anderson 2026a, arXiv:2609.38361) — is documented in the article <a href="https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html">Interpretable
+subgroup identification with forestsearch</a> and the <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection
 article</a>. The code below runs as written; its settings are those of
 the 2024 workflow and may differ from the current defaults and from the
 manuscript analyses.</p>
@@ -1089,7 +1094,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <span><span class="co">## Number of possible configurations (&lt;= maxk): maxk = 2 , # combinations = 406 </span></span>
 <span><span class="co">## Per-arm events criteria: control &gt;= 12, treatment &gt;= 12</span></span>
 <span><span class="co">## Sample size criteria: n &gt;= 60 </span></span>
-<span><span class="co">## Subgroup search completed in 0.01 minutes</span></span>
+<span><span class="co">## Subgroup search completed in 0 minutes</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## --- Filtering Summary ---</span></span>
 <span><span class="co">##   Combinations evaluated: 406 </span></span>
@@ -1142,7 +1147,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <span><span class="co">## Legend: P = Pcons (consistency probability); OF = on Pareto frontier; S = selected.</span></span>
 <span><span class="co">## ==============================================================================================================</span></span>
 <span><span class="co">## </span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 4.147 0.0691 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 4.846 0.0808 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## Subgroup identified: {er &lt;= 0}</span></span></code></pre>
 <div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
@@ -1152,7 +1157,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nForestSearch completed in"</span>, </span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">timings</span><span class="op">$</span><span class="va">forestsearch</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## </span></span>
-<span><span class="co">## ForestSearch completed in 4.2 seconds</span></span></code></pre>
+<span><span class="co">## ForestSearch completed in 4.9 seconds</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="forestsearch-results">ForestSearch Results<a class="anchor" aria-label="anchor" href="#forestsearch-results"></a>
@@ -1181,23 +1186,23 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <span></span>
 <span><span class="co"># Display top subgroups meeting criteria</span></span>
 <span><span class="va">res_tabs</span><span class="op">$</span><span class="va">sg10_out</span></span></code></pre></div>
-<div id="lppjflwfsy" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#lppjflwfsy table {
+<div id="eexombwkke" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#eexombwkke table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#lppjflwfsy thead, #lppjflwfsy tbody, #lppjflwfsy tfoot, #lppjflwfsy tr, #lppjflwfsy td, #lppjflwfsy th {
+#eexombwkke thead, #eexombwkke tbody, #eexombwkke tfoot, #eexombwkke tr, #eexombwkke td, #eexombwkke th {
   border-style: none;
 }
 
-#lppjflwfsy p {
+#eexombwkke p {
   margin: 0;
   padding: 0;
 }
 
-#lppjflwfsy .gt_table {
+#eexombwkke .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -1223,12 +1228,12 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-left-color: #D3D3D3;
 }
 
-#lppjflwfsy .gt_caption {
+#eexombwkke .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#lppjflwfsy .gt_title {
+#eexombwkke .gt_title {
   color: #333333;
   font-size: 14px;
   font-weight: initial;
@@ -1240,7 +1245,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-width: 0;
 }
 
-#lppjflwfsy .gt_subtitle {
+#eexombwkke .gt_subtitle {
   color: #333333;
   font-size: 12px;
   font-weight: initial;
@@ -1252,7 +1257,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-top-width: 0;
 }
 
-#lppjflwfsy .gt_heading {
+#eexombwkke .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -1264,13 +1269,13 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#lppjflwfsy .gt_bottom_border {
+#eexombwkke .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#lppjflwfsy .gt_col_headings {
+#eexombwkke .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1285,7 +1290,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#lppjflwfsy .gt_col_heading {
+#eexombwkke .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 12px;
@@ -1305,7 +1310,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   overflow-x: hidden;
 }
 
-#lppjflwfsy .gt_column_spanner_outer {
+#eexombwkke .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 12px;
@@ -1317,15 +1322,15 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 4px;
 }
 
-#lppjflwfsy .gt_column_spanner_outer:first-child {
+#eexombwkke .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#lppjflwfsy .gt_column_spanner_outer:last-child {
+#eexombwkke .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#lppjflwfsy .gt_column_spanner {
+#eexombwkke .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -1337,11 +1342,11 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   width: 100%;
 }
 
-#lppjflwfsy .gt_spanner_row {
+#eexombwkke .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#lppjflwfsy .gt_group_heading {
+#eexombwkke .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1367,7 +1372,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   text-align: left;
 }
 
-#lppjflwfsy .gt_empty_group_heading {
+#eexombwkke .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -1382,15 +1387,15 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   vertical-align: middle;
 }
 
-#lppjflwfsy .gt_from_md > :first-child {
+#eexombwkke .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#lppjflwfsy .gt_from_md > :last-child {
+#eexombwkke .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#lppjflwfsy .gt_row {
+#eexombwkke .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1409,7 +1414,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   overflow-x: hidden;
 }
 
-#lppjflwfsy .gt_stub {
+#eexombwkke .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1422,7 +1427,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#lppjflwfsy .gt_stub_row_group {
+#eexombwkke .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1436,15 +1441,15 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   vertical-align: top;
 }
 
-#lppjflwfsy .gt_row_group_first td {
+#eexombwkke .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#lppjflwfsy .gt_row_group_first th {
+#eexombwkke .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#lppjflwfsy .gt_summary_row {
+#eexombwkke .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1454,16 +1459,16 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#lppjflwfsy .gt_first_summary_row {
+#eexombwkke .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#lppjflwfsy .gt_first_summary_row.thick {
+#eexombwkke .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#lppjflwfsy .gt_last_summary_row {
+#eexombwkke .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1473,7 +1478,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#lppjflwfsy .gt_grand_summary_row {
+#eexombwkke .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1483,7 +1488,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#lppjflwfsy .gt_first_grand_summary_row {
+#eexombwkke .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1493,7 +1498,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-top-color: #D3D3D3;
 }
 
-#lppjflwfsy .gt_last_grand_summary_row_top {
+#eexombwkke .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1503,11 +1508,11 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#lppjflwfsy .gt_striped {
+#eexombwkke .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#lppjflwfsy .gt_table_body {
+#eexombwkke .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1516,7 +1521,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#lppjflwfsy .gt_footnotes {
+#eexombwkke .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1530,7 +1535,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#lppjflwfsy .gt_footnote {
+#eexombwkke .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -1539,7 +1544,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#lppjflwfsy .gt_sourcenotes {
+#eexombwkke .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1553,7 +1558,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#lppjflwfsy .gt_sourcenote {
+#eexombwkke .gt_sourcenote {
   font-size: 11px;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -1561,72 +1566,72 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#lppjflwfsy .gt_left {
+#eexombwkke .gt_left {
   text-align: left;
 }
 
-#lppjflwfsy .gt_center {
+#eexombwkke .gt_center {
   text-align: center;
 }
 
-#lppjflwfsy .gt_right {
+#eexombwkke .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#lppjflwfsy .gt_font_normal {
+#eexombwkke .gt_font_normal {
   font-weight: normal;
 }
 
-#lppjflwfsy .gt_font_bold {
+#eexombwkke .gt_font_bold {
   font-weight: bold;
 }
 
-#lppjflwfsy .gt_font_italic {
+#eexombwkke .gt_font_italic {
   font-style: italic;
 }
 
-#lppjflwfsy .gt_super {
+#eexombwkke .gt_super {
   font-size: 65%;
 }
 
-#lppjflwfsy .gt_footnote_marks {
+#eexombwkke .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#lppjflwfsy .gt_asterisk {
+#eexombwkke .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#lppjflwfsy .gt_indent_1 {
+#eexombwkke .gt_indent_1 {
   text-indent: 5px;
 }
 
-#lppjflwfsy .gt_indent_2 {
+#eexombwkke .gt_indent_2 {
   text-indent: 10px;
 }
 
-#lppjflwfsy .gt_indent_3 {
+#eexombwkke .gt_indent_3 {
   text-indent: 15px;
 }
 
-#lppjflwfsy .gt_indent_4 {
+#eexombwkke .gt_indent_4 {
   text-indent: 20px;
 }
 
-#lppjflwfsy .gt_indent_5 {
+#eexombwkke .gt_indent_5 {
   text-indent: 25px;
 }
 
-#lppjflwfsy .katex-display {
+#eexombwkke .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#lppjflwfsy div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#eexombwkke div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -1697,23 +1702,23 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># ITT and subgroup estimates</span></span>
 <span><span class="va">res_tabs</span><span class="op">$</span><span class="va">tab_estimates</span></span></code></pre></div>
-<div id="xbsappnmlh" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#xbsappnmlh table {
+<div id="ulbfdpbcyv" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#ulbfdpbcyv table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#xbsappnmlh thead, #xbsappnmlh tbody, #xbsappnmlh tfoot, #xbsappnmlh tr, #xbsappnmlh td, #xbsappnmlh th {
+#ulbfdpbcyv thead, #ulbfdpbcyv tbody, #ulbfdpbcyv tfoot, #ulbfdpbcyv tr, #ulbfdpbcyv td, #ulbfdpbcyv th {
   border-style: none;
 }
 
-#xbsappnmlh p {
+#ulbfdpbcyv p {
   margin: 0;
   padding: 0;
 }
 
-#xbsappnmlh .gt_table {
+#ulbfdpbcyv .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -1739,12 +1744,12 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-left-color: #D3D3D3;
 }
 
-#xbsappnmlh .gt_caption {
+#ulbfdpbcyv .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#xbsappnmlh .gt_title {
+#ulbfdpbcyv .gt_title {
   color: #333333;
   font-size: 14px;
   font-weight: initial;
@@ -1756,7 +1761,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-width: 0;
 }
 
-#xbsappnmlh .gt_subtitle {
+#ulbfdpbcyv .gt_subtitle {
   color: #333333;
   font-size: 12px;
   font-weight: initial;
@@ -1768,7 +1773,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-top-width: 0;
 }
 
-#xbsappnmlh .gt_heading {
+#ulbfdpbcyv .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -1780,13 +1785,13 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#xbsappnmlh .gt_bottom_border {
+#ulbfdpbcyv .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#xbsappnmlh .gt_col_headings {
+#ulbfdpbcyv .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1801,7 +1806,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#xbsappnmlh .gt_col_heading {
+#ulbfdpbcyv .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 12px;
@@ -1821,7 +1826,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   overflow-x: hidden;
 }
 
-#xbsappnmlh .gt_column_spanner_outer {
+#ulbfdpbcyv .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 12px;
@@ -1833,15 +1838,15 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 4px;
 }
 
-#xbsappnmlh .gt_column_spanner_outer:first-child {
+#ulbfdpbcyv .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#xbsappnmlh .gt_column_spanner_outer:last-child {
+#ulbfdpbcyv .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#xbsappnmlh .gt_column_spanner {
+#ulbfdpbcyv .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -1853,11 +1858,11 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   width: 100%;
 }
 
-#xbsappnmlh .gt_spanner_row {
+#ulbfdpbcyv .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#xbsappnmlh .gt_group_heading {
+#ulbfdpbcyv .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1883,7 +1888,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   text-align: left;
 }
 
-#xbsappnmlh .gt_empty_group_heading {
+#ulbfdpbcyv .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -1898,15 +1903,15 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   vertical-align: middle;
 }
 
-#xbsappnmlh .gt_from_md > :first-child {
+#ulbfdpbcyv .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#xbsappnmlh .gt_from_md > :last-child {
+#ulbfdpbcyv .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#xbsappnmlh .gt_row {
+#ulbfdpbcyv .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1925,7 +1930,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   overflow-x: hidden;
 }
 
-#xbsappnmlh .gt_stub {
+#ulbfdpbcyv .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1938,7 +1943,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#xbsappnmlh .gt_stub_row_group {
+#ulbfdpbcyv .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1952,15 +1957,15 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   vertical-align: top;
 }
 
-#xbsappnmlh .gt_row_group_first td {
+#ulbfdpbcyv .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#xbsappnmlh .gt_row_group_first th {
+#ulbfdpbcyv .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#xbsappnmlh .gt_summary_row {
+#ulbfdpbcyv .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1970,16 +1975,16 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#xbsappnmlh .gt_first_summary_row {
+#ulbfdpbcyv .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#xbsappnmlh .gt_first_summary_row.thick {
+#ulbfdpbcyv .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#xbsappnmlh .gt_last_summary_row {
+#ulbfdpbcyv .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1989,7 +1994,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#xbsappnmlh .gt_grand_summary_row {
+#ulbfdpbcyv .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1999,7 +2004,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#xbsappnmlh .gt_first_grand_summary_row {
+#ulbfdpbcyv .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2009,7 +2014,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-top-color: #D3D3D3;
 }
 
-#xbsappnmlh .gt_last_grand_summary_row_top {
+#ulbfdpbcyv .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2019,11 +2024,11 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#xbsappnmlh .gt_striped {
+#ulbfdpbcyv .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#xbsappnmlh .gt_table_body {
+#ulbfdpbcyv .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -2032,7 +2037,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#xbsappnmlh .gt_footnotes {
+#ulbfdpbcyv .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -2046,7 +2051,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#xbsappnmlh .gt_footnote {
+#ulbfdpbcyv .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -2055,7 +2060,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#xbsappnmlh .gt_sourcenotes {
+#ulbfdpbcyv .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -2069,7 +2074,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   border-right-color: #D3D3D3;
 }
 
-#xbsappnmlh .gt_sourcenote {
+#ulbfdpbcyv .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -2077,72 +2082,72 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
   padding-right: 5px;
 }
 
-#xbsappnmlh .gt_left {
+#ulbfdpbcyv .gt_left {
   text-align: left;
 }
 
-#xbsappnmlh .gt_center {
+#ulbfdpbcyv .gt_center {
   text-align: center;
 }
 
-#xbsappnmlh .gt_right {
+#ulbfdpbcyv .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#xbsappnmlh .gt_font_normal {
+#ulbfdpbcyv .gt_font_normal {
   font-weight: normal;
 }
 
-#xbsappnmlh .gt_font_bold {
+#ulbfdpbcyv .gt_font_bold {
   font-weight: bold;
 }
 
-#xbsappnmlh .gt_font_italic {
+#ulbfdpbcyv .gt_font_italic {
   font-style: italic;
 }
 
-#xbsappnmlh .gt_super {
+#ulbfdpbcyv .gt_super {
   font-size: 65%;
 }
 
-#xbsappnmlh .gt_footnote_marks {
+#ulbfdpbcyv .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#xbsappnmlh .gt_asterisk {
+#ulbfdpbcyv .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#xbsappnmlh .gt_indent_1 {
+#ulbfdpbcyv .gt_indent_1 {
   text-indent: 5px;
 }
 
-#xbsappnmlh .gt_indent_2 {
+#ulbfdpbcyv .gt_indent_2 {
   text-indent: 10px;
 }
 
-#xbsappnmlh .gt_indent_3 {
+#ulbfdpbcyv .gt_indent_3 {
   text-indent: 15px;
 }
 
-#xbsappnmlh .gt_indent_4 {
+#ulbfdpbcyv .gt_indent_4 {
   text-indent: 20px;
 }
 
-#xbsappnmlh .gt_indent_5 {
+#ulbfdpbcyv .gt_indent_5 {
   text-indent: 25px;
 }
 
-#xbsappnmlh .katex-display {
+#ulbfdpbcyv .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#xbsappnmlh div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#ulbfdpbcyv div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -2302,29 +2307,29 @@ addresses this by:</p>
 <span><span class="co">## TIMING ANALYSIS:</span></span>
 <span><span class="co">## -------------------------------------------------------------</span></span>
 <span><span class="co">## Overall:</span></span>
-<span><span class="co">##   Total bootstrap time:          0.10 minutes (0.00 hours)</span></span>
-<span><span class="co">##   Average per iteration:         0.05 min (3.1 sec)</span></span>
-<span><span class="co">##   Projected for 1000 boots:      50.88 min (0.85 hrs)</span></span></code></pre>
+<span><span class="co">##   Total bootstrap time:          0.13 minutes (0.00 hours)</span></span>
+<span><span class="co">##   Average per iteration:         0.06 min (3.9 sec)</span></span>
+<span><span class="co">##   Projected for 1000 boots:      64.41 min (1.07 hrs)</span></span></code></pre>
 <div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Display bias-corrected estimates table</span></span>
 <span><span class="va">summaries</span><span class="op">$</span><span class="va">table</span></span></code></pre></div>
-<div id="ppjflwfsyz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#ppjflwfsyz table {
+<div id="kgufivjubq" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#kgufivjubq table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#ppjflwfsyz thead, #ppjflwfsyz tbody, #ppjflwfsyz tfoot, #ppjflwfsyz tr, #ppjflwfsyz td, #ppjflwfsyz th {
+#kgufivjubq thead, #kgufivjubq tbody, #kgufivjubq tfoot, #kgufivjubq tr, #kgufivjubq td, #kgufivjubq th {
   border-style: none;
 }
 
-#ppjflwfsyz p {
+#kgufivjubq p {
   margin: 0;
   padding: 0;
 }
 
-#ppjflwfsyz .gt_table {
+#kgufivjubq .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -2350,12 +2355,12 @@ addresses this by:</p>
   border-left-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_caption {
+#kgufivjubq .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#ppjflwfsyz .gt_title {
+#kgufivjubq .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -2367,7 +2372,7 @@ addresses this by:</p>
   border-bottom-width: 0;
 }
 
-#ppjflwfsyz .gt_subtitle {
+#kgufivjubq .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -2379,7 +2384,7 @@ addresses this by:</p>
   border-top-width: 0;
 }
 
-#ppjflwfsyz .gt_heading {
+#kgufivjubq .gt_heading {
   background-color: #FFFFFF;
   text-align: left;
   border-bottom-color: #FFFFFF;
@@ -2391,13 +2396,13 @@ addresses this by:</p>
   border-right-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_bottom_border {
+#kgufivjubq .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #333333;
 }
 
-#ppjflwfsyz .gt_col_headings {
+#kgufivjubq .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -2412,7 +2417,7 @@ addresses this by:</p>
   border-right-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_col_heading {
+#kgufivjubq .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -2432,7 +2437,7 @@ addresses this by:</p>
   overflow-x: hidden;
 }
 
-#ppjflwfsyz .gt_column_spanner_outer {
+#kgufivjubq .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -2444,15 +2449,15 @@ addresses this by:</p>
   padding-right: 4px;
 }
 
-#ppjflwfsyz .gt_column_spanner_outer:first-child {
+#kgufivjubq .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#ppjflwfsyz .gt_column_spanner_outer:last-child {
+#kgufivjubq .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#ppjflwfsyz .gt_column_spanner {
+#kgufivjubq .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #333333;
@@ -2464,11 +2469,11 @@ addresses this by:</p>
   width: 100%;
 }
 
-#ppjflwfsyz .gt_spanner_row {
+#kgufivjubq .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#ppjflwfsyz .gt_group_heading {
+#kgufivjubq .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2494,7 +2499,7 @@ addresses this by:</p>
   text-align: left;
 }
 
-#ppjflwfsyz .gt_empty_group_heading {
+#kgufivjubq .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -2509,15 +2514,15 @@ addresses this by:</p>
   vertical-align: middle;
 }
 
-#ppjflwfsyz .gt_from_md > :first-child {
+#kgufivjubq .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#ppjflwfsyz .gt_from_md > :last-child {
+#kgufivjubq .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#ppjflwfsyz .gt_row {
+#kgufivjubq .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2536,7 +2541,7 @@ addresses this by:</p>
   overflow-x: hidden;
 }
 
-#ppjflwfsyz .gt_stub {
+#kgufivjubq .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -2549,7 +2554,7 @@ addresses this by:</p>
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_stub_row_group {
+#kgufivjubq .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -2563,15 +2568,15 @@ addresses this by:</p>
   vertical-align: top;
 }
 
-#ppjflwfsyz .gt_row_group_first td {
+#kgufivjubq .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#ppjflwfsyz .gt_row_group_first th {
+#kgufivjubq .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#ppjflwfsyz .gt_summary_row {
+#kgufivjubq .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -2581,16 +2586,16 @@ addresses this by:</p>
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_first_summary_row {
+#kgufivjubq .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_first_summary_row.thick {
+#kgufivjubq .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#ppjflwfsyz .gt_last_summary_row {
+#kgufivjubq .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2600,7 +2605,7 @@ addresses this by:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_grand_summary_row {
+#kgufivjubq .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -2610,7 +2615,7 @@ addresses this by:</p>
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_first_grand_summary_row {
+#kgufivjubq .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2620,7 +2625,7 @@ addresses this by:</p>
   border-top-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_last_grand_summary_row_top {
+#kgufivjubq .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2630,11 +2635,11 @@ addresses this by:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_striped {
+#kgufivjubq .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#ppjflwfsyz .gt_table_body {
+#kgufivjubq .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -2643,7 +2648,7 @@ addresses this by:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_footnotes {
+#kgufivjubq .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -2657,7 +2662,7 @@ addresses this by:</p>
   border-right-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_footnote {
+#kgufivjubq .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -2666,7 +2671,7 @@ addresses this by:</p>
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_sourcenotes {
+#kgufivjubq .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -2680,7 +2685,7 @@ addresses this by:</p>
   border-right-color: #D3D3D3;
 }
 
-#ppjflwfsyz .gt_sourcenote {
+#kgufivjubq .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -2688,72 +2693,72 @@ addresses this by:</p>
   padding-right: 5px;
 }
 
-#ppjflwfsyz .gt_left {
+#kgufivjubq .gt_left {
   text-align: left;
 }
 
-#ppjflwfsyz .gt_center {
+#kgufivjubq .gt_center {
   text-align: center;
 }
 
-#ppjflwfsyz .gt_right {
+#kgufivjubq .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#ppjflwfsyz .gt_font_normal {
+#kgufivjubq .gt_font_normal {
   font-weight: normal;
 }
 
-#ppjflwfsyz .gt_font_bold {
+#kgufivjubq .gt_font_bold {
   font-weight: bold;
 }
 
-#ppjflwfsyz .gt_font_italic {
+#kgufivjubq .gt_font_italic {
   font-style: italic;
 }
 
-#ppjflwfsyz .gt_super {
+#kgufivjubq .gt_super {
   font-size: 65%;
 }
 
-#ppjflwfsyz .gt_footnote_marks {
+#kgufivjubq .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#ppjflwfsyz .gt_asterisk {
+#kgufivjubq .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#ppjflwfsyz .gt_indent_1 {
+#kgufivjubq .gt_indent_1 {
   text-indent: 5px;
 }
 
-#ppjflwfsyz .gt_indent_2 {
+#kgufivjubq .gt_indent_2 {
   text-indent: 10px;
 }
 
-#ppjflwfsyz .gt_indent_3 {
+#kgufivjubq .gt_indent_3 {
   text-indent: 15px;
 }
 
-#ppjflwfsyz .gt_indent_4 {
+#kgufivjubq .gt_indent_4 {
   text-indent: 20px;
 }
 
-#ppjflwfsyz .gt_indent_5 {
+#kgufivjubq .gt_indent_5 {
   text-indent: 25px;
 }
 
-#ppjflwfsyz .katex-display {
+#kgufivjubq .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#ppjflwfsyz div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#kgufivjubq div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -2787,7 +2792,7 @@ addresses this by:</p>
       <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="HR-(95%-CI)">
 <span class="gt_from_md">HR<br>(95% CI)<sup>†</sup></span><span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>1</sup></span>
 </th>
-      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="HR*">
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="HR*">
 <span class="gt_from_md">HR<sup>‡</sup><br>(95% CI)</span><span class="gt_footnote_marks" style="white-space:nowrap;font-style:italic;font-weight:normal;line-height:0;"><sup>2</sup></span>
 </th>
     </tr>
@@ -2803,7 +2808,7 @@ addresses this by:</p>
 <td headers="m0" class="gt_row gt_right">43.7</td>
 <td headers="RMST" class="gt_row gt_right">-14</td>
 <td headers="HR-(95%-CI)" class="gt_row gt_right">1.95 (1.04, 3.67)</td>
-<td headers="HR*" class="gt_row gt_left">3.0206 (1e-04,148775.2913)</td>
+<td headers="HR*" class="gt_row gt_right">2.38 (0.00,4118613.48)</td>
 </tr>
 <tr>
 <td headers="Subgroup" class="gt_row gt_left">Recmnd</td>
@@ -2814,7 +2819,7 @@ addresses this by:</p>
 <td headers="m0" class="gt_row gt_right">52.6</td>
 <td headers="RMST" class="gt_row gt_right">9.3</td>
 <td headers="HR-(95%-CI)" class="gt_row gt_right">0.61 (0.47, 0.80)</td>
-<td headers="HR*" class="gt_row gt_left">0.75 (0.19,2.86)</td>
+<td headers="HR*" class="gt_row gt_right">0.82 (0.03,21.67)</td>
 </tr>
 </tbody>
 <tfoot>
@@ -2922,23 +2927,23 @@ helps identify potential issues:</p>
 <div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Quality metrics</span></span>
 <span><span class="va">summaries</span><span class="op">$</span><span class="va">diagnostics_table_gt</span></span></code></pre></div>
-<div id="knzabjqler" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#knzabjqler table {
+<div id="txvafbsnay" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#txvafbsnay table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#knzabjqler thead, #knzabjqler tbody, #knzabjqler tfoot, #knzabjqler tr, #knzabjqler td, #knzabjqler th {
+#txvafbsnay thead, #txvafbsnay tbody, #txvafbsnay tfoot, #txvafbsnay tr, #txvafbsnay td, #txvafbsnay th {
   border-style: none;
 }
 
-#knzabjqler p {
+#txvafbsnay p {
   margin: 0;
   padding: 0;
 }
 
-#knzabjqler .gt_table {
+#txvafbsnay .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -2964,12 +2969,12 @@ helps identify potential issues:</p>
   border-left-color: #D3D3D3;
 }
 
-#knzabjqler .gt_caption {
+#txvafbsnay .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#knzabjqler .gt_title {
+#txvafbsnay .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -2981,7 +2986,7 @@ helps identify potential issues:</p>
   border-bottom-width: 0;
 }
 
-#knzabjqler .gt_subtitle {
+#txvafbsnay .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -2993,7 +2998,7 @@ helps identify potential issues:</p>
   border-top-width: 0;
 }
 
-#knzabjqler .gt_heading {
+#txvafbsnay .gt_heading {
   background-color: #FFFFFF;
   text-align: left;
   border-bottom-color: #FFFFFF;
@@ -3005,13 +3010,13 @@ helps identify potential issues:</p>
   border-right-color: #D3D3D3;
 }
 
-#knzabjqler .gt_bottom_border {
+#txvafbsnay .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#knzabjqler .gt_col_headings {
+#txvafbsnay .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -3026,7 +3031,7 @@ helps identify potential issues:</p>
   border-right-color: #D3D3D3;
 }
 
-#knzabjqler .gt_col_heading {
+#txvafbsnay .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -3046,7 +3051,7 @@ helps identify potential issues:</p>
   overflow-x: hidden;
 }
 
-#knzabjqler .gt_column_spanner_outer {
+#txvafbsnay .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -3058,15 +3063,15 @@ helps identify potential issues:</p>
   padding-right: 4px;
 }
 
-#knzabjqler .gt_column_spanner_outer:first-child {
+#txvafbsnay .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#knzabjqler .gt_column_spanner_outer:last-child {
+#txvafbsnay .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#knzabjqler .gt_column_spanner {
+#txvafbsnay .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -3078,11 +3083,11 @@ helps identify potential issues:</p>
   width: 100%;
 }
 
-#knzabjqler .gt_spanner_row {
+#txvafbsnay .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#knzabjqler .gt_group_heading {
+#txvafbsnay .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -3108,7 +3113,7 @@ helps identify potential issues:</p>
   text-align: left;
 }
 
-#knzabjqler .gt_empty_group_heading {
+#txvafbsnay .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -3123,15 +3128,15 @@ helps identify potential issues:</p>
   vertical-align: middle;
 }
 
-#knzabjqler .gt_from_md > :first-child {
+#txvafbsnay .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#knzabjqler .gt_from_md > :last-child {
+#txvafbsnay .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#knzabjqler .gt_row {
+#txvafbsnay .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -3150,7 +3155,7 @@ helps identify potential issues:</p>
   overflow-x: hidden;
 }
 
-#knzabjqler .gt_stub {
+#txvafbsnay .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -3163,7 +3168,7 @@ helps identify potential issues:</p>
   padding-right: 5px;
 }
 
-#knzabjqler .gt_stub_row_group {
+#txvafbsnay .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -3177,15 +3182,15 @@ helps identify potential issues:</p>
   vertical-align: top;
 }
 
-#knzabjqler .gt_row_group_first td {
+#txvafbsnay .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#knzabjqler .gt_row_group_first th {
+#txvafbsnay .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#knzabjqler .gt_summary_row {
+#txvafbsnay .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -3195,16 +3200,16 @@ helps identify potential issues:</p>
   padding-right: 5px;
 }
 
-#knzabjqler .gt_first_summary_row {
+#txvafbsnay .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#knzabjqler .gt_first_summary_row.thick {
+#txvafbsnay .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#knzabjqler .gt_last_summary_row {
+#txvafbsnay .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -3214,7 +3219,7 @@ helps identify potential issues:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#knzabjqler .gt_grand_summary_row {
+#txvafbsnay .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -3224,7 +3229,7 @@ helps identify potential issues:</p>
   padding-right: 5px;
 }
 
-#knzabjqler .gt_first_grand_summary_row {
+#txvafbsnay .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -3234,7 +3239,7 @@ helps identify potential issues:</p>
   border-top-color: #D3D3D3;
 }
 
-#knzabjqler .gt_last_grand_summary_row_top {
+#txvafbsnay .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -3244,11 +3249,11 @@ helps identify potential issues:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#knzabjqler .gt_striped {
+#txvafbsnay .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#knzabjqler .gt_table_body {
+#txvafbsnay .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -3257,7 +3262,7 @@ helps identify potential issues:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#knzabjqler .gt_footnotes {
+#txvafbsnay .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -3271,7 +3276,7 @@ helps identify potential issues:</p>
   border-right-color: #D3D3D3;
 }
 
-#knzabjqler .gt_footnote {
+#txvafbsnay .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -3280,7 +3285,7 @@ helps identify potential issues:</p>
   padding-right: 5px;
 }
 
-#knzabjqler .gt_sourcenotes {
+#txvafbsnay .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -3294,7 +3299,7 @@ helps identify potential issues:</p>
   border-right-color: #D3D3D3;
 }
 
-#knzabjqler .gt_sourcenote {
+#txvafbsnay .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -3302,72 +3307,72 @@ helps identify potential issues:</p>
   padding-right: 5px;
 }
 
-#knzabjqler .gt_left {
+#txvafbsnay .gt_left {
   text-align: left;
 }
 
-#knzabjqler .gt_center {
+#txvafbsnay .gt_center {
   text-align: center;
 }
 
-#knzabjqler .gt_right {
+#txvafbsnay .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#knzabjqler .gt_font_normal {
+#txvafbsnay .gt_font_normal {
   font-weight: normal;
 }
 
-#knzabjqler .gt_font_bold {
+#txvafbsnay .gt_font_bold {
   font-weight: bold;
 }
 
-#knzabjqler .gt_font_italic {
+#txvafbsnay .gt_font_italic {
   font-style: italic;
 }
 
-#knzabjqler .gt_super {
+#txvafbsnay .gt_super {
   font-size: 65%;
 }
 
-#knzabjqler .gt_footnote_marks {
+#txvafbsnay .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#knzabjqler .gt_asterisk {
+#txvafbsnay .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#knzabjqler .gt_indent_1 {
+#txvafbsnay .gt_indent_1 {
   text-indent: 5px;
 }
 
-#knzabjqler .gt_indent_2 {
+#txvafbsnay .gt_indent_2 {
   text-indent: 10px;
 }
 
-#knzabjqler .gt_indent_3 {
+#txvafbsnay .gt_indent_3 {
   text-indent: 15px;
 }
 
-#knzabjqler .gt_indent_4 {
+#txvafbsnay .gt_indent_4 {
   text-indent: 20px;
 }
 
-#knzabjqler .gt_indent_5 {
+#txvafbsnay .gt_indent_5 {
   text-indent: 25px;
 }
 
-#knzabjqler .katex-display {
+#txvafbsnay .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#knzabjqler div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#txvafbsnay div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -3414,12 +3419,12 @@ helps identify potential issues:</p>
 <tr>
 <td headers="Category" class="gt_row gt_left"></td>
 <td headers="Metric" class="gt_row gt_left">Bias-corrected HR</td>
-<td headers="Value" class="gt_row gt_left">3.021</td>
+<td headers="Value" class="gt_row gt_left">2.379</td>
 </tr>
 <tr>
 <td headers="Category" class="gt_row gt_left"></td>
 <td headers="Metric" class="gt_row gt_left">Bootstrap CV (%)</td>
-<td headers="Value" class="gt_row gt_left">38.5%</td>
+<td headers="Value" class="gt_row gt_left">65.2%</td>
 </tr>
 <tr>
 <td headers="Category" class="gt_row gt_left"></td>
@@ -3434,12 +3439,12 @@ helps identify potential issues:</p>
 <tr>
 <td headers="Category" class="gt_row gt_left"></td>
 <td headers="Metric" class="gt_row gt_left">Bias-corrected HR</td>
-<td headers="Value" class="gt_row gt_left">0.746</td>
+<td headers="Value" class="gt_row gt_left">0.818</td>
 </tr>
 <tr>
 <td headers="Category" class="gt_row gt_left"></td>
 <td headers="Metric" class="gt_row gt_left">Bootstrap CV (%)</td>
-<td headers="Value" class="gt_row gt_left">18.1%</td>
+<td headers="Value" class="gt_row gt_left">64.2%</td>
 </tr>
 <tr>
 <td headers="Category" class="gt_row gt_left"></td>
@@ -3533,23 +3538,23 @@ ForestSearch algorithm. Two approaches are available:</p>
 <span>  use_gt           <span class="op">=</span> <span class="cn">TRUE</span>                                    <span class="co"># default TRUE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">metrics_tables</span></span></code></pre></div>
-<div id="tqaaomapdw" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#tqaaomapdw table {
+<div id="orehalspkz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#orehalspkz table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#tqaaomapdw thead, #tqaaomapdw tbody, #tqaaomapdw tfoot, #tqaaomapdw tr, #tqaaomapdw td, #tqaaomapdw th {
+#orehalspkz thead, #orehalspkz tbody, #orehalspkz tfoot, #orehalspkz tr, #orehalspkz td, #orehalspkz th {
   border-style: none;
 }
 
-#tqaaomapdw p {
+#orehalspkz p {
   margin: 0;
   padding: 0;
 }
 
-#tqaaomapdw .gt_table {
+#orehalspkz .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -3575,12 +3580,12 @@ ForestSearch algorithm. Two approaches are available:</p>
   border-left-color: #D3D3D3;
 }
 
-#tqaaomapdw .gt_caption {
+#orehalspkz .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#tqaaomapdw .gt_title {
+#orehalspkz .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -3592,7 +3597,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   border-bottom-width: 0;
 }
 
-#tqaaomapdw .gt_subtitle {
+#orehalspkz .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -3604,7 +3609,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   border-top-width: 0;
 }
 
-#tqaaomapdw .gt_heading {
+#orehalspkz .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -3616,13 +3621,13 @@ ForestSearch algorithm. Two approaches are available:</p>
   border-right-color: #D3D3D3;
 }
 
-#tqaaomapdw .gt_bottom_border {
+#orehalspkz .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#tqaaomapdw .gt_col_headings {
+#orehalspkz .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -3637,7 +3642,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   border-right-color: #D3D3D3;
 }
 
-#tqaaomapdw .gt_col_heading {
+#orehalspkz .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -3657,7 +3662,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   overflow-x: hidden;
 }
 
-#tqaaomapdw .gt_column_spanner_outer {
+#orehalspkz .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -3669,15 +3674,15 @@ ForestSearch algorithm. Two approaches are available:</p>
   padding-right: 4px;
 }
 
-#tqaaomapdw .gt_column_spanner_outer:first-child {
+#orehalspkz .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#tqaaomapdw .gt_column_spanner_outer:last-child {
+#orehalspkz .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#tqaaomapdw .gt_column_spanner {
+#orehalspkz .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -3689,11 +3694,11 @@ ForestSearch algorithm. Two approaches are available:</p>
   width: 100%;
 }
 
-#tqaaomapdw .gt_spanner_row {
+#orehalspkz .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#tqaaomapdw .gt_group_heading {
+#orehalspkz .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -3719,7 +3724,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   text-align: left;
 }
 
-#tqaaomapdw .gt_empty_group_heading {
+#orehalspkz .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -3734,15 +3739,15 @@ ForestSearch algorithm. Two approaches are available:</p>
   vertical-align: middle;
 }
 
-#tqaaomapdw .gt_from_md > :first-child {
+#orehalspkz .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#tqaaomapdw .gt_from_md > :last-child {
+#orehalspkz .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#tqaaomapdw .gt_row {
+#orehalspkz .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -3761,7 +3766,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   overflow-x: hidden;
 }
 
-#tqaaomapdw .gt_stub {
+#orehalspkz .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -3774,7 +3779,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   padding-right: 5px;
 }
 
-#tqaaomapdw .gt_stub_row_group {
+#orehalspkz .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -3788,15 +3793,15 @@ ForestSearch algorithm. Two approaches are available:</p>
   vertical-align: top;
 }
 
-#tqaaomapdw .gt_row_group_first td {
+#orehalspkz .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#tqaaomapdw .gt_row_group_first th {
+#orehalspkz .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#tqaaomapdw .gt_summary_row {
+#orehalspkz .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -3806,16 +3811,16 @@ ForestSearch algorithm. Two approaches are available:</p>
   padding-right: 5px;
 }
 
-#tqaaomapdw .gt_first_summary_row {
+#orehalspkz .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#tqaaomapdw .gt_first_summary_row.thick {
+#orehalspkz .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#tqaaomapdw .gt_last_summary_row {
+#orehalspkz .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -3825,7 +3830,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#tqaaomapdw .gt_grand_summary_row {
+#orehalspkz .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -3835,7 +3840,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   padding-right: 5px;
 }
 
-#tqaaomapdw .gt_first_grand_summary_row {
+#orehalspkz .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -3845,7 +3850,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   border-top-color: #D3D3D3;
 }
 
-#tqaaomapdw .gt_last_grand_summary_row_top {
+#orehalspkz .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -3855,11 +3860,11 @@ ForestSearch algorithm. Two approaches are available:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#tqaaomapdw .gt_striped {
+#orehalspkz .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#tqaaomapdw .gt_table_body {
+#orehalspkz .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -3868,7 +3873,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   border-bottom-color: #D3D3D3;
 }
 
-#tqaaomapdw .gt_footnotes {
+#orehalspkz .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -3882,7 +3887,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   border-right-color: #D3D3D3;
 }
 
-#tqaaomapdw .gt_footnote {
+#orehalspkz .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -3891,7 +3896,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   padding-right: 5px;
 }
 
-#tqaaomapdw .gt_sourcenotes {
+#orehalspkz .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -3905,7 +3910,7 @@ ForestSearch algorithm. Two approaches are available:</p>
   border-right-color: #D3D3D3;
 }
 
-#tqaaomapdw .gt_sourcenote {
+#orehalspkz .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -3913,72 +3918,72 @@ ForestSearch algorithm. Two approaches are available:</p>
   padding-right: 5px;
 }
 
-#tqaaomapdw .gt_left {
+#orehalspkz .gt_left {
   text-align: left;
 }
 
-#tqaaomapdw .gt_center {
+#orehalspkz .gt_center {
   text-align: center;
 }
 
-#tqaaomapdw .gt_right {
+#orehalspkz .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#tqaaomapdw .gt_font_normal {
+#orehalspkz .gt_font_normal {
   font-weight: normal;
 }
 
-#tqaaomapdw .gt_font_bold {
+#orehalspkz .gt_font_bold {
   font-weight: bold;
 }
 
-#tqaaomapdw .gt_font_italic {
+#orehalspkz .gt_font_italic {
   font-style: italic;
 }
 
-#tqaaomapdw .gt_super {
+#orehalspkz .gt_super {
   font-size: 65%;
 }
 
-#tqaaomapdw .gt_footnote_marks {
+#orehalspkz .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#tqaaomapdw .gt_asterisk {
+#orehalspkz .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#tqaaomapdw .gt_indent_1 {
+#orehalspkz .gt_indent_1 {
   text-indent: 5px;
 }
 
-#tqaaomapdw .gt_indent_2 {
+#orehalspkz .gt_indent_2 {
   text-indent: 10px;
 }
 
-#tqaaomapdw .gt_indent_3 {
+#orehalspkz .gt_indent_3 {
   text-indent: 15px;
 }
 
-#tqaaomapdw .gt_indent_4 {
+#orehalspkz .gt_indent_4 {
   text-indent: 20px;
 }
 
-#tqaaomapdw .gt_indent_5 {
+#orehalspkz .gt_indent_5 {
   text-indent: 25px;
 }
 
-#tqaaomapdw .katex-display {
+#orehalspkz .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#tqaaomapdw div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#orehalspkz div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -4823,23 +4828,23 @@ stability</li>
 <tbody class="gt_table_body">
 <tr>
 <td headers="Analysis" class="gt_row gt_left">GRF</td>
-<td headers="Seconds" class="gt_row gt_right">1.0</td>
+<td headers="Seconds" class="gt_row gt_right">1.3</td>
 <td headers="Minutes" class="gt_row gt_right">0.0</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">ForestSearch</td>
-<td headers="Seconds" class="gt_row gt_right">4.2</td>
+<td headers="Seconds" class="gt_row gt_right">4.9</td>
 <td headers="Minutes" class="gt_row gt_right">0.1</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">Bootstrap</td>
-<td headers="Seconds" class="gt_row gt_right">6.9</td>
+<td headers="Seconds" class="gt_row gt_right">8.5</td>
 <td headers="Minutes" class="gt_row gt_right">0.1</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">Total</td>
-<td headers="Seconds" class="gt_row gt_right">21.9</td>
-<td headers="Minutes" class="gt_row gt_right">0.4</td>
+<td headers="Seconds" class="gt_row gt_right">28.3</td>
+<td headers="Minutes" class="gt_row gt_right">0.5</td>
 </tr>
 </tbody>
 </table>
@@ -4910,9 +4915,9 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 <span><span class="co">## </span></span>
 <span><span class="co">## other attached packages:</span></span>
 <span><span class="co">##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.4.0     </span></span>
-<span><span class="co">##  [4] future_1.80.0       foreach_1.5.2       policytree_1.2.5   </span></span>
-<span><span class="co">##  [7] grf_2.6.1           gt_1.4.0            ggplot2_4.0.3      </span></span>
-<span><span class="co">## [10] data.table_1.18.6.1 survival_3.8-12     forestsearch_0.4.0 </span></span>
+<span><span class="co">##  [4] future_1.82.0       foreach_1.5.2       policytree_1.2.5   </span></span>
+<span><span class="co">##  [7] grf_2.6.1           gt_1.4.0            ggplot2_4.0.4      </span></span>
+<span><span class="co">## [10] data.table_1.18.6.1 survival_3.8-12     forestsearch_0.5.0 </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## loaded via a namespace (and not attached):</span></span>
 <span><span class="co">##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.62           </span></span>
@@ -4922,22 +4927,22 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 <span><span class="co">## [13] pkgconfig_2.0.3      Matrix_1.7-6         forestploter_1.2.0  </span></span>
 <span><span class="co">## [16] RColorBrewer_1.1-3   S7_0.2.2             desc_1.4.3          </span></span>
 <span><span class="co">## [19] lifecycle_1.0.5      compiler_4.6.2       farver_2.1.2        </span></span>
-<span><span class="co">## [22] textshaping_1.0.5    codetools_0.2-20     litedown_0.11       </span></span>
+<span><span class="co">## [22] textshaping_1.0.5    codetools_0.2-20     litedown_1.0        </span></span>
 <span><span class="co">## [25] htmltools_0.5.9      sass_0.4.10          yaml_2.3.12         </span></span>
 <span><span class="co">## [28] glmnet_5.2           pillar_1.11.1        pkgdown_2.2.1       </span></span>
 <span><span class="co">## [31] jquerylib_0.1.4      cachem_1.1.0         iterators_1.0.14    </span></span>
-<span><span class="co">## [34] parallelly_1.48.0    commonmark_2.0.0     tidyselect_1.2.1    </span></span>
-<span><span class="co">## [37] digest_0.6.39        mvtnorm_1.4-2        dplyr_1.2.1         </span></span>
-<span><span class="co">## [40] listenv_1.1.0        labeling_0.4.3       splines_4.6.2       </span></span>
-<span><span class="co">## [43] fastmap_1.2.0        grid_4.6.2           cli_3.6.6           </span></span>
-<span><span class="co">## [46] magrittr_2.0.5       DiagrammeR_1.0.12    randomForest_4.7-1.2</span></span>
-<span><span class="co">## [49] future.apply_1.21.0  withr_3.0.3          scales_1.4.0        </span></span>
-<span><span class="co">## [52] rmarkdown_2.32       globals_0.20.0       otel_0.2.0          </span></span>
-<span><span class="co">## [55] gridExtra_2.3.1      progressr_1.1.0      ragg_1.5.2          </span></span>
-<span><span class="co">## [58] evaluate_1.0.5       knitr_1.52           markdown_2.1        </span></span>
-<span><span class="co">## [61] rlang_1.3.0          Rcpp_1.1.2           glue_1.8.1          </span></span>
-<span><span class="co">## [64] xml2_1.6.0           rstudioapi_0.19.0    jsonlite_2.0.0      </span></span>
-<span><span class="co">## [67] R6_2.6.1             systemfonts_1.3.2    fs_2.1.0</span></span></code></pre>
+<span><span class="co">## [34] parallelly_1.50.0    tidyselect_1.2.1     digest_0.6.39       </span></span>
+<span><span class="co">## [37] mvtnorm_1.4-2        dplyr_1.2.1          listenv_1.1.0       </span></span>
+<span><span class="co">## [40] labeling_0.4.3       splines_4.6.2        fastmap_1.2.0       </span></span>
+<span><span class="co">## [43] grid_4.6.2           cli_3.6.6            magrittr_2.0.5      </span></span>
+<span><span class="co">## [46] DiagrammeR_1.0.12    randomForest_4.7-1.2 future.apply_1.21.0 </span></span>
+<span><span class="co">## [49] withr_3.0.3          scales_1.4.0         rmarkdown_2.32      </span></span>
+<span><span class="co">## [52] globals_0.20.0       otel_0.3.0           gridExtra_2.3.1     </span></span>
+<span><span class="co">## [55] progressr_1.1.0      ragg_1.5.2           evaluate_1.0.5      </span></span>
+<span><span class="co">## [58] knitr_1.52           markdown_2.1         rlang_1.3.0         </span></span>
+<span><span class="co">## [61] Rcpp_1.1.2           glue_1.8.1           xml2_1.6.0          </span></span>
+<span><span class="co">## [64] rstudioapi_0.19.0    jsonlite_2.0.0       R6_2.6.1            </span></span>
+<span><span class="co">## [67] systemfonts_1.3.2    fs_2.1.0</span></span></code></pre>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

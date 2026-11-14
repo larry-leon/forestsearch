@@ -2,7 +2,7 @@
 
 ### Getting Started
 
-- [Interpretable subgroup identification with
+- [Getting started with
   forestsearch](https://larry-leon.github.io/forestsearch/articles/forestsearch.md):
 
 ### Methodology
@@ -15,6 +15,8 @@ Technical details on the statistical methods
 
 Inference for trial estimands after data-driven subgroup discovery
 
+- [Interpretable subgroup identification with
+  forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.md):
 - [Post-selection inference for an identified survival
   subgroup](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.md):
 - [Post-selection bounds on a nested continuum: the Guo and He (2021)
@@ -42,6 +44,17 @@ Operating characteristics and published benchmarks
   Usage](https://larry-leon.github.io/forestsearch/articles/paper_simulations.md):
 - [Extreme Subgroup Effects Under a Uniform Treatment
   Benefit](https://larry-leon.github.io/forestsearch/articles/extreme_subgroups.md):
+
+### MRCT consistency
+
+Regional consistency in multiregional trials: a harmed subgroup
+identified outside the region and applied inside it, with the analytic
+layer and the simulation campaign.
+
+- [MRCT regional consistency via subgroup
+  identification](https://larry-leon.github.io/forestsearch/articles/mrct-consistency.md):
+- [MRCT regional consistency:
+  simulations](https://larry-leon.github.io/forestsearch/articles/mrct-consistency-simulations.md):
 
 ### Reference
 

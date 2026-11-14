@@ -300,6 +300,8 @@ Cut point generation, dummy variable creation, and variable selection.
 
 - [`get_dfpred()`](https://larry-leon.github.io/forestsearch/reference/get_dfpred.md)
   : Generate Prediction Dataset with Subgroup Treatment Recommendation
+- [`fs_in_subgroup()`](https://larry-leon.github.io/forestsearch/reference/fs_in_subgroup.md)
+  : Membership of a forestsearch fit's declared subgroup
 - [`dummy_encode()`](https://larry-leon.github.io/forestsearch/reference/dummy_encode.md)
   : Dummy-code a data frame (numeric pass-through, factors expanded)
 - [`add_id_column()`](https://larry-leon.github.io/forestsearch/reference/add_id_column.md)
@@ -321,7 +323,7 @@ Cut point generation, dummy variable creation, and variable selection.
 - [`cut_var()`](https://larry-leon.github.io/forestsearch/reference/cut_var.md)
   : Generate cut expressions for a variable
 - [`lasso_selection()`](https://larry-leon.github.io/forestsearch/reference/lasso_selection.md)
-  : LASSO selection for Cox model
+  : LASSO selection for survival and GLM outcomes
 - [`filter_by_lassokeep()`](https://larry-leon.github.io/forestsearch/reference/filter_by_lassokeep.md)
   : Filter a vector by LASSO-selected variables
 
@@ -348,8 +350,6 @@ studies with configurable treatment effect heterogeneity.
   Subgroups
 - [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
   : Set Up a GBSG-Based AFT Data Generating Mechanism
-- [`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
-  : Create GBSG-Based AFT Data Generating Mechanism
 - [`print(`*`<gbsg_dgm>`*`)`](https://larry-leon.github.io/forestsearch/reference/print.gbsg_dgm.md)
   : Print Method for gbsg_dgm Objects
 - [`compute_dgm_cde()`](https://larry-leon.github.io/forestsearch/reference/compute_dgm_cde.md)
@@ -358,10 +358,6 @@ studies with configurable treatment effect heterogeneity.
   : Create Data Generating Mechanism for MRCT Simulations
 - [`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
   : Simulate Survival Data from AFT Data Generating Mechanism
-- [`simulate_from_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_gbsg_dgm.md)
-  : Simulate Trial Data from GBSG DGM
-- [`get_dgm_with_output()`](https://larry-leon.github.io/forestsearch/reference/get_dgm_with_output.md)
-  : Create DGM with Output File Path
 - [`calibrate_cens_adjust()`](https://larry-leon.github.io/forestsearch/reference/calibrate_cens_adjust.md)
   : Calibrate Censoring Adjustment to Match DGM Reference Distribution
 - [`check_censoring_dgm()`](https://larry-leon.github.io/forestsearch/reference/check_censoring_dgm.md)
@@ -417,6 +413,50 @@ analysis with regional consistency evaluation.
   : Summary Tables for MRCT Simulation Results
 - [`validate_mrct_data()`](https://larry-leon.github.io/forestsearch/reference/validate_mrct_data.md)
   : Validate Dataset for MRCT Simulations
+
+## MRCT Consistency: Analytic Layer & Case Study
+
+Population average hazard ratios and their design-based limits, hazard
+scaling of a DGM, and helpers to find and examine an MRCT case-study
+trial.
+
+- [`ahr_population()`](https://larry-leon.github.io/forestsearch/reference/ahr_population.md)
+  [`print(`*`<ahr_population>`*`)`](https://larry-leon.github.io/forestsearch/reference/ahr_population.md)
+  : The population of the analytic layer
+- [`ahr_limit()`](https://larry-leon.github.io/forestsearch/reference/ahr_limit.md)
+  : The exact limit of the two-sample Cox estimate on a patient set
+- [`ahr_design()`](https://larry-leon.github.io/forestsearch/reference/ahr_design.md)
+  : Design quantities and trigger probabilities at a trial size
+- [`ahr_solve()`](https://larry-leon.github.io/forestsearch/reference/ahr_solve.md)
+  : Solve P(trigger) = target in one free parameter
+- [`ahr_truths_table()`](https://larry-leon.github.io/forestsearch/reference/ahr_tables.md)
+  [`ahr_design_table()`](https://larry-leon.github.io/forestsearch/reference/ahr_tables.md)
+  : Tables of the MRCT analytic layer, over cells and sets
+- [`scale_dgm_hazard()`](https://larry-leon.github.io/forestsearch/reference/scale_dgm_hazard.md)
+  : Multiply every hazard of a Weibull AFT DGM by a constant
+- [`mrct_core_summary()`](https://larry-leon.github.io/forestsearch/reference/mrct_core_summary.md)
+  : Core operating characteristics of an MRCT simulation campaign
+- [`mrct_select_case()`](https://larry-leon.github.io/forestsearch/reference/mrct_select_case.md)
+  : Select a case-study trial from an MRCT simulation
+- [`mrct_case_study()`](https://larry-leon.github.io/forestsearch/reference/mrct_case_study.md)
+  : Redraw and examine one trial of an MRCT simulation
+- [`print(`*`<mrct_case_study>`*`)`](https://larry-leon.github.io/forestsearch/reference/print.mrct_case_study.md)
+  : Print an MRCT case study
+- [`plot(`*`<mrct_case_study>`*`)`](https://larry-leon.github.io/forestsearch/reference/plot.mrct_case_study.md)
+  : Plot an MRCT case study
+- [`mrct_trial_analysis()`](https://larry-leon.github.io/forestsearch/reference/mrct_trial_analysis.md)
+  [`print(`*`<mrct_trial_analysis>`*`)`](https://larry-leon.github.io/forestsearch/reference/mrct_trial_analysis.md)
+  [`plot(`*`<mrct_trial_analysis>`*`)`](https://larry-leon.github.io/forestsearch/reference/mrct_trial_analysis.md)
+  : Regional-consistency analysis of an observed multiregional trial
+- [`mrct_four_sets()`](https://larry-leon.github.io/forestsearch/reference/mrct_four_sets.md)
+  [`print(`*`<mrct_four_sets>`*`)`](https://larry-leon.github.io/forestsearch/reference/mrct_four_sets.md)
+  [`as.data.frame(`*`<mrct_four_sets>`*`)`](https://larry-leon.github.io/forestsearch/reference/mrct_four_sets.md)
+  [`plot(`*`<mrct_four_sets>`*`)`](https://larry-leon.github.io/forestsearch/reference/mrct_four_sets.md)
+  : The four patient sets of a regional-consistency analysis
+- [`mrct_record()`](https://larry-leon.github.io/forestsearch/reference/mrct_record.md)
+  : Read a shipped record of the MRCT consistency campaign
+- [`mrct_build_dgm()`](https://larry-leon.github.io/forestsearch/reference/mrct_build_dgm.md)
+  : Build an MRCT data-generating mechanism, keeping its warnings
 
 ## Formatting & Estimation Helpers
 
@@ -598,6 +638,9 @@ above.
   : Calibrated declaration threshold and family-wise size of the p-star
   screen
 
+- [`fs_declaration_table()`](https://larry-leon.github.io/forestsearch/reference/fs_declaration_table.md)
+  : Declaration at a protected level, as a table
+
 - [`fs_dgm_feasibility()`](https://larry-leon.github.io/forestsearch/reference/fs_dgm_feasibility.md)
   [`print(`*`<fs_dgm_feasibility>`*`)`](https://larry-leon.github.io/forestsearch/reference/fs_dgm_feasibility.md)
   : Design-time feasibility of a DGM's planted region
@@ -702,6 +745,14 @@ above.
 
 - [`mr_estimates_table()`](https://larry-leon.github.io/forestsearch/reference/mr_estimates_table.md)
   : Multiplier-resampling (MR) estimates table (bootstrap-table format)
+
+- [`mr_values()`](https://larry-leon.github.io/forestsearch/reference/mr_values.md)
+  : Multiplier-resampling (MR) inference quantities as a tidy data frame
+
+- [`mr_method_comparison()`](https://larry-leon.github.io/forestsearch/reference/mr_method_tables.md)
+  [`mr_cost_table()`](https://larry-leon.github.io/forestsearch/reference/mr_method_tables.md)
+  : Naive, bootstrap and multiplier estimates, side by side, and their
+  cost
 
 - [`mrct_truth_by_region()`](https://larry-leon.github.io/forestsearch/reference/mrct_truth_by_region.md)
   : Truth by region on the super-population: prevalence, x_pred shift,

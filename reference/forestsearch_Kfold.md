@@ -35,7 +35,9 @@ forestsearch_Kfold(
 
 - Kfolds:
 
-  Integer. Number of folds (default: `nrow(fs.est$df.est)` for LOO).
+  Integer. Number of folds (default: `nrow(fs.est$df.est)` for LOO; when
+  no subgroup was found, the number of rows of the original analysis
+  data).
 
 - seedit:
 

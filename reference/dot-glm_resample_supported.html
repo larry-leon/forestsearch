@@ -3,13 +3,21 @@
 model coefficient with a well-defined influence function. That holds for
 OR/RR (logistic / log-binomial), RD (identity-link binomial), MD (OLS), and
 IRR (Poisson with offset). It does not hold for IRD (a delta-method rate
-difference) or propensity-adjusted (IPTW / G-computation) effects, for which
-the caller falls back to literal splitting."><meta property="og:description" content="The resampling approximation requires the treatment effect to be a single
+difference), for which the caller falls back to literal splitting.
+The decision reads spec$effect_measure only.  The spec carries no
+propensity setting, so a propensity-adjusted (IPTW / G-computation)
+analysis with a supported measure also takes the resampling path, whose
+model is fitted without the propensity weights (see
+.consistency_glm_pieces())."><meta property="og:description" content="The resampling approximation requires the treatment effect to be a single
 model coefficient with a well-defined influence function. That holds for
 OR/RR (logistic / log-binomial), RD (identity-link binomial), MD (OLS), and
 IRR (Poisson with offset). It does not hold for IRD (a delta-method rate
-difference) or propensity-adjusted (IPTW / G-computation) effects, for which
-the caller falls back to literal splitting."></head><body>
+difference), for which the caller falls back to literal splitting.
+The decision reads spec$effect_measure only.  The spec carries no
+propensity setting, so a propensity-adjusted (IPTW / G-computation)
+analysis with a supported measure also takes the resampling path, whose
+model is fitted without the propensity weights (see
+.consistency_glm_pieces())."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -17,7 +25,7 @@ the caller falls back to literal splitting."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,6 +40,7 @@ the caller falls back to literal splitting."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -40,6 +49,10 @@ the caller falls back to literal splitting."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -65,8 +78,12 @@ the caller falls back to literal splitting."></head><body>
 model coefficient with a well-defined influence function. That holds for
 OR/RR (logistic / log-binomial), RD (identity-link binomial), MD (OLS), and
 IRR (Poisson with offset). It does not hold for IRD (a delta-method rate
-difference) or propensity-adjusted (IPTW / G-computation) effects, for which
-the caller falls back to literal splitting.</p>
+difference), for which the caller falls back to literal splitting.
+The decision reads <code>spec$effect_measure</code> only.  The spec carries no
+propensity setting, so a propensity-adjusted (IPTW / G-computation)
+analysis with a supported measure also takes the resampling path, whose
+model is fitted without the propensity weights (see
+<code><a href="dot-consistency_glm_pieces.html">.consistency_glm_pieces()</a></code>).</p>
     </div>
 
     <div class="section level2">

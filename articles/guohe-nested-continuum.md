@@ -18,6 +18,22 @@ R_out     <- 1000L       # field: outer Monte Carlo (manuscript: 1000L)
 R_in      <- 500L        # field: inner Monte Carlo (manuscript: 500L)
 n_big     <- 2e5         # large-sample size for the truth curve (manuscript: 2e6)
 n_workers <- min(2L, future::availableCores())   # set to your cores for a real run
+```
+
+    Warning in warn_future_reexport_deprecation("availableCores"):
+    future::availableCores() is deprecated. Please use the identical
+    parallelly::availableCores() instead [.main() -> execute() ->
+    rmarkdown::render() -> knitr::knit() -> knitr::process_file() ->
+    xfun:::handle_error() -> knitr::with_options() -> base::withCallingHandlers()
+    -> knitr::process_group() -> knitr::call_block() -> knitr::block_exec() ->
+    knitr::eng_r() -> knitr::in_input_dir() -> knitr::in_dir() -> knitr::evaluate()
+    -> evaluate::evaluate() -> base::withRestarts() -> withRestartList() ->
+    withOneRestart() -> doWithOneRestart() -> withRestartList() -> withOneRestart()
+    -> doWithOneRestart() -> evaluate::with_handlers() -> base::eval() -> eval() ->
+    base::withCallingHandlers() -> base::withVisible() -> base::eval() -> eval() ->
+    future::availableCores()]
+
+``` r
 
 # This article is written for the current CRAN release of forestsearch; the
 # two functions it uses are exported from 0.4.0 on.
@@ -235,7 +251,7 @@ knitr::kable(data.frame(
 |   0.0 | -0.0140             | -1.48                 | 0.0000   | exact zero          |
 |   0.3 | 0.2967              | -0.36                 | 0.1484   | isotonic projection |
 
-The truth curve by cell (n_big = 200,000; 16.8 s). {.table .caption-top}
+The truth curve by cell (n_big = 200,000; 19.3 s). {.table .caption-top}
 
 ## The four bounds on $`\hat H`$, and the complement
 
@@ -387,7 +403,7 @@ knitr::kable(walk, col.names = c("", "hazard-ratio scale"), row.names = FALSE,
 | Bonferroni pair: lower on H-hat / upper on H-hat^c (0.975 a side) | 1.01 / 1.35 |
 
 Replicate 1, beta_2 = 0.3, at the manuscript’s settings (141 candidates;
-54 s). {.table .caption-top}
+90 s). {.table .caption-top}
 
 The argmax selected $`\hat c`$ = 35.5, an overshoot of 5.5 beyond the
 true boundary, so $`\hat H`$ holds 176 subjects against about 150 in
@@ -793,11 +809,11 @@ knitr::kable(data.frame(
 
 | cell | replicates | seconds | seconds per replicate (wall, across workers) |
 |:---|---:|---:|---:|
-| beta_2 = 0.0 | 25 | 102.3 | 4.1 |
-| beta_2 = 0.3 | 25 | 107.0 | 4.3 |
+| beta_2 = 0.0 | 25 | 167.4 | 6.7 |
+| beta_2 = 0.3 | 25 | 169.6 | 6.8 |
 
 Wall-clock of this article’s run on 2 workers (Guo and He at B = 200; MR
-at 5000 draws, field 1000 x 500; truth curves 16.8 s in addition).
+at 5000 draws, field 1000 x 500; truth curves 19.3 s in addition).
 {.table .caption-top}
 
 ## The manuscript’s results
@@ -1195,8 +1211,8 @@ sessionInfo()
     #> [1] stats     graphics  grDevices utils     datasets  methods   base
     #>
     #> other attached packages:
-    #> [1] future.apply_1.21.0 future_1.80.0       survival_3.8-12
-    #> [4] forestsearch_0.4.0
+    #> [1] future.apply_1.21.0 future_1.82.0       survival_3.8-12
+    #> [4] forestsearch_0.5.0
     #>
     #> loaded via a namespace (and not attached):
     #>  [1] gt_1.4.0             generics_0.1.4       xml2_1.6.0
@@ -1207,10 +1223,10 @@ sessionInfo()
     #> [16] fastmap_1.2.0        foreach_1.5.2        jsonlite_2.0.0
     #> [19] Matrix_1.7-6         glmnet_5.2           scales_1.4.0
     #> [22] weightedsurv_0.1.0   codetools_0.2-20     cli_3.6.6
-    #> [25] rlang_1.3.0          parallelly_1.48.0    splines_4.6.2
-    #> [28] yaml_2.3.12          otel_0.2.0           tools_4.6.2
+    #> [25] rlang_1.3.0          parallelly_1.50.0    splines_4.6.2
+    #> [28] yaml_2.3.12          otel_0.3.0           tools_4.6.2
     #> [31] parallel_4.6.2       doFuture_1.4.0       dplyr_1.2.1
-    #> [34] ggplot2_4.0.3        globals_0.20.0       vctrs_0.7.3
+    #> [34] ggplot2_4.0.4        globals_0.20.0       vctrs_0.7.3
     #> [37] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2
     #> [40] fs_2.1.0             pkgconfig_2.0.3      progressr_1.1.0
     #> [43] pillar_1.11.1        gtable_0.3.6         data.table_1.18.6.1

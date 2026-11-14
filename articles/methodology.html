@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@
 <li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -47,6 +48,10 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul>
@@ -70,7 +75,7 @@
       <h1>Methodology</h1>
       <p class="subtitle">Exploratory Subgroup Identification with Bootstrap Bias Correction</p>
       <p class="author">Larry F. Leon, Thomas Jemielita, Zifang Guo, Rachel Marceau West, Keaven M. Anderson</p>
-      <p class="date">2026-10-31</p>
+      <p class="date">2026-11-14</p>
 
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/methodology.qmd" class="external-link"><code>vignettes/articles/methodology.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -82,7 +87,7 @@
 
 
     <blockquote>
-<p><strong>About this article (updated October 2026).</strong> This article describes the methodology of León, Jemielita, Guo, Marceau West and Anderson (2024), <em>Statistics in Medicine</em>, <a href="https://doi.org/10.1002/sim.10163" class="external-link uri">https://doi.org/10.1002/sim.10163</a>, as the package first implemented it: the split-sample consistency screen evaluated by random half-splits, bootstrap bias correction, and GRF variable-importance screening of the candidate factors. The current package evaluates the consistency screen in closed form (<code>consistency_method = "resample"</code>, the default; random half-splitting is only the fallback, so <code>fs.splits</code> has no effect otherwise), reports selection-adjusted estimates and one-sided bounds by multiplier resampling (<code>mr_inference = TRUE</code>; León and Anderson 2026a, arXiv:2609.38361), and calibrates the declaration of a subgroup at a protected level (León and Anderson 2026b, arXiv:2610.28379). The GRF variable-importance screen is removed as of 0.4.1 (<code>vi.grf.min</code> is deprecated and has no effect). The current methodology is documented in <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> and the <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection article</a>; the argument listings below are kept for the 2024 workflow and are not the complete current signature of <code><a href="../reference/forestsearch.html">forestsearch()</a></code> — see <code><a href="../reference/forestsearch.html">?forestsearch</a></code>. Where a statement below has been superseded, a <strong>2026 note</strong> at that point says what the current method does and where it is documented.</p>
+<p><strong>About this article (updated October 2026).</strong> This article describes the methodology of León, Jemielita, Guo, Marceau West and Anderson (2024), <em>Statistics in Medicine</em>, <a href="https://doi.org/10.1002/sim.10163" class="external-link uri">https://doi.org/10.1002/sim.10163</a>, as the package first implemented it: the split-sample consistency screen evaluated by random half-splits, bootstrap bias correction, and GRF variable-importance screening of the candidate factors. The current package evaluates the consistency screen in closed form (<code>consistency_method = "resample"</code>, the default; random half-splitting is only the fallback, so <code>fs.splits</code> has no effect otherwise), reports selection-adjusted estimates and one-sided bounds by multiplier resampling (<code>mr_inference = TRUE</code>; León and Anderson 2026a, arXiv:2609.38361), and calibrates the declaration of a subgroup at a protected level (León and Anderson 2026b, arXiv:2610.28379). The GRF variable-importance screen is removed as of 0.4.1 (<code>vi.grf.min</code> is deprecated and has no effect). The current methodology is documented in the article <a href="https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html">Interpretable subgroup identification with forestsearch</a> and the <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection article</a>; the argument listings below are kept for the 2024 workflow and are not the complete current signature of <code><a href="../reference/forestsearch.html">forestsearch()</a></code> — see <code><a href="../reference/forestsearch.html">?forestsearch</a></code>. Where a statement below has been superseded, a <strong>2026 note</strong> at that point says what the current method does and where it is documented.</p>
 </blockquote>
 <section class="level2" data-number="1"><h2 data-number="1" id="introduction">
 <span class="header-section-number">1</span> Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
@@ -139,7 +144,7 @@
 <strong>Scenario (ii):</strong> The treatment effect is uniformly beneficial, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>†</mo></msup><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">ITT</mtext><mo stretchy="false" form="postfix">)</mo><mo>&lt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\theta^{\dagger}(\text{ITT}) &lt; 1</annotation></semantics></math>, so no detrimental subgroup effects exist.</li>
 </ol>
 <blockquote>
-<p><strong>2026 note.</strong> Scenario (ii) — uniform benefit, no detrimental subgroup — is the event whose family-wise rate León and Anderson (2026b, Section 4) control: the probability that the search declares <em>any</em> subgroup when every candidate’s effect is at least a clinically specified benefit <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>c</mi><mn>0</mn></msub><annotation encoding="application/x-tex">c_0</annotation></semantics></math>. <code><a href="../reference/fs_declaration_calibration.html">fs_declaration_calibration()</a></code> reports that rate for the thresholds as executed and the calibrated cutoff that holds it at a nominal level; <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> runs it on the GBSG analysis.</p>
+<p><strong>2026 note.</strong> Scenario (ii) — uniform benefit, no detrimental subgroup — is the event whose family-wise rate León and Anderson (2026b, Section 4) control: the probability that the search declares <em>any</em> subgroup when every candidate’s effect is at least a clinically specified benefit <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>c</mi><mn>0</mn></msub><annotation encoding="application/x-tex">c_0</annotation></semantics></math>. <code><a href="../reference/fs_declaration_calibration.html">fs_declaration_calibration()</a></code> reports that rate for the thresholds as executed and the calibrated cutoff that holds it at a nominal level; the article <a href="https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html">Interpretable subgroup identification with forestsearch</a> runs it on the GBSG analysis.</p>
 </blockquote>
 </section><section class="level3" data-number="2.3"><h3 data-number="2.3" id="marginal-vs--controlled-direct-effects">
 <span class="header-section-number">2.3</span> Marginal vs. Controlled Direct Effects<a class="anchor" aria-label="anchor" href="#marginal-vs--controlled-direct-effects"></a>
@@ -1028,7 +1033,7 @@ i = 1, \ldots, N\}.
 </ul>
 <p>The bias-corrected estimate for <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>H</mi><mi>c</mi></msup><annotation encoding="application/x-tex">H^c</annotation></semantics></math> suggests a slightly stronger benefit (0.64 vs 0.69 for ITT) that is statistically significant.</p>
 <blockquote>
-<p><strong>2026 note.</strong> The same trial analysed with the current method is Table 1 of León and Anderson (2026b), run end to end in <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>: forest search returns <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">{</mo><mi>e</mi><mi>r</mi><mo>≤</mo><mn>0</mn><mo stretchy="false" form="postfix">}</mo><mo>∩</mo><mo stretchy="false" form="prefix">{</mo><mi>p</mi><mi>g</mi><mi>r</mi><mo>≤</mo><mn>26</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\{er \le 0\} \cap \{pgr \le 26\}</annotation></semantics></math> (75 patients), with a corrected hazard ratio of 1.276 and a one-sided 95% field lower bound of 0.634; the complement’s corrected hazard ratio is 0.645 with a field-s upper bound of 0.804. Each is read by its location against the trial’s own effect of 0.695 and against clinically meaningful effect sizes, not as a test at a hazard ratio of one.</p>
+<p><strong>2026 note.</strong> The same trial analysed with the current method is Table 1 of León and Anderson (2026b), run end to end in the article <a href="https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html">Interpretable subgroup identification with forestsearch</a>: forest search returns <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">{</mo><mi>e</mi><mi>r</mi><mo>≤</mo><mn>0</mn><mo stretchy="false" form="postfix">}</mo><mo>∩</mo><mo stretchy="false" form="prefix">{</mo><mi>p</mi><mi>g</mi><mi>r</mi><mo>≤</mo><mn>26</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\{er \le 0\} \cap \{pgr \le 26\}</annotation></semantics></math> (75 patients), with a corrected hazard ratio of 1.276 and a one-sided 95% field lower bound of 0.634; the complement’s corrected hazard ratio is 0.645 with a field-s upper bound of 0.804. Each is read by its location against the trial’s own effect of 0.695 and against clinically meaningful effect sizes, not as a test at a hazard ratio of one.</p>
 </blockquote>
 <p><strong>Cross-validation:</strong> N-fold CV showed perfect stability (all 686 training sets reproduced Estrogen = 0). Across 200 random 10-fold CV analyses, the median number of folds identifying a subgroup was 9/10, with <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">sensCV</mtext><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>73</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">\text{sensCV}(\widehat{H}) = 73\%</annotation></semantics></math> and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">ppvCV</mtext><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>83</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">\text{ppvCV}(\widehat{H}) = 83\%</annotation></semantics></math>.</p>
 <p><strong>Biological plausibility:</strong> Tamoxifen is a selective estrogen receptor (ER) modulator with limited efficacy in ER-negative tumors. A patient-level meta-analysis by the Early Breast Cancer Trialists’ Collaborative Group found for ER-negative (ER = 0) subjects, the event-rate ratio was 1.11 (SE = 0.13); whereas for ER-positive (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>≥</mo><mn>10</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">\ge 10\%</annotation></semantics></math>) subjects it was 0.62 (SE = 0.03).</p>
@@ -1347,12 +1352,12 @@ i = 1, \ldots, N\}.
 </table>
 <p><strong>Table:</strong> Computational timing for ForestSearch. Parallel computing is implemented via the <code>doFuture</code> package.</p>
 <blockquote>
-<p><strong>2026 note.</strong> These are 2024 timings. With the closed-form screen, the GBSG forest search of <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> — fully enumerated family, 5,000-draw multiplier-resampling inference and the field bounds included — runs in under a minute on one core, and the vignette prints its own timing. In 2026a, Section 6, the full bootstrap at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>=</mo><mn>1</mn><mo>,</mo><mn>000</mn></mrow><annotation encoding="application/x-tex">B = 1{,}000</annotation></semantics></math> took from about 72 s to about 10 min per identifier where the multiplier correction with 5,000 draws took 0.11 s to 0.38 s.</p>
+<p><strong>2026 note.</strong> These are 2024 timings. With the closed-form screen, the GBSG forest search of the article <a href="https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html">Interpretable subgroup identification with forestsearch</a> — fully enumerated family, 5,000-draw multiplier-resampling inference and the field bounds included — runs in under a minute on one core, and the article prints its own timing. In 2026a, Section 6, the full bootstrap at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>=</mo><mn>1</mn><mo>,</mo><mn>000</mn></mrow><annotation encoding="application/x-tex">B = 1{,}000</annotation></semantics></math> took from about 72 s to about 10 min per identifier where the multiplier correction with 5,000 draws took 0.11 s to 0.38 s.</p>
 </blockquote>
 </section><section class="level3" data-number="10.3"><h3 data-number="10.3" id="interpretation-guidelines">
 <span class="header-section-number">10.3</span> Interpretation Guidelines<a class="anchor" aria-label="anchor" href="#interpretation-guidelines"></a>
 </h3>
-<p>These are the 2024 guidelines. The current products are the corrected (two-term) estimate, the one-sided field lower bound on the region and the field-s upper bound on its complement, and the Bonferroni pair for a joint claim, each read by its location against the trial’s own effect and against clinically meaningful effect sizes rather than as a test at the null (León and Anderson 2026b, Sections 3 and 6.1; <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code>). Whether and how to act on a finding remains a broader judgement of benefit and risk, which the inference is meant to inform.</p>
+<p>These are the 2024 guidelines. The current products are the corrected (two-term) estimate, the one-sided field lower bound on the region and the field-s upper bound on its complement, and the Bonferroni pair for a joint claim, each read by its location against the trial’s own effect and against clinically meaningful effect sizes rather than as a test at the null (León and Anderson 2026b, Sections 3 and 6.1; the article <a href="https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html">Interpretable subgroup identification with forestsearch</a>). Whether and how to act on a finding remains a broader judgement of benefit and risk, which the inference is meant to inform.</p>
 <ol type="1">
 <li>
 <strong>Bias-corrected estimates</strong> should be reported alongside unadjusted estimates</li>
@@ -1414,11 +1419,11 @@ attached base packages:
 [1] stats     graphics  grDevices utils     datasets  methods   base
 
 other attached packages:
-[1] ggplot2_4.0.3
+[1] ggplot2_4.0.4
 
 loaded via a namespace (and not attached):
  [1] vctrs_0.7.3        cli_3.6.6          knitr_1.52         rlang_1.3.0
- [5] xfun_0.62          otel_0.2.0         generics_0.1.4     S7_0.2.2
+ [5] xfun_0.62          otel_0.3.0         generics_0.1.4     S7_0.2.2
  [9] jsonlite_2.0.0     glue_1.8.1         htmltools_0.5.9    scales_1.4.0
 [13] rmarkdown_2.32     grid_4.6.2         tibble_3.3.1       evaluate_1.0.5
 [17] fastmap_1.2.0      yaml_2.3.12        lifecycle_1.0.5    compiler_4.6.2
@@ -1436,7 +1441,8 @@ loaded via a namespace (and not attached):
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }
       // Inspect non-navigation links and adorn them if external
-     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
       for (var i=0; i<links.length; i++) {
         const link = links[i];
         if (!isInternal(link.href)) {
@@ -1445,8 +1451,69 @@ loaded via a namespace (and not attached):
           if (link.dataset.originalHref !== undefined) {
             link.href = link.dataset.originalHref;
           }
+          if (!link.classList.contains('no-external-icon')) {
+          }
         }
       }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
       const config = {
         allowHTML: true,
@@ -1460,6 +1527,7 @@ loaded via a namespace (and not attached):
         interactiveBorder: 10,
         theme: 'light-border',
         placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
       };
       if (contentFn) {
         config.content = contentFn;

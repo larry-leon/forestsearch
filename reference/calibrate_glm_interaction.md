@@ -105,7 +105,7 @@ calibrate_glm_interaction(
 - k_inter_range:
 
   Numeric vector of length 2. Search range for `k_inter`. Default
-  `c(0, 10)`.
+  `c(-10, 10)`.
 
 - grid_step:
 

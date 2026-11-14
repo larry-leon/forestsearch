@@ -28,7 +28,7 @@ data-generating mechanism summary.
 
 ``` r
 if (FALSE) { # \dontrun{
-dgm <- create_gbsg_dgm()
+dgm <- setup_gbsg_dgm()
 print(dgm)
 } # }
 ```

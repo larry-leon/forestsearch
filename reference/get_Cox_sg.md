@@ -30,8 +30,9 @@ get_Cox_sg(
 
 - cox_initial:
 
-  Optional pre-fitted Cox model object to use instead of fitting a new
-  model. Default NULL
+  Numeric. Starting value for the treatment coefficient, passed to
+  [`coxph()`](https://rdrr.io/pkg/survival/man/coxph.html) as `init`
+  when the formula has a single term. Default `log(1)`
 
 - treat.name:
 

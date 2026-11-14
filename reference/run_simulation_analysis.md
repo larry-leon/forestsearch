@@ -1,9 +1,8 @@
 # Run One Simulation Replicate
 
 General replacement for the legacy `run_simulation_analysis()` that was
-coupled to
-[`simulate_from_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_gbsg_dgm.md)
-and GBSG-specific column names. This version calls
+coupled to the legacy GBSG simulator (since removed) and GBSG-specific
+column names. This version calls
 [`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
 and accepts explicit column-name parameters, making it applicable to any
 DGM built with
@@ -245,7 +244,27 @@ detection flag (`any.H`), estimated subgroup size (`size.H`, `size.Hc`),
 effect estimates (`hr.H.hat`, `hr.Hc.hat`, `hr.itt`, and their true
 counterparts), classification metrics against the DGM-stored subgroup
 (`sens`, `spec`, `ppv`, `npv`), and pairwise concordance between methods
-(`agree.*.*`, `kappa.*.*`). As of v0.2.0 the following ForestSearch
+(`agree.*.*`, `kappa.*.*`). For a GLM outcome (`fs_params$outcome_type`
+set and not `"survival"`) `hr.itt`, `hr.H.hat`, `hr.Hc.hat`, `hr.H.true`
+and `hr.Hc.true` come from a two-arm
+[`glm()`](https://rdrr.io/r/stats/glm.html) in each set and are on the
+scale `fs_params$effect_measure` names, treatment against control: the
+odds ratio (`"OR"`) and rate ratio (`"IRR"`) are the exponentiated
+treatment coefficient and the mean difference (`"MD"`) the coefficient;
+the risk difference (`"RD"`) and risk ratio (`"RR"`) are the difference
+and ratio of the two fitted arm proportions, and the rate difference
+(`"IRD"`) the difference of the two fitted arm rates, per unit of
+exposure when the column named by `fs_params$offset.name` is in the data
+(the convention under which the `"IRR"` value is their ratio). The
+`ahr.*` truth columns
+([`compute_aor`](https://larry-leon.github.io/forestsearch/reference/compute_aor.md))
+use the same scales, with one exception: with an offset (the DGM's
+`offset_var` in
+[`generate_glm_dgm`](https://larry-leon.github.io/forestsearch/reference/generate_glm_dgm.md),
+and `fs_params$offset.name`), the `"IRD"` truth is a difference in
+expected counts per patient, over each patient's own exposure, not per
+unit of exposure (for a constant rate difference it is the mean exposure
+times the per-unit value). As of v0.2.0 the following ForestSearch
 diagnostic columns are also always populated (`NA` for GRF rows):
 
 - `sg.def`:

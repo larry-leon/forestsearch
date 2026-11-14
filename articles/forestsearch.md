@@ -1,4 +1,4 @@
-# Interpretable subgroup identification with forestsearch
+# Getting started with forestsearch
 
 ``` r
 
@@ -28,82 +28,33 @@ coefficient of the trial’s working model fitted within it, a Cox log
 hazard ratio for a time-to-event outcome. So chosen, the subgroup
 carries an estimate that overstates its effect, and the same selection
 distorts the estimate for the patients outside it. **forestsearch** is
-built for this situation.
+built for this situation. It does two things.
 
-**Identification — what the package searches for, and how**
+- **Identification.** It searches for a subgroup in the direction of a
+  sub-optimal effect — the package’s “harm” direction, a hazard ratio
+  above one for a survival outcome. Every candidate is a conjunction of
+  at most two covariate cuts, so whether a patient belongs is read from
+  the patient’s own measurements. Three identifiers share that form:
+  forest search (León et al. 2024), the causal forest of generalized
+  random forests (GRF; Athey et al. 2019, Cui et al. 2023) and the
+  difference-in-natural-parameters estimator (DINA; Gao and Hastie
+  2025).
+- **Inference after selection.** Refit-free multiplier resampling over
+  the candidate family removes the optimism of selection from the
+  estimate in the identified region and in its complement, and gives
+  one-sided bounds on both (León and Anderson 2026a, 2026b).
 
-- **Interpretable candidates.** Every candidate subgroup is a
-  conjunction of at most two covariate cuts, so whether a patient
-  belongs is read from the patient’s own measurements.
-- **Three identifiers, one form.** Forest search (León et al. 2024), the
-  causal forest of generalized random forests (GRF; Athey et al. 2019,
-  Cui et al. 2023) and the difference-in-natural-parameters estimator
-  (DINA; Gao and Hastie 2025) each score a family of candidates by an
-  estimated treatment effect, admit those whose standard-analysis
-  estimate $`\hat\beta(g)`$ clears a threshold common to all three, and
-  return one admitted candidate as a selection rule directs — or none,
-  if none is admitted. Forest search enumerates the candidates
-  exhaustively; DINA and GRF propose them from a surface fitted to the
-  outcome, and every proposal is re-ranked on $`\hat\beta(g)`$ against
-  the same threshold.
-- **The orientation.** The search runs in the direction of a sub-optimal
-  effect — the package’s “harm” direction, a hazard ratio above one for
-  a survival outcome — the direction in which the trial’s conclusion of
-  benefit would not hold for the patients concerned.
-- **The consistency screen, in closed form.** Forest search additionally
-  requires a candidate’s effect to replicate across random half-splits.
-  That screen is complementary-pairs stability selection applied to a
-  smooth estimating-function coefficient, so the replication rate
-  follows in closed form from one fit of the working model within the
-  candidate: nothing is drawn, and the search is deterministic given the
-  data.
-- **The selection rule is a modelling choice.** The rule moves the
-  returned region along a frontier of size against effect — the largest
-  admitted region, the largest within a band of the strongest effect,
-  the strongest effect itself — and so determines what identification
-  and inference are about.
-- **The targets.** The region returned is $`\hat H`$; the targets are
-  $`\beta(\hat H)`$ and, for the patients outside it,
-  $`\beta(\hat H^{c})`$: the working model’s coefficient in each
-  population, its least-false value whether or not the model is correct,
-  on the scale on which the trial was powered and on which regulators
-  and clinicians read its results.
+**This vignette** runs the identification, by forest search, on the
+German Breast Cancer Study Group (GBSG) trial that ships with
+**survival**, at the settings of León and Anderson (2026b), and shows
+the call that adds the inference. It takes a few seconds on one core.
 
-**Inference — what is reported about the identified region, and about
-the rest of the trial**
-
-- **The correction.** Refit-free multiplier resampling over the
-  candidate family removes the optimism of selection from the estimate
-  in $`\hat H`$ and in $`\hat H^{c}`$ (León and Anderson 2026a).
-- **One-sided bounds, and a claim about both groups.** The *field*
-  inverts the law of the residual the correction leaves into a one-sided
-  lower bound on $`\beta(\hat H)`$; *field-s* gives the one-sided upper
-  bound on $`\beta(\hat H^{c})`$, relevant to a benefit claim for the
-  patients outside the subgroup; the Bonferroni pair joins the two in a
-  two-subgroup claim at a joint level. Coverage is asymptotically exact
-  under separated selection, characterized under local competition, and
-  conditional on the family proposed when the family comes from the
-  outcomes (León and Anderson 2026b).
-- **Declaration control.** Whether a subgroup should be declared at all
-  is governed separately: the law of the maximum over the enumerated
-  family gives the family-wise rate of falsely declaring a subgroup when
-  every candidate’s effect is at least a clinically specified benefit —
-  a diagnostic of the rate the chosen thresholds imply and, where a
-  capped rate is wanted, the calibrated cutoff that holds it (León and
-  Anderson 2026b).
-- **Reading.** Each estimate and bound is read by its location against
-  the trial’s own effect and against clinically meaningful effect sizes,
-  not as a test at the null. Whether and how to act on a finding is a
-  broader judgement of benefit and risk, which this inference is meant
-  to inform.
-
-**This vignette** runs the analysis reported as Table 1 of León and
-Anderson (2026b), on the German Breast Cancer Study Group (GBSG) trial
-that ships with **survival**, at the manuscript’s settings: the three
-identifiers, each by one call; the selection-adjusted analysis of each
-identified region and its complement; and the declaration calibration at
-a protected level. The computation takes about a minute on one core; the
-fit times are printed as they are measured.
+The complete analysis — the three identifiers, the selection-adjusted
+bounds for each identified region and its complement, and the
+declaration calibration, which together are Table 1 of León and Anderson
+(2026b) run end to end — is the article *Interpretable subgroup
+identification with forestsearch*, listed under Articles on the [package
+website](https://larry-leon.github.io/forestsearch/articles/).
 
 ## The data
 
@@ -143,19 +94,18 @@ sprintf("Whole-trial hazard ratio %.3f (%.3f, %.3f), hormonal therapy vs none",
 
     #> [1] "Whole-trial hazard ratio 0.695 (0.544, 0.888), hormonal therapy vs none"
 
-Every bound below is read against the trial’s own effect, a hazard ratio
-of 0.695, and against clinically meaningful effect sizes — not as a test
-at a hazard ratio of one.
+Every estimate below is read against the trial’s own effect, a hazard
+ratio of 0.695, and against clinically meaningful effect sizes — not as
+a test at a hazard ratio of one.
 
 ## The specification
 
 Candidates are conjunctions of at most two covariate cuts (`maxk = 2`)
-with more than 60 patients (`n.min`); forest search additionally
-requires ten events in each arm (`d0.min`, `d1.min`). Continuous
-covariates take the package’s default cuts, except that the two
-receptors carry ten candidate cuts each (`conf.cont_jcuts`) with the
-value zero — no measured receptor — forced in as a cut of its own
-(`conf_force`).
+with more than 60 patients (`n.min`) and ten events in each arm
+(`d0.min`, `d1.min`). Continuous covariates take the package’s default
+cuts, except that the two receptors carry ten candidate cuts each
+(`conf.cont_jcuts`) with the value zero — no measured receptor — forced
+in as a cut of its own (`conf_force`).
 
 Three thresholds govern the search, on the hazard-ratio scale with harm
 upward:
@@ -169,56 +119,27 @@ upward:
 - the **consistency level** $`p^\star`$ = `pconsistency.threshold`, the
   proportion of consistent splits a candidate must reach.
 
-The applications of León and Anderson (2026b) set $`c_1 = c_2 = 1.0`$
-and $`p^\star = 0.90`$. The splitting-consistency rate is *not* computed
-by drawing splits. With `consistency_method = "resample"` (the default)
-the rate is evaluated in closed form, as Section 2.2 of that paper gives
-it: to first order the two half-sample estimates are a mirror pair about
-the full-sample fit, so the probability that both clear $`c_2`$ is
-``` math
-p_{\mathrm{cons}}(g) \;=\; 2\,\Phi\!\left(\frac{\hat\beta(g) - \log c_2}{\sigma_D(g)}\right) - 1,
-```
-with $`\sigma_D(g)`$ the scale of the half-sample difference, obtained
-from the fit’s influence function. Despite its name, `"resample"` draws
-nothing. Literal random half-splitting (`consistency_method = "split"`,
-`fs.splits` refits per candidate) is retained only as the fallback for a
-candidate whose closed form cannot be evaluated — a non-convergent fit,
-for instance — and `fs.splits` has no effect otherwise. Here every
-candidate has at least ten events in each arm and the Cox fits converge,
-so the closed form is evaluable throughout and the search is
-deterministic given the data. The rate is rounded to
-`pconsistency.digits = 2` decimals before it is compared with
-$`p^\star`$.
+León and Anderson (2026b) set $`c_1 = c_2 = 1.0`$ and
+$`p^\star = 0.90`$. The splitting-consistency rate is *not* computed by
+drawing splits: with `consistency_method = "resample"` (the default) it
+is evaluated in closed form from one fit of the working model within the
+candidate, so nothing is drawn and the search is deterministic given the
+data. The article gives the formula and the fallback used when the
+closed form cannot be evaluated.
 
 The **selection rule** is $`\max_{\mathcal{A}} N(\varepsilon)`$: among
 the admitted candidates $`\mathcal{A}`$, the largest whose hazard ratio
 is within a fraction $`\varepsilon = 0.20`$ of the largest hazard ratio
 over the family (`sg_focus = "effMaxSG"`,
-`selection_rule = "neighborhood"`, `effect_neighborhood = 0.20`).
-Section 2.1 of León and Anderson (2026b) sets this rule beside the
-alternatives ($`\max_{\mathcal{A}} N`$,
-$`\max_{\mathcal{A}} \hat\beta`$, and their smallest-subgroup
-counterparts), which Figure 1 of that paper draws on this trial’s
-candidate frontier.
-
-**Inference** (`mr_inference = TRUE`): from 5,000 multiplier draws over
-every size-eligible candidate the identifier proposes, the corrected
-(two-term) estimate of the effect in the identified region $`\hat H`$
-and in its complement $`\hat H^{c}`$ (León and Anderson 2026a); the
-nominal 95% one-sided *field* lower bound on $`\beta(\hat H)`$, the
-*field-s* upper bound on $`\beta(\hat H^{c})`$ (the studentized
-complement bound), and the Bonferroni pair, a joint 95% claim on both
-(León and Anderson 2026b). The field’s own Monte Carlo runs at 1,000
-outer and 500 inner draws, the package’s fixed setting on this path. The
-only randomness in the analysis is in these draws; they are seeded by
-`seedit`, so the vignette’s numbers are reproducible.
+`selection_rule = "neighborhood"`, `effect_neighborhood = 0.20`). The
+rule is a modelling choice: it moves the returned region along a
+frontier of size against effect, and so determines what identification
+and inference are about.
 
 ## Forest search
 
-One call. Identification, the unadjusted estimates and every
-selection-adjusted quantity come out of it together.
-`parallel_args = list(plan = "sequential")` keeps the run on one core;
-the package’s default plan is parallel.
+One call. `parallel_args = list(plan = "sequential")` keeps the run on
+one core; the package’s default plan is parallel.
 
 ``` r
 
@@ -236,19 +157,14 @@ fit_fs <- forestsearch(
   hr.threshold = 1.00, hr.consistency = 1.00, pconsistency.threshold = 0.90,
   stop_threshold = NULL,                      # evaluate every candidate; no early stop
   sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.20,
-  # selection-adjusted inference
-  mr_inference = TRUE,
-  mr_inference_args = list(ci_method = "field", draws = 5000L, include_complement = TRUE,
-                           field_scale_complement = "selected", field_decompose = TRUE,
-                           keep_declaration_field = TRUE,
-                           declaration_c0 = c(0.70, 0.75, 0.80, 0.85)),
   quiet = TRUE, parallel_args = list(plan = "sequential"))
 fit_sec_fs <- proc.time()[["elapsed"]] - t0
 ```
 
 ``` r
 
-g_fs <- fit_fs$mr_inference
+in_H <- fit_fs$df.est$treat.recommend[match(df$id, fit_fs$df.est$id)] == 0
+stopifnot(!anyNA(in_H))
 cat(sprintf("Identified subgroup: %s\n", paste(fit_fs$sg.harm, collapse = " & ")))
 ```
 
@@ -256,31 +172,21 @@ cat(sprintf("Identified subgroup: %s\n", paste(fit_fs$sg.harm, collapse = " & ")
 
 ``` r
 
-cat(sprintf("Fit including inference: %.1f s\n", fit_sec_fs))
+cat(sprintf("Patients in it: %d of %d. Fit: %.1f s\n", sum(in_H), nrow(df), fit_sec_fs))
 ```
 
-    #> Fit including inference: 24.6 s
-
-``` r
-
-cat(sprintf("  multiplier stage %.1f s; field blocks %.1f + %.1f s\n", g_fs$timing_seconds,
-            g_fs$field$timing_seconds, g_fs$field$complement$timing_seconds))
-```
-
-    #>   multiplier stage 0.8 s; field blocks 11.6 + 1.8 s
+    #> Patients in it: 75 of 686. Fit: 2.3 s
 
 The identified region is `{er <= 0} & {pgr <= 26}`: no measured estrogen
-receptor and progesterone receptor at most 26 fmol/l. Two arguments in
-the call are not the defaults and are there for a reason:
+receptor and progesterone receptor at most 26 fmol/l. One argument in
+the call is not the default and is there for a reason:
 `stop_threshold = NULL` has the consistency stage evaluate every
-screened candidate rather than stop at the first that passes, and
-`field_decompose = TRUE` returns the supporting quantities shown below.
-Everything else that is not the default is the specification itself.
+screened candidate rather than stop at the first that passes. Everything
+else that is not the default is the specification itself.
 
 ### The search in numbers
 
-The fit records how the candidates were whittled down. Supplementary
-Table S13 of León and Anderson (2026b) reports the same funnel.
+The fit records how the candidates were whittled down.
 
 ``` r
 
@@ -289,10 +195,9 @@ funnel <- data.frame(
   stage = c("enumerated (at most two cuts, size-eligible)",
             "fittable (ten events in each arm, Cox fit obtained)",
             "clearing the screening threshold, HR > 1.0",
-            "passing the consistency screen, p_cons >= 0.90",
-            "re-selection family for inference"),
+            "passing the consistency screen, p_cons >= 0.90"),
   candidates = c(counts$n_evaluated, counts$n_passed_cox, counts$n_passed_hr,
-                 fit_fs$grp.consistency$n_passed, g_fs$n_family))
+                 fit_fs$grp.consistency$n_passed))
 knitr::kable(funnel, row.names = FALSE, format.args = list(big.mark = ","))
 ```
 
@@ -302,17 +207,9 @@ knitr::kable(funnel, row.names = FALSE, format.args = list(big.mark = ","))
 | fittable (ten events in each arm, Cox fit obtained) |      1,410 |
 | clearing the screening threshold, HR \> 1.0         |        121 |
 | passing the consistency screen, p_cons \>= 0.90     |          9 |
-| re-selection family for inference                   |      1,744 |
-
-The re-selection family is larger than the screened set: multiplier
-resampling re-selects over every size-eligible candidate under the
-screening threshold and the consistency screen, without the per-arm
-event minimum, so the family contains the one the search ranked
-(Supplementary Section S5).
 
 The candidates that pass the screen, with their size, hazard ratio and
-consistency rate, are the points of Figure 1 of the paper. The selection
-rule acts on them.
+consistency rate, are the points on which the selection rule acts.
 
 ``` r
 
@@ -368,7 +265,7 @@ cat(sprintf("max N alone would take N %d (HR %.2f); max beta the N %d.\n",
 
 ``` r
 
-stopifnot(sel$N == g_fs$n_selected)   # the rule, re-applied, picks the fit's own selection
+stopifnot(sel$N == sum(in_H))   # the rule, re-applied, picks the fit's own selection
 ```
 
 All of the passing candidates restrict the estrogen receptor, and the
@@ -380,449 +277,95 @@ $`\max_{\mathcal{A}} N`$ would take the 82 with no measured estrogen
 receptor; the effect-maximising rules the 61 with, in addition, tumour
 size at most 35 mm.
 
-## The selection-adjusted analysis of a region
+## The region and its complement, before correction
 
-The nine quantities of Table 1 are read from `fit$mr_inference`. There
-is no single accessor for them, so the vignette defines one;
-`print(fit)` and `summary(fit)` report the bounds and the diagnostics in
-their own layout.
+The standard analysis within the identified region and within its
+complement: the two-sample Cox fit of treatment, with its 95% Wald
+interval.
 
 ``` r
 
-table1_column <- function(fit, data) {
-  g  <- fit$mr_inference; cc <- g$complement
-  fb <- g$field; fc <- fb$complement; js <- fb$joint_s
-  in_H <- fit$df.est$treat.recommend[match(data$id, fit$df.est$id)] == 0
-  stopifnot(!anyNA(in_H), sum(in_H) == g$n_selected, sum(!in_H) == cc$n)
-  f3 <- function(x) sprintf("%.3f", x)
-  ci <- function(e, l, u) sprintf("%s (%s, %s)", f3(e), f3(l), f3(u))
-  c(paste(fit$sg.harm, collapse = " & "),
-    sprintf("%d (%d)", sum(in_H), sum(data$status[in_H])),
-    ci(g$naive$est, g$naive$lower, g$naive$upper),
-    f3(g$debiased$est),
-    f3(fb$lower_1s),
-    sprintf("%d (%d)", sum(!in_H), sum(data$status[!in_H])),
-    ci(cc$naive$est, cc$naive$lower, cc$naive$upper),
-    f3(cc$debiased$est),
-    f3(fc$upper_1s_s),
-    sprintf("%s / %s", f3(js$bonf_lower_H), f3(js$bonf_upper_Hc)))
+hr_ci <- function(d) {
+  f <- coxph(Surv(time_months, status) ~ hormon, data = d)
+  ci <- exp(confint(f))
+  sprintf("%.3f (%.3f, %.3f)", exp(coef(f)), ci[1, 1], ci[1, 2])
 }
-table1_rows <- c("Region", "N (events)", "Unadjusted, 95% CI", "Corrected",
-                 "Field, lower bound", "Complement N (events)", "Unadjusted, 95% CI",
-                 "Corrected", "Field-s, upper bound", "Bonferroni pair")
-knitr::kable(data.frame(row = table1_rows, FS = table1_column(fit_fs, df)),
-             col.names = c("", "FS"), row.names = FALSE,
-             caption = "Forest search: the identified region and its complement.")
+knitr::kable(
+  data.frame(set = c("identified region", "complement"),
+             N = c(sum(in_H), sum(!in_H)),
+             events = c(sum(df$status[in_H]), sum(df$status[!in_H])),
+             unadjusted = c(hr_ci(df[in_H, ]), hr_ci(df[!in_H, ]))),
+  col.names = c("", "N", "events", "unadjusted HR (95% CI)"), row.names = FALSE,
+  caption = "The identified region and its complement: unadjusted estimates, before any correction for the selection.")
 ```
 
-|                       | FS                        |
-|:----------------------|:--------------------------|
-| Region                | {er \<= 0} & {pgr \<= 26} |
-| N (events)            | 75 (41)                   |
-| Unadjusted, 95% CI    | 2.222 (1.169, 4.221)      |
-| Corrected             | 1.276                     |
-| Field, lower bound    | 0.634                     |
-| Complement N (events) | 611 (258)                 |
-| Unadjusted, 95% CI    | 0.605 (0.465, 0.788)      |
-| Corrected             | 0.645                     |
-| Field-s, upper bound  | 0.804                     |
-| Bonferroni pair       | 0.509 / 0.840             |
+|                   |   N | events | unadjusted HR (95% CI) |
+|:------------------|----:|-------:|:-----------------------|
+| identified region |  75 |     41 | 2.222 (1.176, 4.199)   |
+| complement        | 611 |    258 | 0.605 (0.463, 0.791)   |
 
-Forest search: the identified region and its complement. {.table
-.caption-top}
+The identified region and its complement: unadjusted estimates, before
+any correction for the selection. {.table .caption-top}
 
-The unadjusted hazard ratio in the region is opposite in direction to
-the trial’s; the correction removes 0.543 on the log scale and leaves
-1.276. The field lower bound is the one-sided 95% bound on the region’s
-effect; the field-s upper bound the one-sided 95% bound on the
-complement’s; the Bonferroni pair is both at joint 95%, each side at
-0.975.
+These are not the estimates to report. The region was chosen for the
+extremity of its estimate, so its hazard ratio overstates its effect,
+and the same selection distorts the complement’s. They are shown as what
+the inference below corrects.
 
-The quantities that support the bounds, as in Supplementary Table S18 of
-the paper:
+## Inference after selection
+
+Adding `mr_inference = TRUE` to the same call has the fit correct both
+estimates and bound them:
+
+- **the correction** — refit-free multiplier resampling over the
+  candidate family removes the optimism of selection from the estimate
+  in the identified region $`\hat H`$ and in its complement
+  $`\hat H^{c}`$ (León and Anderson 2026a);
+- **one-sided bounds** — the *field* lower bound on the effect in
+  $`\hat H`$, the *field-s* upper bound on the effect in $`\hat H^{c}`$,
+  relevant to a benefit claim for the patients outside the subgroup, and
+  the Bonferroni pair, which joins the two in one claim at a joint level
+  (León and Anderson 2026b).
+
+The call is shown, not run, to keep this vignette short. The article
+runs it, for all three identifiers, prints its fit times and reads the
+results.
 
 ``` r
 
-fb <- g_fs$field; fc <- fb$complement; js <- fb$joint_s
-supporting <- data.frame(
-  quantity = c("mean of the simulated selection root, region (log scale)",
-               "second-order estimate, region",
-               "second-order estimate, complement (field-s)",
-               "scale ratio rho_c (field-s vs the unstudentized complement bound)",
-               "Bonferroni pair: simulated joint coverage",
-               "calibrated split gamma (Bonferroni's own alpha/2 is 0.025)",
-               "correlation of the aligned roots"),
-  value = c(sprintf("%.3f", fb$lambda_mean), sprintf("%.3f", fb$est2),
-            sprintf("%.3f", fc$est2_s), sprintf("%.3f", fc$decomp_fields$scale_ratio_c),
-            sprintf("%.4f", js$bonf_joint_prob), sprintf("%.3f", js$gamma),
-            sprintf("%.3f", js$corr)))
-knitr::kable(supporting, row.names = FALSE)
-```
-
-| quantity                                                          | value  |
-|:------------------------------------------------------------------|:-------|
-| mean of the simulated selection root, region (log scale)          | -0.022 |
-| second-order estimate, region                                     | 1.305  |
-| second-order estimate, complement (field-s)                       | 0.647  |
-| scale ratio rho_c (field-s vs the unstudentized complement bound) | 1.002  |
-| Bonferroni pair: simulated joint coverage                         | 0.9495 |
-| calibrated split gamma (Bonferroni’s own alpha/2 is 0.025)        | 0.025  |
-| correlation of the aligned roots                                  | -0.026 |
-
-The second-order estimate subtracts from the corrected estimate the mean
-of the simulated selection root; the bound subtracts a quantile of the
-same law and is not centred on it. A scale ratio near one means field-s
-and the unstudentized complement bound agree on these data.
-
-## The two model-based identifiers
-
-DINA and GRF propose candidates from a surface fitted to the outcome and
-have them re-ranked on the same Cox coefficient $`\hat\beta(g)`$ against
-the same screening threshold; neither applies the consistency screen.
-Supplementary Section S5 of León and Anderson (2026b) sets the three
-identifiers side by side, with every setting used here. The selection
-rule and the inference are the same. The calls differ from forest
-search’s only in the identifier’s own arguments.
-
-``` r
-
-t0 <- proc.time()[["elapsed"]]
-fit_dina <- forestsearch(
+fit_fs_inf <- forestsearch(
   df.analysis = df,
   outcome.name = "time_months", event.name = "status", treat.name = "hormon", id.name = "id",
   confounders.name = confounders,
   is.RCT = TRUE, est.scale = "hr", seedit = 8316951,
   conf.cont_jcuts = list(er = 10, pgr = 10), conf_force = c("er <= 0", "pgr <= 0"),
   n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
-  subgroup_method = "dina", dina_select_statistic = "effect",     # DINA's own
-  hr.threshold = 1.00, stop_threshold = NULL,
+  subgroup_method = "consistency", consistency_method = "resample",
+  hr.threshold = 1.00, hr.consistency = 1.00, pconsistency.threshold = 0.90,
+  stop_threshold = NULL,
   sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.20,
+  # selection-adjusted inference
   mr_inference = TRUE,
   mr_inference_args = list(ci_method = "field", draws = 5000L, include_complement = TRUE,
-                           field_scale_complement = "selected", field_decompose = TRUE),
+                           field_scale_complement = "selected"),
   quiet = TRUE, parallel_args = list(plan = "sequential"))
-fit_sec_dina <- proc.time()[["elapsed"]] - t0
+mr_estimates_table(fit_fs_inf, est.scale = "hr", digits = 3)
 ```
 
-``` r
-
-t0 <- proc.time()[["elapsed"]]
-fit_grf <- forestsearch(
-  df.analysis = df,
-  outcome.name = "time_months", event.name = "status", treat.name = "hormon", id.name = "id",
-  confounders.name = confounders,
-  is.RCT = TRUE, est.scale = "hr", seedit = 8316951,
-  conf.cont_jcuts = list(er = 10, pgr = 10), conf_force = c("er <= 0", "pgr <= 0"),
-  n.min = 60, d0.min = 10, d1.min = 10, maxk = 2,
-  subgroup_method = "grf", grf_selection = "frontier",             # GRF's own
-  grf_select_statistic = "effect", grf_depth = 2L, dmin.grf = 0.0, # GRF's own
-  hr.threshold = 1.00, stop_threshold = NULL,
-  sg_focus = "effMaxSG", selection_rule = "neighborhood", effect_neighborhood = 0.20,
-  mr_inference = TRUE,
-  mr_inference_args = list(ci_method = "field", draws = 5000L, include_complement = TRUE,
-                           field_scale_complement = "selected", field_decompose = TRUE),
-  quiet = TRUE, parallel_args = list(plan = "sequential"))
-fit_sec_grf <- proc.time()[["elapsed"]] - t0
-```
-
-``` r
-
-g_dina <- fit_dina$mr_inference
-g_grf  <- fit_grf$mr_inference
-cat(sprintf("DINA: %s  (fit %.1f s; re-selection family %d)\n",
-            paste(fit_dina$sg.harm, collapse = " & "), fit_sec_dina,
-            g_dina$n_family))
-```
-
-    #> DINA: {grade3 >= 1} & {pgr <= 20}  (fit 6.9 s; re-selection family 30)
-
-``` r
-
-cat(sprintf("GRF:  %s  (fit %.1f s; re-selection family %d)\n",
-            paste(fit_grf$sg.harm, collapse = " & "), fit_sec_grf, g_grf$n_family))
-```
-
-    #> GRF:  {er <= 0}  (fit 19.3 s; re-selection family 858)
-
-GRF returns the 82 patients with no measured estrogen receptor, a region
-that contains forest search’s; DINA returns the 113 who are grade 3 with
-progesterone receptor at most 20 fmol/l, a different classification. For
-the two model-based identifiers the candidate family is generated from a
-surface fitted to the outcome, so their bounds are conditional on the
-family proposed (Supplementary Section S1.9 of León and Anderson 2026b);
-forest search’s family is enumerated from the covariates alone.
-
-``` r
-
-member <- function(fit) {
-  fit$df.est$treat.recommend[match(df$id, fit$df.est$id)] == 0
-}
-m <- data.frame(FS = member(fit_fs), DINA = member(fit_dina), GRF = member(fit_grf))
-partition <- aggregate(cbind(N = 1, events = df$status), by = m, FUN = sum)
-knitr::kable(partition[order(-partition$N), ], row.names = FALSE,
-             caption = "The three-way partition of the 686 patients by the three selections.")
-```
-
-| FS    | DINA  | GRF   |   N | events |
-|:------|:------|:------|----:|-------:|
-| FALSE | FALSE | FALSE | 526 |    212 |
-| FALSE | TRUE  | FALSE |  78 |     42 |
-| TRUE  | FALSE | TRUE  |  40 |     22 |
-| TRUE  | TRUE  | TRUE  |  35 |     19 |
-| FALSE | FALSE | TRUE  |   7 |      4 |
-
-The three-way partition of the 686 patients by the three selections.
-{.table .caption-top}
-
-## Table 1
-
-``` r
-
-table1 <- data.frame(row = table1_rows,
-                     FS = table1_column(fit_fs, df),
-                     DINA = table1_column(fit_dina, df),
-                     GRF = table1_column(fit_grf, df))
-caption1 <- sprintf(paste(
-  "Selection-adjusted analysis of the three identified regions, hazard-ratio",
-  "scale. Unadjusted: two-sided 95%% Wald interval; field and field-s: one-sided",
-  "at nominal 0.95; Bonferroni pair: region / complement, joint 0.95.",
-  "Whole trial: %d patients, %d events, hazard ratio %.3f (%.3f, %.3f)."),
-  nrow(df), sum(df$status), whole_hr[["est"]], whole_hr[[2]], whole_hr[[3]])
-knitr::kable(table1, col.names = c("", "FS", "DINA", "GRF"), row.names = FALSE,
-             align = "lrrr", caption = caption1)
-```
-
-|  | FS | DINA | GRF |
-|:---|---:|---:|---:|
-| Region | {er \<= 0} & {pgr \<= 26} | {grade3 \>= 1} & {pgr \<= 20} | {er \<= 0} |
-| N (events) | 75 (41) | 113 (61) | 82 (45) |
-| Unadjusted, 95% CI | 2.222 (1.169, 4.221) | 1.315 (0.746, 2.317) | 1.951 (1.037, 3.673) |
-| Corrected | 1.276 | 1.076 | 1.111 |
-| Field, lower bound | 0.634 | 0.638 | 0.510 |
-| Complement N (events) | 611 (258) | 573 (238) | 604 (254) |
-| Unadjusted, 95% CI | 0.605 (0.465, 0.788) | 0.641 (0.489, 0.839) | 0.615 (0.472, 0.801) |
-| Corrected | 0.645 | 0.658 | 0.663 |
-| Field-s, upper bound | 0.804 | 0.842 | 0.846 |
-| Bonferroni pair | 0.509 / 0.840 | 0.572 / 0.887 | 0.404 / 0.874 |
-
-Selection-adjusted analysis of the three identified regions,
-hazard-ratio scale. Unadjusted: two-sided 95% Wald interval; field and
-field-s: one-sided at nominal 0.95; Bonferroni pair: region /
-complement, joint 0.95. Whole trial: 686 patients, 299 events, hazard
-ratio 0.695 (0.544, 0.888). {.table .caption-top}
-
-This is Table 1 of León and Anderson (2026b). The calls, the seed and
-the draw counts are those of the manuscript’s analysis, so the published
-values are reproduced to the digit; a different draw count would move
-the corrected estimates and the bounds in the third decimal and leave
-the regions and the unadjusted estimates unchanged.
-
-### Reading the table
-
-Each estimate is read by its location against the trial’s own effect,
-0.695; the bounds are reported beside it and are not read as tests at a
-hazard ratio of one. A corrected estimate above 0.90 is read as
-suggestive of limited benefit, and where its lower bound lies below 1.0
-a benefit cannot be ruled out.
-
-- **Forest search.** The unadjusted hazard ratio in its region is 2.222,
-  opposite in direction to the trial’s. The correction leaves 1.276,
-  above 0.90, so suggestive of limited benefit; with a field lower bound
-  of 0.634, below 1.0, a benefit cannot be ruled out. The complement,
-  89% of the trial, has a corrected estimate of 0.645, a larger benefit
-  than the trial’s, with a field-s upper bound of 0.804.
-- **DINA and GRF** read the same way: corrected estimates of 1.076 and
-  1.111 in their regions, with lower bounds below 1.0, and of 0.658 and
-  0.663 in their complements.
-- **The two-subgroup claim.** Forest search’s Bonferroni pair is 0.509
-  for the region and 0.840 for the complement. The complement’s benefit,
-  a hazard reduction of at least 16%, survives the joint adjustment; the
-  region excludes only hazard ratios below 0.509, which is no claim of
-  harm. A claim that the two subgroups differ is not supported; the
-  claim of benefit outside the region is.
-- **The substantive reading** is the same under all three partitions: a
-  small region whose unfavourable unadjusted estimate the correction
-  largely removes, and a complement, most of the trial, with a corrected
-  benefit larger than the trial’s. With 41 to 61 events in the regions,
-  a claim of harm at a conventional level is not realistic at this
-  trial’s size; the bounds are reported, and how much statistical
-  assurance to require of them is the analyst’s decision in their own
-  setting.
-
-## Declaration at a protected level
-
-Every region above was declared at the identifiers’ default settings,
-forest search’s by the conventional screen at $`p^\star = 0.90`$.
-Section 4 of León and Anderson (2026b) asks a different question: would
-a screen calibrated to protect a clinically meaningful uniform benefit
-have declared it? The answer is read for forest search, whose family is
-enumerated. At a protected level $`c_0`$ and family-wise level
-$`\alpha`$, the calibrated cutoff $`\hat\kappa_\alpha(c_0)`$ is the
-$`(1 - \alpha)`$ quantile of the maximum over the family of each
-candidate’s standardized statistic
-``` math
-T(g) \;=\; \frac{\hat\beta(g) - \log c_2}{\sigma_D(g)},
-```
-with every candidate shifted to sit at $`c_0`$, under the law of the
-fit’s own multiplier draws. The calibrated rule admits a candidate when
-$`T(g) \ge \hat\kappa_\alpha(c_0)`$; it holds the family-wise
-probability of declaring any harm subgroup at $`\alpha`$ whenever every
-candidate’s true effect is $`c_0`$ or better.
-[`fs_declaration_calibration()`](https://larry-leon.github.io/forestsearch/reference/fs_declaration_calibration.md)
-reads it from the draws the fit above already made
-(`keep_declaration_field = TRUE`, with the grid passed as
-`declaration_c0`); nothing is redrawn and nothing else in the fit
-changes.
-
-``` r
-
-c0_grid <- c(0.70, 0.75, 0.80, 0.85)
-cal    <- fs_declaration_calibration(fit_fs, alpha = 0.10, c0 = c0_grid)
-cal_c2 <- fs_declaration_calibration(fit_fs, alpha = 0.10)   # c0 = NULL: the claim threshold
-tb <- cal$c0$table
-fld <- g_fs$declaration_field
-T_H   <- cal$T_hat[[fld$family_id[fld$meta$selected_index]]]
-T_max <- max(cal$T_hat)
-kappa <- c(tb$kappa_hat, cal_c2$kappa_hat)
-declaration <- data.frame(
-  c0 = c(sprintf("HR %.2f%s", tb$c0, ifelse(tb$c0 == 0.75, " (primary)", "")),
-         "HR 1.00 (claim threshold)"),
-  kappa   = sprintf("%.3f", kappa),
-  implied = sprintf("%.3f", 2 * pnorm(kappa) - 1),
-  fw      = sprintf("%.3f", c(tb$fw_size, cal_c2$fw_size)),
-  admits  = c(lengths(cal$c0$admitted_calibrated),
-              length(cal_c2$admitted_calibrated)))
-knitr::kable(declaration, row.names = FALSE, align = "lrrrr",
-             col.names = c("protected level c0", "kappa-hat", "implied level",
-                           "FW size", "admits"),
-             caption = paste(
-               "Declaration calibration at alpha = 0.10. kappa-hat: the calibrated",
-               "cutoff; implied level: 2*Phi(kappa-hat) - 1; FW size: the family-wise",
-               "size of the p* = 0.90 screen at c0; admits: candidates the calibrated",
-               "rule admits."))
-```
-
-| protected level c0        | kappa-hat | implied level | FW size | admits |
-|:--------------------------|----------:|--------------:|--------:|-------:|
-| HR 0.70                   |     2.578 |         0.990 |   0.558 |      0 |
-| HR 0.75 (primary)         |     2.726 |         0.994 |   0.667 |      0 |
-| HR 0.80                   |     2.891 |         0.996 |   0.769 |      0 |
-| HR 0.85                   |     3.039 |         0.998 |   0.844 |      0 |
-| HR 1.00 (claim threshold) |     3.503 |         1.000 |   0.974 |      0 |
-
-Declaration calibration at alpha = 0.10. kappa-hat: the calibrated
-cutoff; implied level: 2*Phi(kappa-hat) - 1; FW size: the family-wise
-size of the p* = 0.90 screen at c0; admits: candidates the calibrated
-rule admits. {.table .caption-top}
-
-``` r
-
-cat(sprintf("T of the declared region: %.3f; largest T in the family: %.3f\n", T_H, T_max))
-```
-
-    #> T of the declared region: 2.438; largest T in the family: 2.564
-
-``` r
-
-cat(sprintf("The p* = 0.90 screen's cutoff, as the package applies it: %.3f\n", cal$z_pstar))
-```
-
-    #> The p* = 0.90 screen's cutoff, as the package applies it: 1.621
-
-The screen’s cutoff is the $`p^\star = 0.90`$ rule as the package
-applies it, after the rate is rounded to `pconsistency.digits = 2`,
-which is why it sits a little below the 1.645 of an unrounded 0.90.
-
-At the primary protected level, a hazard ratio of 0.75, the calibrated
-cutoff is 2.726, an implied screening level of 0.994; the region’s
-statistic is 2.438 and the largest in the family 2.564, so the
-calibrated screen admits no candidate at that level, and likewise at
-every protected level on the grid and at the claim threshold. The
-FW-size column is the diagnostic of the paper’s equation (8): the
-probability that the $`p^\star = 0.90`$ screen as executed declares some
-harm subgroup if every candidate carried a uniform benefit of $`c_0`$ —
-a property of this family and covariate design, not the trial’s realized
-error rate; at the claim threshold it is a boundary size. To run the
-screen at the implied level, set `pconsistency.threshold` to it and
-`pconsistency.digits` to at least 5, so the level is not rounded away;
-the package’s `pstar_settable` and `pstar_fine` columns in
-`cal$c0$table` give what the digit grid can express. The selection and
-every bound above are those of the fit as run; the calibration reads the
-fit and alters none of them.
-
-### The recommended cap
-
-The implied level at the primary protected level, 0.994, is above 0.99.
-Section 4.4 of León and Anderson (2026b) recommends capping the
-consistency level at 0.99 in that case. Consistency is a floor, not a
-ranking, and rates above 0.99 are not practically distinguishable; the
-capped screen is run, and the diagnostic (8) reports the family-wise
-rate the capped level carries. The control of the paper’s Theorem 4
-belongs to the uncapped cutoff, not to the cap. The cap’s cutoff and its
-diagnostic are read from the same draws as the table above; nothing is
-refitted.
-
-``` r
-
-# The screen admits a candidate when its rate, rounded to two decimals, reaches
-# p*: that is, when T(g) >= qnorm((1 + p_eff) / 2), with p_eff the smallest rate
-# that rounds up to p*.
-p_eff <- function(p_star, digits = 2) {
-  ceiling(round(p_star * 10^digits, 6)) / 10^digits - 0.5 * 10^(-digits)
-}
-z_screen <- function(p_star) qnorm((1 + p_eff(p_star)) / 2)
-# Two checks against the calibration above: the rule reproduces the package's
-# cutoff at p* = 0.90, and the draws reproduce the table's FW-size column.
-stopifnot(isTRUE(all.equal(z_screen(0.90), cal$z_pstar)))
-stopifnot(isTRUE(all.equal(unname(colMeans(cal$c0$Mstar_c0 > cal$z_pstar)),
-                           tb$fw_size)))
-z_cap  <- z_screen(0.99)
-fw_cap <- mean(cal$c0$Mstar_c0[, tb$c0 == 0.75] > z_cap)
-cap <- data.frame(
-  quantity = c("cutoff of the screen at p* = 0.99 (rate rounded to two decimals)",
-               "T of the declared region",
-               "margin of the region over the capped cutoff",
-               "uncapped calibrated cutoff, c0 = HR 0.75",
-               "diagnostic (8) at the capped cutoff, c0 = HR 0.75"),
-  value = sprintf("%.3f", c(z_cap, T_H, T_H - z_cap,
-                            tb$kappa_hat[tb$c0 == 0.75], fw_cap)))
-knitr::kable(cap, row.names = FALSE, col.names = c("", "value"),
-             caption = "The screen at the recommended cap, p* = 0.99.")
-```
-
-|                                                                   | value |
-|:------------------------------------------------------------------|:------|
-| cutoff of the screen at p\* = 0.99 (rate rounded to two decimals) | 2.432 |
-| T of the declared region                                          | 2.438 |
-| margin of the region over the capped cutoff                       | 0.006 |
-| uncapped calibrated cutoff, c0 = HR 0.75                          | 2.726 |
-| diagnostic (8) at the capped cutoff, c0 = HR 0.75                 | 0.186 |
-
-The screen at the recommended cap, p\* = 0.99. {.table .caption-top}
-
-At the cap the screen’s cutoff is 2.432. The region’s statistic, 2.438,
-clears it by 0.006, the narrowest of margins, so the capped screen
-declares the region; the uncapped calibrated cutoff, 2.726, does not.
-The diagnostic at the capped cutoff is 0.186. Like the FW-size column,
-it is computed with every candidate’s coefficient exactly at $`c_0`$,
-which the Cox model’s non-collapsibility makes an approximation, and it
-is a rough guide to the family’s multiplicity rather than a rate a trial
-would show.
-
-The evidence to weigh is the realized rate. Supplementary Section S1.8.4
-of the paper holds this trial’s 686 patients, their covariates and their
-treatment assignment fixed, generates outcomes under a uniform benefit
-at the protected hazard ratio of 0.75, and runs the screen as executed:
-it declares a subgroup on 0.432 of such trials at $`p^\star = 0.90`$, on
-0.074 at 0.99 and on 0.022 at 1.00. That simulation is not run here; the
-three rates are quoted from the paper. At the cap the realized
-false-declaration rate, 0.074, is below $`\alpha = 0.10`$. The region is
-declared at the cap by the narrowest of margins and not by the
-calibrated cutoff: the evidence for declaring it is marginal on either
-reading.
+Each estimate and bound is read by its location against the trial’s own
+effect and against clinically meaningful effect sizes, not as a test at
+the null. Whether and how to act on a finding is a broader judgement of
+benefit and risk, which this inference is meant to inform.
 
 ## Where to go next
 
+- The article *Interpretable subgroup identification with forestsearch*,
+  listed under Articles on the [package
+  website](https://larry-leon.github.io/forestsearch/articles/),
+  continues this analysis: the selection-adjusted bounds for this region
+  and its complement, the two model-based identifiers (DINA and GRF),
+  Table 1 of León and Anderson (2026b), and the declaration calibration
+  at a protected level.
 - The [post-selection
   article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html)
   reads the bounds in more depth on the same trial: the re-selection
@@ -912,7 +455,7 @@ sessionInfo()
     #> [1] stats     graphics  grDevices utils     datasets  methods   base
     #>
     #> other attached packages:
-    #> [1] future_1.80.0      survival_3.8-12    forestsearch_0.4.0
+    #> [1] future_1.82.0      survival_3.8-12    forestsearch_0.5.0
     #>
     #> loaded via a namespace (and not attached):
     #>  [1] gt_1.4.0             generics_0.1.4       xml2_1.6.0
@@ -923,10 +466,10 @@ sessionInfo()
     #> [16] fastmap_1.2.0        foreach_1.5.2        jsonlite_2.0.0
     #> [19] Matrix_1.7-6         glmnet_5.2           scales_1.4.0
     #> [22] weightedsurv_0.1.0   codetools_0.2-20     cli_3.6.6
-    #> [25] rlang_1.3.0          parallelly_1.48.0    future.apply_1.21.0
-    #> [28] splines_4.6.2        yaml_2.3.12          otel_0.2.0
+    #> [25] rlang_1.3.0          parallelly_1.50.0    future.apply_1.21.0
+    #> [28] splines_4.6.2        yaml_2.3.12          otel_0.3.0
     #> [31] tools_4.6.2          parallel_4.6.2       doFuture_1.4.0
-    #> [34] dplyr_1.2.1          ggplot2_4.0.3        globals_0.20.0
+    #> [34] dplyr_1.2.1          ggplot2_4.0.4        globals_0.20.0
     #> [37] vctrs_0.7.3          R6_2.6.1             lifecycle_1.0.5
     #> [40] randomForest_4.7-1.2 fs_2.1.0             pkgconfig_2.0.3
     #> [43] progressr_1.1.0      pillar_1.11.1        gtable_0.3.6

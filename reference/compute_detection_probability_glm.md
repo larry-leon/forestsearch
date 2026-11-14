@@ -53,8 +53,8 @@ compute_detection_probability_glm(
 
 - c2:
 
-  Numeric. Consistency threshold on the natural scale. Default: 1.0 for
-  ratio, 0.0 for difference.
+  Numeric. Consistency threshold on the natural scale. Default: 1.0 on
+  both scales; supply `c2` for difference measures.
 
 - effect_scale:
 

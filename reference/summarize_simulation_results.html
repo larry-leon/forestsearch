@@ -9,7 +9,7 @@ Includes both HR and AHR metrics."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -24,6 +24,7 @@ Includes both HR and AHR metrics."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -32,6 +33,10 @@ Includes both HR and AHR metrics."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -76,7 +81,7 @@ Includes both HR and AHR metrics.</p>
 
 
 <dt id="arg-analyses">analyses<a class="anchor" aria-label="anchor" href="#arg-analyses"></a></dt>
-<dd><p>Character vector. Analysis methods to include. Default: all</p></dd>
+<dd><p>Character vector. Analysis methods to include. Default: NULL, meaning all analyses in results</p></dd>
 
 
 <dt id="arg-digits">digits<a class="anchor" aria-label="anchor" href="#arg-digits"></a></dt>
@@ -95,8 +100,14 @@ Includes both HR and AHR metrics.</p>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="va">dgm</span> <span class="op">&lt;-</span> <span class="fu"><a href="create_gbsg_dgm.html">create_gbsg_dgm</a></span><span class="op">(</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">sim_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="run_simulation_analysis.html">run_simulation_analysis</a></span><span class="op">(</span><span class="va">dgm</span>, nsim <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">dgm</span> <span class="op">&lt;-</span> <span class="fu"><a href="setup_gbsg_dgm.html">setup_gbsg_dgm</a></span><span class="op">(</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># run_simulation_analysis() runs one replicate per call; ten are stacked.</span></span></span>
+<span class="r-in"><span><span class="co"># confounders_base names the DGM's numeric candidate covariates, as in the</span></span></span>
+<span class="r-in"><span><span class="co"># simulations article (the default v1-v7 columns are factors).</span></span></span>
+<span class="r-in"><span><span class="va">sim_res</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/rbindlist.html" class="external-link">rbindlist</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="fu"><a href="run_simulation_analysis.html">run_simulation_analysis</a></span><span class="op">(</span>sim_id <span class="op">=</span> <span class="va">i</span>, dgm <span class="op">=</span> <span class="va">dgm</span>, n_sample <span class="op">=</span> <span class="fl">500</span>,</span></span>
+<span class="r-in"><span>    confounders_base <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"z1"</span>, <span class="st">"z2"</span>, <span class="st">"z3"</span>, <span class="st">"z4"</span>, <span class="st">"z5"</span>, <span class="st">"size"</span>, <span class="st">"grade3"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  fill <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">summarize_simulation_results</span><span class="op">(</span><span class="va">sim_res</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>

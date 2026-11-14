@@ -72,13 +72,19 @@ even after automatic extension, or the achieved HR lies outside
 ## Details
 
 This is the natural sibling of
-[`calibrate_k_inter`](https://larry-leon.github.io/forestsearch/reference/calibrate_k_inter.md)
-(which targets the harm-subgroup HR under `model = "alt"`) and
+[`find_k_inter_for_target_hr`](https://larry-leon.github.io/forestsearch/reference/find_k_inter_for_target_hr.md)
+(which targets the harm-subgroup HR of a
+[`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
+DGM under `model = "alt"`) and
 [`calibrate_cens_adjust`](https://larry-leon.github.io/forestsearch/reference/calibrate_cens_adjust.md)
-(which targets the censoring rate). It is typically used with
-`model = "null"` to fix the overall HR for a uniform-effect DGM, but
-also works with `model = "alt"` when the marginal HR is the calibration
-target rather than the subgroup-specific HR.
+(which targets the censoring rate).
+[`calibrate_k_inter`](https://larry-leon.github.io/forestsearch/reference/calibrate_k_inter.md)
+targets the harm-subgroup HR of the GBSG mechanism of
+[`setup_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+instead. `calibrate_k_treat()` is typically used with `model = "null"`
+to fix the overall HR for a uniform-effect DGM, but also works with
+`model = "alt"` when the marginal HR is the calibration target rather
+than the subgroup-specific HR.
 
 Reproducibility requires the `uniroot` objective to be deterministic in
 `k_treat`. This is achieved by including an integer `seed` field in
@@ -90,6 +96,7 @@ during the search uses the same random-number stream. If
 
 ## See also
 
+[`find_k_inter_for_target_hr`](https://larry-leon.github.io/forestsearch/reference/find_k_inter_for_target_hr.md),
 [`calibrate_k_inter`](https://larry-leon.github.io/forestsearch/reference/calibrate_k_inter.md),
 [`calibrate_cens_adjust`](https://larry-leon.github.io/forestsearch/reference/calibrate_cens_adjust.md),
 [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
@@ -99,7 +106,7 @@ during the search uses the same random-number stream. If
 ``` r
 if (FALSE) { # \dontrun{
 library(survival)
-data(gbsg)
+gbsg <- survival::gbsg
 gbsg$time_months <- gbsg$rfstime / 30.4375
 
 base_args <- list(

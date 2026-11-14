@@ -110,7 +110,7 @@ gg_forest(
 
 - tick_labels:
 
-  Character vector. Custom tick labels (default:
+  Character vector. Custom tick labels (default: NULL, giving
   as.character(ticks_at)).
 
 - xlog:
@@ -153,7 +153,8 @@ gg_forest(
 - widths:
 
   Numeric vector. Relative patchwork column widths: c(label, ci,
-  annot_1, annot_2, …). Default: c(3.5, 5, rep(1, n_annot)).
+  annot_1, annot_2, …). Default: NULL, giving c(3.5, 5, rep(1.1,
+  n_annot)).
 
 - row_expand:
 

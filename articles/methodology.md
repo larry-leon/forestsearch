@@ -15,8 +15,8 @@
 > protected level (León and Anderson 2026b, arXiv:2610.28379). The GRF
 > variable-importance screen is removed as of 0.4.1 (`vi.grf.min` is
 > deprecated and has no effect). The current methodology is documented
-> in
-> [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+> in the article [Interpretable subgroup identification with
+> forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html)
 > and the [post-selection
 > article](https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html);
 > the argument listings below are kept for the 2024 workflow and are not
@@ -126,8 +126,9 @@ error scenarios for false subgroup identification are defined:
 > specified benefit $`c_0`$.
 > [`fs_declaration_calibration()`](https://larry-leon.github.io/forestsearch/reference/fs_declaration_calibration.md)
 > reports that rate for the thresholds as executed and the calibrated
-> cutoff that holds it at a nominal level;
-> [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+> cutoff that holds it at a nominal level; the article [Interpretable
+> subgroup identification with
+> forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html)
 > runs it on the GBSG analysis.
 
 ### 2.3 Marginal vs. Controlled Direct Effects
@@ -984,8 +985,9 @@ The bias-corrected estimate for $`H^c`$ suggests a slightly stronger
 benefit (0.64 vs 0.69 for ITT) that is statistically significant.
 
 > **2026 note.** The same trial analysed with the current method is
-> Table 1 of León and Anderson (2026b), run end to end in
-> [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md):
+> Table 1 of León and Anderson (2026b), run end to end in the article
+> [Interpretable subgroup identification with
+> forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html):
 > forest search returns $`\{er \le 0\} \cap \{pgr \le 26\}`$ (75
 > patients), with a corrected hazard ratio of 1.276 and a one-sided 95%
 > field lower bound of 0.634; the complement’s corrected hazard ratio is
@@ -1334,11 +1336,12 @@ a candidate), the number of bootstrap iterations ($`B`$, typically
 implemented via the `doFuture` package.
 
 > **2026 note.** These are 2024 timings. With the closed-form screen,
-> the GBSG forest search of
-> [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
+> the GBSG forest search of the article [Interpretable subgroup
+> identification with
+> forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html)
 > — fully enumerated family, 5,000-draw multiplier-resampling inference
 > and the field bounds included — runs in under a minute on one core,
-> and the vignette prints its own timing. In 2026a, Section 6, the full
+> and the article prints its own timing. In 2026a, Section 6, the full
 > bootstrap at $`B = 1{,}000`$ took from about 72 s to about 10 min per
 > identifier where the multiplier correction with 5,000 draws took 0.11
 > s to 0.38 s.
@@ -1350,8 +1353,9 @@ These are the 2024 guidelines. The current products are the corrected
 the field-s upper bound on its complement, and the Bonferroni pair for a
 joint claim, each read by its location against the trial’s own effect
 and against clinically meaningful effect sizes rather than as a test at
-the null (León and Anderson 2026b, Sections 3 and 6.1;
-[`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)).
+the null (León and Anderson 2026b, Sections 3 and 6.1; the article
+[Interpretable subgroup identification with
+forestsearch](https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html)).
 Whether and how to act on a finding remains a broader judgement of
 benefit and risk, which the inference is meant to inform.
 
@@ -1422,11 +1426,11 @@ sessionInfo()
     [1] stats     graphics  grDevices utils     datasets  methods   base
 
     other attached packages:
-    [1] ggplot2_4.0.3
+    [1] ggplot2_4.0.4
 
     loaded via a namespace (and not attached):
      [1] vctrs_0.7.3        cli_3.6.6          knitr_1.52         rlang_1.3.0
-     [5] xfun_0.62          otel_0.2.0         generics_0.1.4     S7_0.2.2
+     [5] xfun_0.62          otel_0.3.0         generics_0.1.4     S7_0.2.2
      [9] jsonlite_2.0.0     glue_1.8.1         htmltools_0.5.9    scales_1.4.0
     [13] rmarkdown_2.32     grid_4.6.2         tibble_3.3.1       evaluate_1.0.5
     [17] fastmap_1.2.0      yaml_2.3.12        lifecycle_1.0.5    compiler_4.6.2

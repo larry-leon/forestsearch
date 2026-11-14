@@ -1,6 +1,10 @@
 # Generate Synthetic GBSG Data using Generalized Bootstrap
 
-Generate Synthetic GBSG Data using Generalized Bootstrap
+Calls
+[`generate_bootstrap_synthetic()`](https://larry-leon.github.io/forestsearch/reference/generate_bootstrap_synthetic.md)
+on [`survival::gbsg`](https://rdrr.io/pkg/survival/man/gbsg.html) with
+fixed variable lists. `grade` is passed in `ordinal_vars` only, so it is
+resampled but not perturbed.
 
 ## Usage
 
@@ -25,6 +29,15 @@ generate_gbsg_bootstrap_general(n = 686, seed = 123, noise_level = 0.1)
 ## Value
 
 Synthetic GBSG dataset
+
+## Superseded
+
+This GBSG-specific wrapper is kept for existing code. New work should
+call
+[`generate_bootstrap_synthetic()`](https://larry-leon.github.io/forestsearch/reference/generate_bootstrap_synthetic.md)
+directly: the call in its first example, with the same `n`, `seed` and
+`noise_level`, returns the same data. This wrapper will be deprecated in
+a future release.
 
 ## Examples
 

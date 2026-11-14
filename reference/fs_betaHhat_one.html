@@ -13,7 +13,7 @@ rule a detector actually returned – not the marginal true-subgroup target."></
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -28,6 +28,7 @@ rule a detector actually returned – not the marginal true-subgroup target."></
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -36,6 +37,10 @@ rule a detector actually returned – not the marginal true-subgroup target."></
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -74,7 +79,12 @@ rule a detector actually returned – not the marginal true-subgroup target.</p>
 <span>  outcome.name <span class="op">=</span> <span class="st">"y_sim"</span>,</span>
 <span>  event.name <span class="op">=</span> <span class="st">"event_sim"</span>,</span>
 <span>  treat.name <span class="op">=</span> <span class="st">"treat_sim"</span>,</span>
-<span>  sg_def_struct <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  sg_def_struct <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"frame"</span>, <span class="st">"exact"</span><span class="op">)</span>,</span>
+<span>  dgm <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  analysis_time <span class="op">=</span> <span class="fl">84</span>,</span>
+<span>  max_entry <span class="op">=</span> <span class="fl">24</span>,</span>
+<span>  cens_adjust <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="fl">1.5</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -119,6 +129,27 @@ supplied it takes precedence over <code>rule</code> and membership is computed b
 <code>.grf_evaluate_subgroup()</code>, which is the package's own answer for GRF
 membership.</p></dd>
 
+
+<dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
+<dd><p>Character. <code>"frame"</code> (default) scores the rule on <code>frame</code>
+by the per-family fit, exactly as before this argument existed.
+<code>"exact"</code> (survival only) computes the same population quantity from the
+analytic layer; see the section <em>The exact route</em>.</p></dd>
+
+
+<dt id="arg-dgm">dgm<a class="anchor" aria-label="anchor" href="#arg-dgm"></a></dt>
+<dd><p>The DGM <code>frame</code> was drawn from (an <code><a href="inject_mrct_structure.html">inject_mrct_structure()</a></code>
+build). Required by <code>method = "exact"</code>; ignored by <code>"frame"</code>.</p></dd>
+
+
+<dt id="arg-analysis-time-max-entry-cens-adjust">analysis_time, max_entry, cens_adjust<a class="anchor" aria-label="anchor" href="#arg-analysis-time-max-entry-cens-adjust"></a></dt>
+<dd><p>The analysis time, the entry
+maximum and the censoring adjustment of the evaluation draw. Used by
+<code>method = "exact"</code> only; the defaults are those of the draw
+<code><a href="fs_build_eval_frame.html">fs_build_eval_frame()</a></code> makes (<code>analysis_time = 84</code>, <code>cens_adjust = log(1.5)</code>, and <code><a href="simulate_from_dgm.html">simulate_from_dgm()</a></code>'s default <code>max_entry = 24</code>, which
+<code><a href="fs_build_eval_frame.html">fs_build_eval_frame()</a></code> does not override). Pass the values the frame was
+drawn with.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -154,6 +185,40 @@ meaningless.</p>
 record is all-<code>NA</code> with <code>status = "unresolved"</code> and <code>missing_cols</code> naming
 the columns, rather than a partially-resolved region. Silently dropping the
 offending clause returns a finite value for the wrong region.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="the-exact-route">The exact route<a class="anchor" aria-label="anchor" href="#the-exact-route"></a></h2>
+
+
+
+<p>With <code>method = "exact"</code> the survival target is computed without a draw:
+<code><a href="ahr_population.html">ahr_population()</a></code><code>(dgm, analysis_time, max_entry)</code> once, then
+<code>exp(beta*)</code> from <code><a href="ahr_limit.html">ahr_limit()</a></code><code>(pop, set = &lt;membership&gt;, psi = pop$psi)</code>
+for the realized region and for its complement, where <code>beta*</code> is the
+Struthers-Kalbfleisch limit of the two-sample Cox estimate (1:1
+randomisation, entry U(0, <code>max_entry</code>), analysis at <code>analysis_time</code>).
+Membership is resolved on <code>dgm$df_super</code> by the same internal
+<code>.fs_resolve_membership()</code> (the <code><a href="get_dfpred.html">get_dfpred()</a></code> route) the frame route uses
+on <code>frame</code>, so a rule the frame route cannot evaluate is <code>NA</code> on both
+routes, and the counts <code>nH_eval</code> / <code>nHc_eval</code> are over <code>dgm$df_super</code>.
+An empty region is <code>NA</code>, as on the frame route.</p>
+<p>The two routes estimate the same population quantity: the frame route
+fits <code><a href="https://rdrr.io/pkg/survival/man/coxph.html" class="external-link">survival::coxph()</a></code> on one <code><a href="simulate_from_dgm.html">simulate_from_dgm()</a></code> draw of the whole
+super-population and so carries the Monte Carlo error of that single
+evaluation draw; the exact route has none. The frame route's
+small-region guard (fewer than five events or a single arm in the draw)
+has no counterpart: the limit exists for any non-empty region.</p>
+<p>The exact route applies when the censoring is administrative only: the
+analytic layer has no random-censoring factor. It stops, rather than
+approximating, unless the DGM's random censoring time falls before
+<code>analysis_time</code> with probability below <code>.Machine$double.eps</code> for every
+patient in both arms under <code>cens_adjust</code>. In <code><a href="simulate_from_dgm.html">simulate_from_dgm()</a></code>
+<code>cens_adjust = 0</code> means <em>no adjustment</em> of the DGM's censoring model, not
+no random censoring, and the frame route's default <code>log(1.5)</code> lengthens the
+random censoring times but keeps them; <code>cens_adjust = 50</code> (the
+administrative-only convention of the MRCT campaigns) or <code>Inf</code> removes
+it. Requires a DGM made by <code><a href="inject_mrct_structure.html">inject_mrct_structure()</a></code>, as
+<code><a href="ahr_population.html">ahr_population()</a></code> does.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

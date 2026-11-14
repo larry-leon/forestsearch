@@ -1,7 +1,13 @@
 # Generate Bootstrap Sample with Added Noise
 
-Creates a bootstrap sample from a dataset with controlled noise added to
-both continuous and categorical variables. This function is useful for
+Creates a bootstrap sample from a dataset and adds controlled noise.
+Continuous columns receive Gaussian noise; categorical columns are
+changed with a small probability. By default every numeric column except
+`id_var` is continuous and every factor or logical column is
+categorical. Numeric-coded categories (for example 0/1 indicators) are
+therefore treated as continuous unless `continuous_vars` is given
+without them; naming them in `cat_vars` alone adds the categorical
+change without removing the noise. This function is useful for
 generating synthetic datasets that maintain the general structure of the
 original data while introducing controlled variation.
 
@@ -33,13 +39,23 @@ generate_bootstrap_with_noise(
 - continuous_vars:
 
   Character vector of column names to treat as continuous variables. If
-  NULL (default), automatically detects numeric columns.
+  NULL (default), every numeric column except `id_var` is used,
+  including numeric columns with few distinct values. A column named
+  here must be numeric: a factor or character column stops the call with
+  an error, and a logical column is returned as a numeric 0/1 column.
 
 - cat_vars:
 
   Character vector of column names to treat as categorical variables. If
-  NULL (default), automatically detects factors, logical columns, and
-  numeric columns with 10 or fewer unique values.
+  NULL (default), factor and logical columns are used, together with
+  numeric columns that have 10 or fewer unique values; columns in
+  `continuous_vars` and `id_var` are left out, and character columns are
+  not used. When `continuous_vars` is also NULL, every numeric column
+  other than `id_var` is already in the continuous set, so no numeric
+  column is treated as categorical. When `cat_vars` is given and
+  `continuous_vars` is NULL, a numeric column named here is also in the
+  auto-detected continuous set and receives both kinds of change; give
+  `continuous_vars` as well to avoid this.
 
 - id_var:
 
@@ -60,8 +76,12 @@ generate_bootstrap_with_noise(
 
 ## Value
 
-A data frame with the same structure as the input data, containing
-bootstrap sampled observations with added noise.
+A data frame of `n` rows, with the columns of `data` in the same order
+and row names `1:n`, containing bootstrap sampled observations with
+added noise. Column types are kept, except that every column in
+`continuous_vars` is returned as double (an integer column comes back
+double, holding whole numbers) and `id_var`, if present, is replaced by
+the integer sequence `1:n`.
 
 ## Details
 
@@ -73,14 +93,24 @@ Samples n observations with replacement from the original dataset.
 
 ### Continuous Variable Noise
 
-- Adds Gaussian noise with standard deviation = original SD ×
+- Adds Gaussian noise with standard deviation = original SD times
   noise_level
 
 - Constrains values to remain within original variable bounds
 
-- Preserves integer type for variables that appear to be integers
+- Rounds to whole numbers the variables that appear to be integers (see
+  below); the column is returned as double, not integer
+
+- Leaves missing values missing
+
+Integer-valued columns (every non-missing value a whole number) are
+rounded after the noise is added, so a 0/1 column treated as continuous
+is usually unchanged at a small `noise_level`.
 
 ### Categorical Variable Perturbation
+
+Applies to the columns in `cat_vars`, given or auto-detected as
+described for that argument.
 
 - Changes values with probability = noise_level / 2
 
@@ -88,7 +118,8 @@ Samples n observations with replacement from the original dataset.
 
 - Multi-level unordered: randomly selects from other levels
 
-- Ordered factors: weights selection toward adjacent levels
+- Ordered factors, or a column named `grade`, with more than two levels:
+  selection is weighted toward adjacent levels
 
 - Preserves factor levels and ordering from original data
 
@@ -98,11 +129,26 @@ Samples n observations with replacement from the original dataset.
   should maintain their numeric type unless they are factors in the
   input
 
-- Missing values (NA) are handled appropriately in calculations but are
-  not imputed
+- Missing values (NA) in a column treated only as continuous (not also
+  in `cat_vars`) stay missing. In a categorical column a missing value
+  is selected for change with the same probability, `noise_level / 2`,
+  as any other value; if it is not selected it stays missing. A selected
+  missing value in an ordered factor, or a column named `grade`, with
+  more than two levels stops the call with the error "replacement has
+  length zero". Otherwise, in a column with two levels (for a non-factor
+  column, two distinct non-missing values in `data`) it is replaced by
+  the first level (for a non-factor column, the smallest value); in a
+  column with more than two levels, by a level drawn at random from all
+  its levels; and in a column with fewer than two levels (for a
+  non-factor column, fewer than two distinct non-missing values) it
+  stays missing.
 
-- For ordered factors or variables named "grade", the perturbation
-  favors transitions to adjacent levels over distant levels
+- For an ordered factor, or a column named `grade`, that is processed as
+  categorical and has more than two levels, the perturbation favors
+  adjacent levels. A numeric `grade` column is processed as categorical
+  only when it is named in `cat_vars`, or when `cat_vars` is NULL,
+  `continuous_vars` is given without it and it has 10 or fewer unique
+  values.
 
 ## See also
 
@@ -114,9 +160,11 @@ Samples n observations with replacement from the original dataset.
 ``` r
 if (FALSE) { # \dontrun{
 # Load example dataset
-data(gbsg, package = "survival")
+gbsg <- survival::gbsg
 
 # Basic usage with automatic variable detection
+# (all gbsg columns are numeric, so all except pid, the id_var, are
+# treated as continuous)
 synthetic_data <- generate_bootstrap_with_noise(
   data = gbsg,
   seed = 123

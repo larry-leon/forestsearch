@@ -54,8 +54,8 @@ interpret_estimation_table(
 
 - scenario:
 
-  Character. One of `"null"` or `"alt"` (default). Controls the
-  interpretive framing:
+  Character or `NULL` (default). One of `"null"` or `"alt"`. Controls
+  the interpretive framing:
 
   - `"null"`: emphasises false-positive rate and selection bias
 

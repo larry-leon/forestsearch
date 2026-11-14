@@ -28,7 +28,9 @@ K-fold summary.
 
 ``` r
 if (FALSE) { # \dontrun{
-fs <- forestsearch(gbsg,
+gbsg <- survival::gbsg
+gbsg$grade3 <- as.integer(gbsg$grade == 3)
+fs <- forestsearch(gbsg, id.name = "pid",
   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
 kfold <- forestsearch_tenfold(fs.est = fs, sims = 5)

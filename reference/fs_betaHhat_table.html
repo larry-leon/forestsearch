@@ -11,7 +11,7 @@ and the target does not depend on the trial."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -26,6 +26,7 @@ and the target does not depend on the trial."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -34,6 +35,10 @@ and the target does not depend on the trial."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -71,7 +76,12 @@ and the target does not depend on the trial.</p>
 <span>  outcome.name <span class="op">=</span> <span class="st">"y_sim"</span>,</span>
 <span>  event.name <span class="op">=</span> <span class="st">"event_sim"</span>,</span>
 <span>  treat.name <span class="op">=</span> <span class="st">"treat_sim"</span>,</span>
-<span>  sg_def_structs <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  sg_def_structs <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"frame"</span>, <span class="st">"exact"</span><span class="op">)</span>,</span>
+<span>  dgm <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  analysis_time <span class="op">=</span> <span class="fl">84</span>,</span>
+<span>  max_entry <span class="op">=</span> <span class="fl">24</span>,</span>
+<span>  cens_adjust <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="fl">1.5</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -95,6 +105,12 @@ and the target does not depend on the trial.</p>
 <dt id="arg-sg-def-structs">sg_def_structs<a class="anchor" aria-label="anchor" href="#arg-sg-def-structs"></a></dt>
 <dd><p>Optional named list of structured GRF definitions,
 keyed by the rule string, used in preference to string parsing.</p></dd>
+
+
+<dt id="arg-method-dgm-analysis-time-max-entry-cens-adjust">method, dgm, analysis_time, max_entry, cens_adjust<a class="anchor" aria-label="anchor" href="#arg-method-dgm-analysis-time-max-entry-cens-adjust"></a></dt>
+<dd><p>Passed to
+<code><a href="fs_betaHhat_one.html">fs_betaHhat_one()</a></code>; under <code>method = "exact"</code> the analytic population is
+built once for all rules.</p></dd>
 
 </dl></div>
     <div class="section level2">

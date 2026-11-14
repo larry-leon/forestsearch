@@ -22,7 +22,8 @@ simulate_from_dgm(
   keep_rand = FALSE,
   time_eos = NULL,
   replace = TRUE,
-  baseline = c("resample", "fixed")
+  baseline = c("resample", "fixed"),
+  entry_delay = NULL
 )
 ```
 
@@ -47,7 +48,12 @@ simulate_from_dgm(
 
   Character string naming an entry-time variable in the super
   population. If `NULL`, entry times are drawn as
-  `Uniform(0, max_entry)`. Default `NULL`.
+  `Uniform(0, max_entry)`. Default `NULL`. When supplied it takes
+  precedence over `entry_delay`, which is then ignored.
+  ([`mrct_region_sims`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md)
+  sets `entry_var = "entrytime"` whenever `dgm$df_super` has a column
+  `entrytime`: one fixed entry time per super-population row, carried
+  with the row into every trial that samples it.)
 
 - max_entry:
 
@@ -125,6 +131,23 @@ simulate_from_dgm(
   [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
   if absent). With `baseline = "fixed"`, `n` must be `NULL` or equal
   `nrow(dgm$df_source)`, and `replace` is ignored.
+
+- entry_delay:
+
+  `NULL` (default: every patient enters at `Uniform(0, max_entry)`), or
+  a per-patient delay added to that entry time, in the DGM's time units.
+  Either `list(var = <column>, delay = a)`: patients with `var == 1`
+  enter at `a + Uniform(0, max_entry)`, the others at
+  `Uniform(0, max_entry)` (e.g. `list(var = "z_region", delay = 6)` for
+  a region enrolling six months later); or a numeric vector of length
+  `n` (non-negative), the delay of each sampled patient in sampling
+  order. The uniform part is redrawn every call, with the same random
+  numbers as `entry_delay = NULL`, so only the delayed patients' entry
+  (and hence follow-up `analysis_time - entry`) changes. Ignored when
+  `entry_var` is supplied and on the `n = NULL` path (no entry). Passed
+  by
+  [`mrct_region_sims`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md)
+  through its `sim_args`.
 
 ## Value
 

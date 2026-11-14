@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@
 <li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -47,6 +48,10 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul>
@@ -70,7 +75,7 @@
       <h1>Post-selection bounds on a nested continuum: the Guo and He (2021) design</h1>
       <p class="subtitle">Section S4 of León and Anderson (2026b), with the code that produces it</p>
       <p class="author">Larry Leon</p>
-      <p class="date">2026-10-31</p>
+      <p class="date">2026-11-14</p>
 
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/guohe-nested-continuum.qmd" class="external-link"><code>vignettes/articles/guohe-nested-continuum.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -95,9 +100,23 @@
 <span><span class="va">R_out</span>     <span class="op">&lt;-</span> <span class="fl">1000L</span>       <span class="co"># field: outer Monte Carlo (manuscript: 1000L)</span></span>
 <span><span class="va">R_in</span>      <span class="op">&lt;-</span> <span class="fl">500L</span>        <span class="co"># field: inner Monte Carlo (manuscript: 500L)</span></span>
 <span><span class="va">n_big</span>     <span class="op">&lt;-</span> <span class="fl">2e5</span>         <span class="co"># large-sample size for the truth curve (manuscript: 2e6)</span></span>
-<span><span class="va">n_workers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fl">2L</span>, <span class="fu">future</span><span class="fu">::</span><span class="fu"><a href="https://parallelly.futureverse.org/reference/availableCores.html" class="external-link">availableCores</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span>   <span class="co"># set to your cores for a real run</span></span>
-<span></span>
-<span><span class="co"># This article is written for the current CRAN release of forestsearch; the</span></span>
+<span><span class="va">n_workers</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fl">2L</span>, <span class="fu">future</span><span class="fu">::</span><span class="fu"><a href="https://parallelly.futureverse.org/reference/availableCores.html" class="external-link">availableCores</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span>   <span class="co"># set to your cores for a real run</span></span></code></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in warn_future_reexport_deprecation("availableCores"):
+future::availableCores() is deprecated. Please use the identical
+parallelly::availableCores() instead [.main() -&gt; execute() -&gt;
+rmarkdown::render() -&gt; knitr::knit() -&gt; knitr::process_file() -&gt;
+xfun:::handle_error() -&gt; knitr::with_options() -&gt; base::withCallingHandlers()
+-&gt; knitr::process_group() -&gt; knitr::call_block() -&gt; knitr::block_exec() -&gt;
+knitr::eng_r() -&gt; knitr::in_input_dir() -&gt; knitr::in_dir() -&gt; knitr::evaluate()
+-&gt; evaluate::evaluate() -&gt; base::withRestarts() -&gt; withRestartList() -&gt;
+withOneRestart() -&gt; doWithOneRestart() -&gt; withRestartList() -&gt; withOneRestart()
+-&gt; doWithOneRestart() -&gt; evaluate::with_handlers() -&gt; base::eval() -&gt; eval() -&gt;
+base::withCallingHandlers() -&gt; base::withVisible() -&gt; base::eval() -&gt; eval() -&gt;
+future::availableCores()]</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># This article is written for the current CRAN release of forestsearch; the</span></span>
 <span><span class="co"># two functions it uses are exported from 0.4.0 on.</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="fu">utils</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/utils/packageDescription.html" class="external-link">packageVersion</a></span><span class="op">(</span><span class="st">"forestsearch"</span><span class="op">)</span> <span class="op">&lt;</span> <span class="st">"0.4.0"</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="kw"><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop</a></span><span class="op">(</span><span class="st">"This article needs forestsearch &gt;= 0.4.0. "</span>,</span>
@@ -105,7 +124,7 @@
 <span><span class="op">}</span></span></code></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/knitr/man/opts_chunk.html" class="external-link">opts_chunk</a></span><span class="op">$</span><span class="fu">set</span><span class="op">(</span>comment <span class="op">=</span> <span class="st">"#&gt;"</span>, fig.align <span class="op">=</span> <span class="st">"center"</span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/larry-leon/forestsearch" class="external-link">forestsearch</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/therneau/survival" class="external-link">survival</a></span><span class="op">)</span></span>
@@ -135,7 +154,7 @@
 \mathrm{Unif}[0, 80]</annotation></semantics></math> and treatment <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>D</mi><mo>∼</mo><mrow><mi mathvariant="normal">B</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">l</mi><mi mathvariant="normal">l</mi><mi mathvariant="normal">i</mi></mrow><mo stretchy="false" form="prefix">(</mo><mn>0.5</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">D \sim \mathrm{Bernoulli}(0.5)</annotation></semantics></math> from the proportional hazards model <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>λ</mi><mn>0</mn></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">{</mo><mi>b</mi><mo stretchy="false" form="prefix">(</mo><mi>W</mi><mo stretchy="false" form="postfix">)</mo><mi>D</mi><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\lambda_0(t)\exp\{b(W)D\}</annotation></semantics></math> with a unit exponential baseline hazard, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo stretchy="false" form="prefix">(</mo><mi>w</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>β</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">b(w) = \beta_2</annotation></semantics></math> for <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi><mo>≤</mo><mn>30</mn></mrow><annotation encoding="application/x-tex">w \le 30</annotation></semantics></math> and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0</mn><annotation encoding="application/x-tex">0</annotation></semantics></math> otherwise, and censoring with <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mi>C</mi><mo>∼</mo><mrow><mi mathvariant="normal">U</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">f</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>−</mi><mn>1.25</mn><mo>,</mo><mn>1.00</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\log C \sim \mathrm{Unif}(-1.25, 1.00)</annotation></semantics></math>, about 40% across the cells; <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>β</mi><mn>2</mn></msub><mo>∈</mo><mo stretchy="false" form="prefix">{</mo><mn>0</mn><mo>,</mo><mn>0.1</mn><mo>,</mo><mi>…</mi><mo>,</mo><mn>0.5</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\beta_2 \in \{0, 0.1, \ldots, 0.5\}</annotation></semantics></math>. The true harm region is <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>H</mi><mo>=</mo><mo stretchy="false" form="prefix">{</mo><mi>W</mi><mo>≤</mo><mn>30</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">H =
 \{W \le 30\}</annotation></semantics></math>, about 150 subjects. The candidates are <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>c</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mo stretchy="false" form="prefix">{</mo><mi>W</mi><mo>≤</mo><mi>c</mi><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">S(c) = \{W \le c\}</annotation></semantics></math> for <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mo>∈</mo><mo stretchy="false" form="prefix">[</mo><mn>30</mn><mo>,</mo><mn>60</mn><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">c \in [30, 60]</annotation></semantics></math>. Because an estimate changes only where <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math> passes an observed value of <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>W</mi><annotation encoding="application/x-tex">W</annotation></semantics></math>, the family is taken to be the distinct cuts at 30 and at every observed <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>w</mi><mo>∈</mo><mo stretchy="false" form="prefix">(</mo><mn>30</mn><mo>,</mo><mn>60</mn><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">w \in (30, 60]</annotation></semantics></math> — nested, cut at every observed value, about 151 candidates per replicate. This discretisation is the manuscript’s; Guo and He do not state one.</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">W_MAX</span> <span class="op">&lt;-</span> <span class="fl">80</span>; <span class="va">C_LO</span> <span class="op">&lt;-</span> <span class="fl">30</span>; <span class="va">C_HI</span> <span class="op">&lt;-</span> <span class="fl">60</span></span>
 <span></span>
 <span><span class="co"># One trial under the Section 5.2 design.</span></span>
@@ -186,7 +205,7 @@
 </div>
 <p>One trial, to see the objects:</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">df1</span>  <span class="op">&lt;-</span> <span class="fu">sim_data</span><span class="op">(</span><span class="fl">0.3</span>, <span class="fl">400L</span><span class="op">)</span></span>
 <span><span class="va">fam1</span> <span class="op">&lt;-</span> <span class="fu">nested_family</span><span class="op">(</span><span class="va">df1</span><span class="op">)</span></span>
@@ -205,7 +224,7 @@
 <p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mi>c</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta(c)</annotation></semantics></math> is the Cox log hazard ratio of treatment within <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mo stretchy="false" form="prefix">(</mo><mi>c</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">S(c)</annotation></semantics></math>: a weighted average of <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo stretchy="false" form="prefix">(</mo><mi>⋅</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">b(\cdot)</annotation></semantics></math> over <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mn>0</mn><mo>,</mo><mi>c</mi><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">[0, c]</annotation></semantics></math>, the working model’s least-false value under the censoring the design imposes. Two facts anchor it: <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mn>30</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>β</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">\beta(30) =
 \beta_2</annotation></semantics></math> exactly, because <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>b</mi><annotation encoding="application/x-tex">b</annotation></semantics></math> is constant on <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mn>0</mn><mo>,</mo><mn>30</mn><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">[0, 30]</annotation></semantics></math>; and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mi>c</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta(c)</annotation></semantics></math> is non-increasing for <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mo>&gt;</mo><mn>30</mn></mrow><annotation encoding="application/x-tex">c &gt; 30</annotation></semantics></math>, diluted by the null region alone. At <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>β</mi><mn>2</mn></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\beta_2 = 0</annotation></semantics></math> the curve is exactly zero everywhere. For <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>β</mi><mn>2</mn></msub><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\beta_2 &gt; 0</annotation></semantics></math> there is no closed form, and the curve is computed from one large sample by a prefix sweep over a grid of <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math>, with the isotonic non-increasing projection as the interpolation basis. The manuscript uses <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>n</mi><mrow><mi mathvariant="normal">b</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">g</mi></mrow></msub><mo>=</mo><mn>2</mn><mo>×</mo><msup><mn>10</mn><mn>6</mn></msup></mrow><annotation encoding="application/x-tex">n_{\mathrm{big}} = 2 \times 10^6</annotation></semantics></math> on a 0.25 grid; this article uses 200,000 on a unit grid, which costs a few seconds and places <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mi>c</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta(c)</annotation></semantics></math> within about 0.006 of the manuscript’s curve.</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">truth_curve</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">beta2</span>, <span class="va">n_big</span>, <span class="va">c_step</span> <span class="op">=</span> <span class="fl">1</span>, <span class="va">seed</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="va">seed</span><span class="op">)</span></span>
 <span>  <span class="va">df</span> <span class="op">&lt;-</span> <span class="fu">sim_data</span><span class="op">(</span><span class="va">beta2</span>, <span class="va">n_big</span><span class="op">)</span></span>
@@ -243,7 +262,7 @@
 <span>                    <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">n_big</span>, big.mark <span class="op">=</span> <span class="st">","</span>, scientific <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>, <span class="va">truth_sec</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <table class="table caption-top">
-<caption>The truth curve by cell (n_big = 200,000; 16.8 s).</caption>
+<caption>The truth curve by cell (n_big = 200,000; 19.3 s).</caption>
 <colgroup>
 <col style="width: 7%">
 <col style="width: 25%">
@@ -291,7 +310,7 @@
 </ul>
 <p>The seeds are the manuscript’s: a cell’s base seed is a function of its label, the data of replicate <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math> use base <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mi>m</mi></mrow><annotation encoding="application/x-tex">+ m</annotation></semantics></math>, Guo and He’s bootstrap base <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mi>m</mi><mo>+</mo><mn>500</mn><mo>,</mo><mn>000</mn></mrow><annotation encoding="application/x-tex">+ m + 500{,}000</annotation></semantics></math> and the multiplier draws base <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mi>m</mi><mo>+</mo><mn>700</mn><mo>,</mo><mn>000</mn></mrow><annotation encoding="application/x-tex">+ m + 700{,}000</annotation></semantics></math>, so a run at the manuscript’s settings reproduces its records replicate for replicate.</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">seed_base</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">beta2</span><span class="op">)</span></span>
 <span>  <span class="fl">1000000L</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/utf8Conversion.html" class="external-link">utf8ToInt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"t7_beta2_%02d"</span>, <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fl">10</span> <span class="op">*</span> <span class="va">beta2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100003L</span></span>
 <span></span>
@@ -348,7 +367,7 @@
 </h3>
 <p>Replicate 1 of the <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>β</mi><mn>2</mn></msub><mo>=</mo><mn>0.3</mn></mrow><annotation encoding="application/x-tex">\beta_2 = 0.3</annotation></semantics></math> cell, with Guo and He at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>=</mo><mn>2000</mn></mrow><annotation encoding="application/x-tex">B = 2000</annotation></semantics></math> and the field at 1000 × 500: the manuscript’s own first replicate of that cell. It takes about a minute, almost all of it the bootstrap.</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tr_walk</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="st">"0.3"</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">truth</span><span class="op">)</span><span class="op">)</span> <span class="va">truth</span><span class="op">[[</span><span class="st">"0.3"</span><span class="op">]</span><span class="op">]</span> <span class="kw">else</span></span>
 <span>  <span class="fu">truth_curve</span><span class="op">(</span><span class="fl">0.3</span>, n_big <span class="op">=</span> <span class="va">n_big</span>, c_step <span class="op">=</span> <span class="fl">1</span>, seed <span class="op">=</span> <span class="fl">20260721L</span> <span class="op">+</span> <span class="fl">30L</span><span class="op">)</span></span>
 <span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span></span>
@@ -378,7 +397,7 @@
 <span>                               <span class="va">one</span><span class="op">$</span><span class="va">k</span>, <span class="va">one_sec</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <table class="table caption-top">
-<caption>Replicate 1, beta_2 = 0.3, at the manuscript’s settings (141 candidates; 54 s).</caption>
+<caption>Replicate 1, beta_2 = 0.3, at the manuscript’s settings (141 candidates; 90 s).</caption>
 <colgroup>
 <col style="width: 77%">
 <col style="width: 22%">
@@ -437,7 +456,7 @@
 </h2>
 <p>The loop runs <code>bounds_one()</code> over replicates, in parallel across 2 workers (the seeds are fixed per replicate, so the results do not depend on the plan). Coverage is scored against <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo stretchy="false" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\beta(\hat H)</annotation></semantics></math> for the selected subgroup and against exactly zero for the complement — every <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><mo>=</mo><mo stretchy="false" form="prefix">{</mo><mi>W</mi><mo>&gt;</mo><mover><mi>c</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\hat H^{c} = \{W &gt; \hat c\}</annotation></semantics></math> lies inside <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">{</mo><mi>W</mi><mo>&gt;</mo><mn>30</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\{W &gt; 30\}</annotation></semantics></math>, where <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">b = 0</annotation></semantics></math> — so a complement bound covers when it is at least zero.</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">run_cell</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">beta2</span>, <span class="va">tr</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[[</span><span class="st">"elapsed"</span><span class="op">]</span><span class="op">]</span></span>
 <span>  <span class="va">rows</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://future.apply.futureverse.org/reference/future_lapply.html" class="external-link">future_lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n_rep</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">m</span><span class="op">)</span></span>
@@ -455,7 +474,7 @@
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">res</span>, <span class="kw">function</span><span class="op">(</span><span class="va">r</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">r</span><span class="op">$</span><span class="va">gh_sel_agree</span> <span class="op">&amp;</span> <span class="va">r</span><span class="op">$</span><span class="va">mr_sel_agree</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">wilson</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">n</span>, <span class="va">z</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">qnorm</a></span><span class="op">(</span><span class="fl">0.975</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">p</span> <span class="op">&lt;-</span> <span class="va">x</span> <span class="op">/</span> <span class="va">n</span>; <span class="va">den</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">+</span> <span class="va">z</span><span class="op">^</span><span class="fl">2</span> <span class="op">/</span> <span class="va">n</span></span>
 <span>  <span class="va">ctr</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">p</span> <span class="op">+</span> <span class="va">z</span><span class="op">^</span><span class="fl">2</span> <span class="op">/</span> <span class="op">(</span><span class="fl">2</span> <span class="op">*</span> <span class="va">n</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="va">den</span></span>
@@ -507,7 +526,7 @@
 <section class="level3"><h3 id="what-the-argmax-selects">What the argmax selects<a class="anchor" aria-label="anchor" href="#what-the-argmax-selects"></a>
 </h3>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">own_select</span>, digits <span class="op">=</span> <span class="fl">3</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>             col.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"beta_2"</span>, <span class="st">"n"</span>, <span class="st">"candidates"</span>, <span class="st">"c-hat median"</span>, <span class="st">"q25"</span>, <span class="st">"q75"</span>,</span>
 <span>                           <span class="st">"share c-hat = 30"</span>, <span class="st">"mean |H-hat|"</span>, <span class="st">"mean beta(H-hat)"</span>, <span class="st">"dilution"</span>,</span>
@@ -577,7 +596,7 @@
 </section><section class="level3"><h3 id="the-selected-subgroups-lower-bound">The selected subgroup’s lower bound<a class="anchor" aria-label="anchor" href="#the-selected-subgroups-lower-bound"></a>
 </h3>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="va">own_lower</span></span>
 <span><span class="va">tab</span><span class="op">$</span><span class="va">coverage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f (%.3f, %.3f)"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">coverage</span>, <span class="va">tab</span><span class="op">$</span><span class="va">wilson_lo</span>, <span class="va">tab</span><span class="op">$</span><span class="va">wilson_hi</span><span class="op">)</span></span>
 <span><span class="va">tab</span><span class="op">$</span><span class="va">bias</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%+.3f (SE %.3f)"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">bias</span>, <span class="va">tab</span><span class="op">$</span><span class="va">bias_se</span><span class="op">)</span></span>
@@ -681,7 +700,7 @@
 </section><section class="level3"><h3 id="the-complement-and-the-joint-claim">The complement, and the joint claim<a class="anchor" aria-label="anchor" href="#the-complement-and-the-joint-claim"></a>
 </h3>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="va">own_upper</span></span>
 <span><span class="va">tab</span><span class="op">$</span><span class="va">coverage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f (%.3f, %.3f)"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">coverage</span>, <span class="va">tab</span><span class="op">$</span><span class="va">wilson_lo</span>, <span class="va">tab</span><span class="op">$</span><span class="va">wilson_hi</span><span class="op">)</span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">tab</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"beta2"</span>, <span class="st">"method"</span>, <span class="st">"coverage"</span>, <span class="st">"upper_hr"</span><span class="op">)</span><span class="op">]</span>, digits <span class="op">=</span> <span class="fl">2</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span>,</span>
@@ -742,7 +761,7 @@
 </tbody>
 </table>
 </div>
-<div class="sourceCode cell-code" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="va">own_joint</span></span>
 <span><span class="va">tab</span><span class="op">$</span><span class="va">joint_coverage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f (%.3f, %.3f)"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">joint_coverage</span>, <span class="va">tab</span><span class="op">$</span><span class="va">wilson_lo</span>, <span class="va">tab</span><span class="op">$</span><span class="va">wilson_hi</span><span class="op">)</span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">tab</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"beta2"</span>, <span class="st">"joint_coverage"</span>, <span class="st">"pair_lower_H_hr"</span>, <span class="st">"pair_upper_Hc_hr"</span><span class="op">)</span><span class="op">]</span>, digits <span class="op">=</span> <span class="fl">2</span>,</span>
@@ -784,7 +803,7 @@
 </section><section class="level3"><h3 id="bias-and-coverage-with-the-manuscripts-values-beside-them">Bias and coverage, with the manuscript’s values beside them<a class="anchor" aria-label="anchor" href="#bias-and-coverage-with-the-manuscripts-values-beside-them"></a>
 </h3>
 <div class="cell" data-layout-align="center">
-<details class="code-fold"><summary>The manuscript’s results as data (Tables S20-S25 and S28 of León and Anderson 2026b; 2,000 paired replicates per cell)</summary><div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
+<details class="code-fold"><summary>The manuscript’s results as data (Tables S20-S25 and S28 of León and Anderson 2026b; 2,000 paired replicates per cell)</summary><div class="sourceCode cell-code" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ref_cells</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.1</span>, <span class="fl">0.2</span>, <span class="fl">0.3</span>, <span class="fl">0.4</span>, <span class="fl">0.5</span><span class="op">)</span></span>
 <span><span class="co"># Table S25: the four one-sided 95% lower bounds on beta(H-hat), by cell.</span></span>
 <span><span class="va">ref_lower</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
@@ -875,7 +894,7 @@
 </details>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">meths</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">LOWER_METHODS</span><span class="op">)</span>; <span class="va">off</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">0.018</span>, <span class="fl">0.018</span>, length.out <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">meths</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">cols</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"black"</span>, <span class="st">"firebrick"</span>, <span class="st">"steelblue"</span>, <span class="st">"darkgreen"</span><span class="op">)</span></span>
 <span><span class="va">op</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>, mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4.2</span>, <span class="fl">4.2</span>, <span class="fl">2.2</span>, <span class="fl">0.8</span><span class="op">)</span><span class="op">)</span></span>
@@ -916,11 +935,11 @@
 <figcaption>Bias of the point estimate against beta(H-hat) (A) and coverage of the one-sided 95% lower bound (B), by cell and method. Filled points: this article’s run, with bars at ±1.96 Monte Carlo standard errors (A) and the Wilson 95% interval (B); the shaded band in B is where a coverage estimate at this replicate count falls with probability 0.95 when the true coverage is exactly nominal. Hollow points: the manuscript’s values from 2,000 replicates per cell. Points are offset horizontally so the bars separate.</figcaption></figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span><span class="va">op</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">umeths</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">UPPER_METHODS</span><span class="op">)</span>; <span class="va">uoff</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">0.012</span>, <span class="fl">0.012</span>, length.out <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">umeths</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">ucols</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"black"</span>, <span class="st">"darkgreen"</span>, <span class="st">"steelblue"</span><span class="op">)</span></span>
 <span><span class="va">op</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>, mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4.2</span>, <span class="fl">4.2</span>, <span class="fl">2.2</span>, <span class="fl">0.8</span><span class="op">)</span><span class="op">)</span></span>
@@ -953,11 +972,11 @@
 <figcaption>The complement and the joint claim, by cell. A: coverage of the one-sided 95% upper bound on beta(H-hat^c) against its truth of exactly 0. B: joint coverage of the Bonferroni pair with field-s on H-hat^c. Filled points and bars: this article’s run (Wilson 95%); hollow points: the manuscript’s values; shaded band as in the previous figure. Guo and He have no counterpart to either panel.</figcaption></figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span><span class="va">op</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  cell <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"beta_2 = %.1f"</span>, <span class="va">cells</span><span class="op">)</span>, replicates <span class="op">=</span> <span class="va">n_rep</span>,</span>
 <span>  `seconds` <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cell_sec</span>, <span class="fl">1</span><span class="op">)</span>, `seconds per replicate (wall, across workers)` <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cell_sec</span> <span class="op">/</span> <span class="va">n_rep</span>, <span class="fl">1</span><span class="op">)</span>,</span>
@@ -966,7 +985,7 @@
 <span>                    <span class="va">n_workers</span>, <span class="kw">if</span> <span class="op">(</span><span class="va">n_workers</span> <span class="op">&gt;</span> <span class="fl">1L</span><span class="op">)</span> <span class="st">"s"</span> <span class="kw">else</span> <span class="st">""</span>, <span class="va">B_gh</span>, <span class="va">mr_draws</span>, <span class="va">R_out</span>, <span class="va">R_in</span>, <span class="va">truth_sec</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <table class="table caption-top">
-<caption>Wall-clock of this article’s run on 2 workers (Guo and He at B = 200; MR at 5000 draws, field 1000 x 500; truth curves 16.8 s in addition).</caption>
+<caption>Wall-clock of this article’s run on 2 workers (Guo and He at B = 200; MR at 5000 draws, field 1000 x 500; truth curves 19.3 s in addition).</caption>
 <colgroup>
 <col style="width: 16%">
 <col style="width: 14%">
@@ -983,14 +1002,14 @@
 <tr class="odd">
 <td style="text-align: left;">beta_2 = 0.0</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">102.3</td>
-<td style="text-align: right;">4.1</td>
+<td style="text-align: right;">167.4</td>
+<td style="text-align: right;">6.7</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">beta_2 = 0.3</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">107.0</td>
-<td style="text-align: right;">4.3</td>
+<td style="text-align: right;">169.6</td>
+<td style="text-align: right;">6.8</td>
 </tr>
 </tbody>
 </table>
@@ -1002,7 +1021,7 @@
 <section class="level3"><h3 id="what-the-argmax-selects-tables-s20-and-s21">What the argmax selects (Tables S20 and S21)<a class="anchor" aria-label="anchor" href="#what-the-argmax-selects-tables-s20-and-s21"></a>
 </h3>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  beta2 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.1f"</span>, <span class="va">ref_select</span><span class="op">$</span><span class="va">beta2</span><span class="op">)</span>,</span>
 <span>  `c-hat median (IQR)` <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.1f (%.1f, %.1f)"</span>, <span class="va">ref_select</span><span class="op">$</span><span class="va">c_hat_median</span>, <span class="va">ref_select</span><span class="op">$</span><span class="va">c_hat_q25</span>, <span class="va">ref_select</span><span class="op">$</span><span class="va">c_hat_q75</span><span class="op">)</span>,</span>
@@ -1138,7 +1157,7 @@
 </section><section class="level3"><h3 id="the-selected-subgroups-lower-bound-tables-s22-and-s25">The selected subgroup’s lower bound (Tables S22 and S25)<a class="anchor" aria-label="anchor" href="#the-selected-subgroups-lower-bound-tables-s22-and-s25"></a>
 </h3>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="va">ref_lower</span></span>
 <span><span class="va">tab</span><span class="op">$</span><span class="va">coverage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f (%.3f, %.3f)"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">coverage</span>, <span class="va">tab</span><span class="op">$</span><span class="va">wilson_lo</span>, <span class="va">tab</span><span class="op">$</span><span class="va">wilson_hi</span><span class="op">)</span></span>
 <span><span class="va">tab</span><span class="op">$</span><span class="va">bias</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%+.3f"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">bias</span><span class="op">)</span></span>
@@ -1429,7 +1448,7 @@
 </section><section class="level3"><h3 id="the-complement-and-the-joint-claim-tables-s24-and-s28">The complement and the joint claim (Tables S24 and S28)<a class="anchor" aria-label="anchor" href="#the-complement-and-the-joint-claim-tables-s24-and-s28"></a>
 </h3>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="va">ref_upper</span></span>
 <span><span class="va">tab</span><span class="op">$</span><span class="va">coverage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f (%.3f, %.3f)"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">coverage</span>, <span class="va">tab</span><span class="op">$</span><span class="va">wilson_lo</span>, <span class="va">tab</span><span class="op">$</span><span class="va">wilson_hi</span><span class="op">)</span></span>
 <span><span class="va">tab</span><span class="op">$</span><span class="va">upper_hr</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">upper_hr</span><span class="op">)</span></span>
@@ -1567,7 +1586,7 @@
 </tbody>
 </table>
 </div>
-<div class="sourceCode cell-code" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="va">ref_joint</span></span>
 <span><span class="va">tab</span><span class="op">$</span><span class="va">joint_coverage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f (%.3f, %.3f)"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">joint_coverage</span>, <span class="va">tab</span><span class="op">$</span><span class="va">wilson_lo</span>, <span class="va">tab</span><span class="op">$</span><span class="va">wilson_hi</span><span class="op">)</span></span>
 <span><span class="va">tab</span><span class="op">$</span><span class="va">joint_unscaled</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f (%.3f, %.3f)"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">joint_unscaled</span>, <span class="va">tab</span><span class="op">$</span><span class="va">unscaled_lo</span>, <span class="va">tab</span><span class="op">$</span><span class="va">unscaled_hi</span><span class="op">)</span></span>
@@ -1645,7 +1664,7 @@
 </section><section class="level3"><h3 id="the-sixteen-replicated-cells-table-s23">The sixteen replicated cells (Table S23)<a class="anchor" aria-label="anchor" href="#the-sixteen-replicated-cells-table-s23"></a>
 </h3>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="va">ref_16</span></span>
 <span><span class="va">tab</span><span class="op">$</span><span class="va">gh</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f / %.3f / %+.3f"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">gh_coverage</span>, <span class="va">tab</span><span class="op">$</span><span class="va">gh_margin</span>, <span class="va">tab</span><span class="op">$</span><span class="va">gh_bias</span><span class="op">)</span></span>
 <span><span class="va">tab</span><span class="op">$</span><span class="va">field</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f / %.3f / %+.3f"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">field_coverage</span>, <span class="va">tab</span><span class="op">$</span><span class="va">field_margin</span>, <span class="va">tab</span><span class="op">$</span><span class="va">field_bias</span><span class="op">)</span></span>
@@ -1797,11 +1816,11 @@
 </ol></section><section class="level2"><h2 id="running-the-manuscripts-design">Running the manuscript’s design<a class="anchor" aria-label="anchor" href="#running-the-manuscripts-design"></a>
 </h2>
 <p>Set, at the top of this article,</p>
-<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>cells    <span class="ot">&lt;-</span> (<span class="dv">0</span><span class="sc">:</span><span class="dv">5</span>) <span class="sc">/</span> <span class="dv">10</span></span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>n_rep    <span class="ot">&lt;-</span> <span class="dv">2000</span>L</span>
-<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>B_gh     <span class="ot">&lt;-</span> <span class="dv">2000</span>L</span>
-<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>n_big    <span class="ot">&lt;-</span> <span class="fl">2e6</span></span>
-<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>n_workers <span class="ot">&lt;-</span> <span class="er">&lt;</span>the cores you have<span class="sc">&gt;</span></span></code></pre></div>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>cells    <span class="ot">&lt;-</span> (<span class="dv">0</span><span class="sc">:</span><span class="dv">5</span>) <span class="sc">/</span> <span class="dv">10</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>n_rep    <span class="ot">&lt;-</span> <span class="dv">2000</span>L</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>B_gh     <span class="ot">&lt;-</span> <span class="dv">2000</span>L</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>n_big    <span class="ot">&lt;-</span> <span class="fl">2e6</span></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>n_workers <span class="ot">&lt;-</span> <span class="er">&lt;</span>the cores you have<span class="sc">&gt;</span></span></code></pre></div>
 <p>and leave the multiplier settings as they are (they are already the manuscript’s). Everything else follows: the seeds reproduce the manuscript’s replicates, the summaries and figures are those of Section S4 at full size, and the reference tables above are what the run should reproduce up to Monte Carlo error of the truth curve (a few thousandths on the log scale at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>n</mi><mrow><mi mathvariant="normal">b</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">g</mi></mrow></msub><mo>=</mo><mn>2</mn><mo>×</mo><msup><mn>10</mn><mn>6</mn></msup></mrow><annotation encoding="application/x-tex">n_{\mathrm{big}} = 2 \times 10^6</annotation></semantics></math>).</p>
 <p>The cost is Guo and He’s bootstrap. On one core of a Linux workstation, one replicate at these settings takes about 72 s, of which the bootstrap at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>=</mo><mn>2000</mn></mrow><annotation encoding="application/x-tex">B = 2000</annotation></semantics></math> is about 70 s and the multiplier resampling with its field about 2 s; the six cells at 2,000 replicates are therefore about 240 core-hours — some 2.5 hours on 100 workers, or a weekend on 8. At <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>=</mo><mn>200</mn></mrow><annotation encoding="application/x-tex">B = 200</annotation></semantics></math> a replicate takes about 10 s. The truth curve at <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>n</mi><mrow><mi mathvariant="normal">b</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">g</mi></mrow></msub><mo>=</mo><mn>2</mn><mo>×</mo><msup><mn>10</mn><mn>6</mn></msup></mrow><annotation encoding="application/x-tex">n_{\mathrm{big}} = 2 \times 10^6</annotation></semantics></math> costs about a minute per cell, once.</p>
 </section><section class="level2"><h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
@@ -1811,7 +1830,7 @@
 <p>León, L. F. and Anderson, K. M. (2026b). Interpretable subgroup identification across survival and generalized-linear outcomes. arXiv:2610.28379. <a href="https://doi.org/10.48550/arXiv.2610.28379" class="external-link uri">https://doi.org/10.48550/arXiv.2610.28379</a></p>
 <p>León, L. F., Jemielita, T., Guo, Z., Marceau West, R. and Anderson, K. M. (2024). Exploratory subgroup identification in the heterogeneous Cox model: A relatively simple procedure. <em>Statistics in Medicine</em>. <a href="https://doi.org/10.1002/sim.10163" class="external-link uri">https://doi.org/10.1002/sim.10163</a></p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt; R version 4.6.2 (2026-10-29)</span></span>
@@ -1835,8 +1854,8 @@
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base</span></span>
 <span><span class="co">#&gt;</span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] future.apply_1.21.0 future_1.80.0       survival_3.8-12</span></span>
-<span><span class="co">#&gt; [4] forestsearch_0.4.0</span></span>
+<span><span class="co">#&gt; [1] future.apply_1.21.0 future_1.82.0       survival_3.8-12</span></span>
+<span><span class="co">#&gt; [4] forestsearch_0.5.0</span></span>
 <span><span class="co">#&gt;</span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
 <span><span class="co">#&gt;  [1] gt_1.4.0             generics_0.1.4       xml2_1.6.0</span></span>
@@ -1847,10 +1866,10 @@
 <span><span class="co">#&gt; [16] fastmap_1.2.0        foreach_1.5.2        jsonlite_2.0.0</span></span>
 <span><span class="co">#&gt; [19] Matrix_1.7-6         glmnet_5.2           scales_1.4.0</span></span>
 <span><span class="co">#&gt; [22] weightedsurv_0.1.0   codetools_0.2-20     cli_3.6.6</span></span>
-<span><span class="co">#&gt; [25] rlang_1.3.0          parallelly_1.48.0    splines_4.6.2</span></span>
-<span><span class="co">#&gt; [28] yaml_2.3.12          otel_0.2.0           tools_4.6.2</span></span>
+<span><span class="co">#&gt; [25] rlang_1.3.0          parallelly_1.50.0    splines_4.6.2</span></span>
+<span><span class="co">#&gt; [28] yaml_2.3.12          otel_0.3.0           tools_4.6.2</span></span>
 <span><span class="co">#&gt; [31] parallel_4.6.2       doFuture_1.4.0       dplyr_1.2.1</span></span>
-<span><span class="co">#&gt; [34] ggplot2_4.0.3        globals_0.20.0       vctrs_0.7.3</span></span>
+<span><span class="co">#&gt; [34] ggplot2_4.0.4        globals_0.20.0       vctrs_0.7.3</span></span>
 <span><span class="co">#&gt; [37] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2</span></span>
 <span><span class="co">#&gt; [40] fs_2.1.0             pkgconfig_2.0.3      progressr_1.1.0</span></span>
 <span><span class="co">#&gt; [43] pillar_1.11.1        gtable_0.3.6         data.table_1.18.6.1</span></span>
@@ -1869,7 +1888,8 @@
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }
       // Inspect non-navigation links and adorn them if external
-     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
       for (var i=0; i<links.length; i++) {
         const link = links[i];
         if (!isInternal(link.href)) {
@@ -1878,8 +1898,69 @@
           if (link.dataset.originalHref !== undefined) {
             link.href = link.dataset.originalHref;
           }
+          if (!link.classList.contains('no-external-icon')) {
+          }
         }
       }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
       const config = {
         allowHTML: true,
@@ -1893,6 +1974,7 @@
         interactiveBorder: 10,
         theme: 'light-border',
         placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
       };
       if (contentFn) {
         config.content = contentFn;

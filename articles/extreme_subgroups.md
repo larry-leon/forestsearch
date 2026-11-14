@@ -14,7 +14,7 @@ this article yourself (see *Running this article yourself* below).
 n_sims_uniform <- 150L
 n_workers_user <- NULL
 
-# This article is written for the current CRAN release of forestsearch.
+# This article needs forestsearch 0.4.0 or later.
 if (utils::packageVersion("forestsearch") < "0.4.0") {
   stop("This article needs forestsearch >= 0.4.0. ",
        "Update it with install.packages(\"forestsearch\").")
@@ -198,8 +198,8 @@ population.
 
 ### 1.4 Running this article yourself
 
-This article is written for the current CRAN release of **forestsearch**
-(0.4.0) and runs as a single file.
+This article needs **forestsearch** 0.4.0 or later and runs as a single
+file.
 
 1.  **Install the R packages.** Installing **forestsearch** from CRAN
     also installs everything this article uses (survival, ggplot2,
@@ -2355,16 +2355,16 @@ costs that don’t change with replicate count.
 
 | Step                                                   |   Elapsed | Per trial |
 |:-------------------------------------------------------|----------:|----------:|
-| DGM construction (generate_aft_dgm_flex)               |  1.21 sec |         — |
-| Censoring calibration (calibrate_cens_adjust)          |    404 ms |         — |
-| Simulation loop (150 trials × 56 subgroups, 4 workers) | 11.99 sec |     80 ms |
-| Total                                                  | 13.60 sec |         — |
+| DGM construction (generate_aft_dgm_flex)               |  1.71 sec |         — |
+| Censoring calibration (calibrate_cens_adjust)          |    723 ms |         — |
+| Simulation loop (150 trials × 56 subgroups, 4 workers) | 17.66 sec |    118 ms |
+| Total                                                  | 20.09 sec |         — |
 
 Timing for n_sims_uniform = 150, parallel across 4 of 4 cores. {.table
 .caption-top style="width:100%;"}
 
 
-    Throughput: 12.5 trials/sec (wall-clock, 4 workers)  |  Projected total time:  1,000 sims → 1.4 min    │    5,000 sims → 6.7 min
+    Throughput: 8.5 trials/sec (wall-clock, 4 workers)  |  Projected total time:  1,000 sims → 2.0 min    │    5,000 sims → 9.8 min
 
 ## 8 Appendix: DGM with Heterogeneous Treatment Effects
 
@@ -2697,8 +2697,8 @@ sessionInfo()
     [1] stats     graphics  grDevices utils     datasets  methods   base
 
     other attached packages:
-    [1] doFuture_1.4.0     foreach_1.5.2      future_1.80.0      patchwork_1.3.2
-    [5] dplyr_1.2.1        ggplot2_4.0.3      survival_3.8-12    forestsearch_0.4.0
+    [1] doFuture_1.4.0     foreach_1.5.2      future_1.82.0      patchwork_1.3.2
+    [5] dplyr_1.2.1        ggplot2_4.0.4      survival_3.8-12    forestsearch_0.5.0
 
     loaded via a namespace (and not attached):
      [1] gt_1.4.0             sass_0.4.10          generics_0.1.4
@@ -2709,9 +2709,9 @@ sessionInfo()
     [16] mvtnorm_1.4-2        fastmap_1.2.0        jsonlite_2.0.0
     [19] Matrix_1.7-6         glmnet_5.2           scales_1.4.0
     [22] weightedsurv_0.1.0   codetools_0.2-20     cli_3.6.6
-    [25] rlang_1.3.0          parallelly_1.48.0    future.apply_1.21.0
+    [25] rlang_1.3.0          parallelly_1.50.0    future.apply_1.21.0
     [28] splines_4.6.2        withr_3.0.3          yaml_2.3.12
-    [31] otel_0.2.0           tools_4.6.2          parallel_4.6.2
+    [31] otel_0.3.0           tools_4.6.2          parallel_4.6.2
     [34] globals_0.20.0       vctrs_0.7.3          R6_2.6.1
     [37] stats4_4.6.2         lifecycle_1.0.5      randomForest_4.7-1.2
     [40] fs_2.1.0             pkgconfig_2.0.3      progressr_1.1.0

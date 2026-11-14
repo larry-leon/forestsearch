@@ -16,7 +16,12 @@ fs_betaHhat_table(
   outcome.name = "y_sim",
   event.name = "event_sim",
   treat.name = "treat_sim",
-  sg_def_structs = NULL
+  sg_def_structs = NULL,
+  method = c("frame", "exact"),
+  dgm = NULL,
+  analysis_time = 84,
+  max_entry = 24,
+  cens_adjust = log(1.5)
 )
 ```
 
@@ -41,6 +46,13 @@ fs_betaHhat_table(
 
   Optional named list of structured GRF definitions, keyed by the rule
   string, used in preference to string parsing.
+
+- method, dgm, analysis_time, max_entry, cens_adjust:
+
+  Passed to
+  [`fs_betaHhat_one()`](https://larry-leon.github.io/forestsearch/reference/fs_betaHhat_one.md);
+  under `method = "exact"` the analytic population is built once for all
+  rules.
 
 ## Value
 

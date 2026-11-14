@@ -179,9 +179,9 @@ plot_subgroup_results_forestplot(
 
 - outcome_type:
 
-  Character or `NULL`. One of `"survival"` (default), `"binary"`, or
+  Character or `NULL` (default). One of `"survival"`, `"binary"`, or
   `"continuous"`. If `NULL`, auto-detected from
-  `fs_results$fs.est$outcome_type`.
+  `fs_results$fs.est$outcome_type`, or `"survival"` when that is absent.
 
 - effect_measure:
 
@@ -271,6 +271,33 @@ For `est.scale = "hr"` (searching for harm):
 For `est.scale = "1/hr"` (searching for benefit):
 
 - Roles are reversed: H becomes the benefit group
+
+### Orientation of the GLM rows
+
+For a non-survival outcome every row estimated from the data (ITT,
+reference and post-hoc subgroups) is a GLM effect. What follows is for
+the default `est.scale = "hr"`. With a fit (`fs_results$fs.est`) its
+estimator is built with the fit's stored `adverse_outcome` or, when none
+is stored, with
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)'s
+rule (`TRUE` for binary and count outcomes, `FALSE` otherwise), so each
+row is on the scale of the fit's own estimates, sign included; without a
+fit the estimator's default (`adverse_outcome = TRUE`) is used. The rows
+show the arm sizes, not the arm means; the arm means and their raw
+difference (`Diff` in
+[`sg_tables`](https://larry-leon.github.io/forestsearch/reference/sg_tables.md)
+and
+[`mr_estimates_table`](https://larry-leon.github.io/forestsearch/reference/mr_estimates_table.md))
+do not follow the orientation. So for an unadjusted fit where a lower
+outcome is adverse (`adverse_outcome = FALSE`, the default for
+continuous outcomes) a row's effect and the raw treated-minus-control
+difference have opposite signs (for OR and RR, the log of the effect):
+an MD row is the control mean minus the treated mean. Count outcomes and
+the rate measures (IRR, IRD) are not reoriented (see
+[`make_effect_estimator`](https://larry-leon.github.io/forestsearch/reference/make_effect_estimator.md)).
+Bias-corrected rows are taken from `fs_results$fs_bc`, whose estimator
+[`forestsearch_bootstrap_dofuture`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
+builds with the same rule.
 
 ## See also
 

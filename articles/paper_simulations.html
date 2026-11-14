@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@
 <li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -47,6 +48,10 @@
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul>
@@ -70,7 +75,7 @@
       <h1>setup_gbsg_dgm() and generate_aft_dgm_flex(): Relationship and Usage</h1>
       <p class="subtitle">Operating Characteristics and Power Analysis</p>
       <p class="author">ForestSearch Package</p>
-      <p class="date">2026-10-31</p>
+      <p class="date">2026-11-14</p>
 
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/paper_simulations.qmd" class="external-link"><code>vignettes/articles/paper_simulations.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -82,7 +87,7 @@
 
 
     <blockquote>
-<p><strong>About this article (updated October 2026).</strong> This article reproduces the simulation framework of León, Jemielita, Guo, Marceau West and Anderson (2024), <em>Statistics in Medicine</em>, <a href="https://doi.org/10.1002/sim.10163" class="external-link uri">https://doi.org/10.1002/sim.10163</a>, and its published benchmarks, on the current package. The simulation settings below are those of the 2024 workflow; two of them no longer act: the consistency screen is evaluated in closed form, so <code>fs.splits</code> has no effect unless the closed form is unavailable for a candidate, and the GRF variable-importance screen is removed as of 0.4.1 (<code>vi.grf.min</code> is deprecated and has no effect). The operating characteristics of the current methodology — the selection-adjusted bounds, the two-subgroup claim and the declaration calibration — are reported in León and Anderson (2026a, arXiv:2609.38361) and (2026b, arXiv:2610.28379); the methodology is documented in <code><a href="../articles/forestsearch.html">vignette("forestsearch")</a></code> and the <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection article</a>. The settings below (<code>hr.threshold = 1.25</code>, LASSO and GRF candidate selection, <code>fs.splits = 400</code>) are the 2024 workflow’s and differ from those of the 2026 studies (screening and consistency thresholds at a hazard ratio of one, p* = 0.90, the <code>max N(ε)</code> rule at ε = 0.20, the fully enumerated family, 2,000 replicates per cell: 2026b, Sections 5.1 and 6.1), so the operating characteristics here are not those of the current inference and are not comparable with 2026b, Figure 3 or 2026a, Section 7.</p>
+<p><strong>About this article (updated October 2026).</strong> This article reproduces the simulation framework of León, Jemielita, Guo, Marceau West and Anderson (2024), <em>Statistics in Medicine</em>, <a href="https://doi.org/10.1002/sim.10163" class="external-link uri">https://doi.org/10.1002/sim.10163</a>, and its published benchmarks, on the current package. The simulation settings below are those of the 2024 workflow; two of them no longer act: the consistency screen is evaluated in closed form, so <code>fs.splits</code> has no effect unless the closed form is unavailable for a candidate, and the GRF variable-importance screen is removed as of 0.4.1 (<code>vi.grf.min</code> is deprecated and has no effect). The operating characteristics of the current methodology — the selection-adjusted bounds, the two-subgroup claim and the declaration calibration — are reported in León and Anderson (2026a, arXiv:2609.38361) and (2026b, arXiv:2610.28379); the methodology is documented in the article <a href="https://larry-leon.github.io/forestsearch/articles/gbsg-table1.html">Interpretable subgroup identification with forestsearch</a> and the <a href="https://larry-leon.github.io/forestsearch/articles/survival-post-selection.html">post-selection article</a>. The settings below (<code>hr.threshold = 1.25</code>, LASSO and GRF candidate selection, <code>fs.splits = 400</code>) are the 2024 workflow’s and differ from those of the 2026 studies (screening and consistency thresholds at a hazard ratio of one, p* = 0.90, the <code>max N(ε)</code> rule at ε = 0.20, the fully enumerated family, 2,000 replicates per cell: 2026b, Sections 5.1 and 6.1), so the operating characteristics here are not those of the current inference and are not comparable with 2026b, Figure 3 or 2026a, Section 7.</p>
 </blockquote>
 <section class="section level2" data-number="1"><h2 data-number="1" id="introduction">
 <span class="header-section-number">1</span> Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
@@ -364,7 +369,7 @@
 </table></section></section><section class="level2" data-number="3.2"><h3 data-number="3.2" id="what-setup_gbsg_dgm-does">
 <span class="header-section-number">3.2</span> What <code>setup_gbsg_dgm()</code> does<a class="anchor" aria-label="anchor" href="#what-setup_gbsg_dgm-does"></a>
 </h3>
-<p><code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code> is a <strong>GBSG-specific convenience wrapper</strong>. It encodes the particular data preparation choices made in León et al. (2024) — the subgroup definition (ER ≤ q25, premenopausal), the binary discretisation of continuous covariates, the Weibull outcome and censoring models — so that a calibrated DGM for the GBSG simulation setting can be created with a single call:</p>
+<p><code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code> is a <strong>GBSG-specific convenience wrapper</strong>. It encodes the particular data preparation choices made in León et al. (2024) — the subgroup definition (ER ≤ q25, premenopausal), the discretisation of continuous covariates (age, progesterone receptor and nodes in quartile groups; tumour size in three groups cut at 20 and 50 mm), the Weibull outcome and censoring models — so that a calibrated DGM for the GBSG simulation setting can be created with a single call:</p>
 <div class="cell">
 <details class="code-fold"><summary>Code</summary><div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># One-line creation of the León et al. (2024) simulation DGM</span></span>
@@ -377,11 +382,11 @@
 </details>
 </div>
 <p>The returned object has class <code>c("aft_dgm_flex", "gbsg_dgm")</code> and is fully compatible with <code><a href="../reference/simulate_from_dgm.html">simulate_from_dgm()</a></code> and <code><a href="../reference/run_simulation_analysis.html">run_simulation_analysis()</a></code>.</p>
-<hr></section><section class="level2" data-number="3.3"><h3 data-number="3.3" id="replicating-setup_gbsg_dgm-with-generate_aft_dgm_flex">
-<span class="header-section-number">3.3</span> Replicating <code>setup_gbsg_dgm()</code> with <code>generate_aft_dgm_flex()</code>
-<a class="anchor" aria-label="anchor" href="#replicating-setup_gbsg_dgm-with-generate_aft_dgm_flex"></a>
+<hr></section><section class="level2" data-number="3.3"><h3 data-number="3.3" id="a-comparable-construction-with-generate_aft_dgm_flex">
+<span class="header-section-number">3.3</span> A comparable construction with <code>generate_aft_dgm_flex()</code>
+<a class="anchor" aria-label="anchor" href="#a-comparable-construction-with-generate_aft_dgm_flex"></a>
 </h3>
-<p><code><a href="../reference/generate_aft_dgm_flex.html">generate_aft_dgm_flex()</a></code> is the general DGM builder. It requires the analyst to supply the dataset and make every modelling choice explicitly. The GBSG DGM in <code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code> is equivalent to the following call — it simply automates this preparation:</p>
+<p><code><a href="../reference/generate_aft_dgm_flex.html">generate_aft_dgm_flex()</a></code> is the general DGM builder. It requires the analyst to supply the dataset and make every modelling choice explicitly. The call below is a comparable construction of the GBSG mechanism with the general generator. It is not numerically equivalent to <code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code>; the differences are listed after the code.</p>
 <div class="cell">
 <details class="code-fold"><summary>Code</summary><div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/larry-leon/forestsearch" class="external-link">forestsearch</a></span><span class="op">)</span></span>
@@ -428,7 +433,15 @@
 <span><span class="op">)</span></span></code></pre></div>
 </details>
 </div>
-<p><code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code> is preferred for the GBSG simulation setting because it guarantees exact replication of the León et al. (2024) covariate construction and subgroup definition without requiring the analyst to reproduce all preparation steps by hand.</p>
+<p>The block and <code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code> share the source data, the outcome time in months, the subgroup <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math> (ER at or below its 25th percentile and premenopausal), <code>k_treat</code>, <code>k_inter</code>, <code>n_super</code> and <code>seed</code>. With the same seed they resample the same source rows into the super-population, so the random draws are not what differs. The super-population’s treatment column does differ: <code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code> assigns treatment to half of the resampled rows (share 0.5), while the block, with the default <code>draw_treatment = FALSE</code> of <code><a href="../reference/generate_aft_dgm_flex.html">generate_aft_dgm_flex()</a></code>, keeps the observed <code>hormon</code> (share about 0.36). In a simulated trial this column matters only when treatment is not redrawn; <code><a href="../reference/simulate_from_dgm.html">simulate_from_dgm()</a></code> redraws it in every trial by default (<code>draw_treatment = TRUE</code>). The models differ:</p>
+<ul>
+<li>
+<strong>Covariates and cut points.</strong> <code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code> fits the Weibull outcome model on treatment, the ER and premenopausal indicators, and the quartile group (1 to 4, entered as a number) of age, progesterone receptor and nodes, plus the treatment-by-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math> interaction; tumour size and grade are analysis factors only. The block uses median splits (0/1) of age, progesterone receptor and nodes, and adds tumour size (median split) and grade 3 to the outcome model.</li>
+<li>
+<strong>Interaction.</strong> Both builders multiply the fitted interaction coefficient by <code>k_inter</code>, but the coefficient comes from a different outcome model, so <code>k_inter = 2.5</code> does not give the same interaction: the true hazard ratio in <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math> is about 4.4 from <code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code> and 4.1 from the block.</li>
+<li>
+<strong>Censoring.</strong> <code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code> fits a Weibull censoring model to the resampled super-population, in which treatment is the arm assigned for simulation, and multiplies its covariate term by the ratio of the event-model scale to the censoring-model scale (<code><a href="../reference/setup_gbsg_dgm.html">?setup_gbsg_dgm</a></code>, section Superseded). <code><a href="../reference/generate_aft_dgm_flex.html">generate_aft_dgm_flex()</a></code>, with its default <code>select_censoring = TRUE</code>, fits the censoring model to the source data and chooses by AIC among Weibull and log-normal models with and without covariates; for this call it chooses an intercept-only Weibull model.</li>
+</ul>
 <hr></section><section class="level2" data-number="3.4"><h3 data-number="3.4" id="when-to-use-each-function">
 <span class="header-section-number">3.4</span> When to use each function<a class="anchor" aria-label="anchor" href="#when-to-use-each-function"></a>
 </h3>
@@ -447,8 +460,8 @@
 <td><code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code></td>
 </tr>
 <tr class="even">
-<td>GBSG-based simulation with custom parameters</td>
-<td><code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code></td>
+<td>New GBSG-based simulation with custom parameters</td>
+<td><code><a href="../reference/generate_aft_dgm_flex.html">generate_aft_dgm_flex()</a></code></td>
 </tr>
 <tr class="odd">
 <td>DGM based on a different dataset</td>
@@ -466,7 +479,7 @@
 </tr>
 </tbody>
 </table>
-<p><code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code> is not deprecated in the sense of being removed or discouraged for GBSG work — it remains the correct entry point for the simulation studies in this package. The general function <code><a href="../reference/generate_aft_dgm_flex.html">generate_aft_dgm_flex()</a></code> is the right choice when the simulation is based on a <strong>different dataset or subgroup structure</strong>.</p>
+<p><code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code> is used in this article to reproduce the published simulations, and the package keeps it for that purpose. It is superseded for new work and will be deprecated in a future release: new simulations, on the GBSG data or another dataset, should use <code><a href="../reference/generate_aft_dgm_flex.html">generate_aft_dgm_flex()</a></code> with <code><a href="../reference/simulate_from_dgm.html">simulate_from_dgm()</a></code>.</p>
 <hr></section><section class="level2" data-number="3.5"><h3 data-number="3.5" id="simulating-from-either-dgm">
 <span class="header-section-number">3.5</span> Simulating from either DGM<a class="anchor" aria-label="anchor" href="#simulating-from-either-dgm"></a>
 </h3>
@@ -1808,16 +1821,16 @@ Candidate factors: 14
 Number of possible configurations (&lt;= maxk): maxk = 2 , # combinations = 406
 Per-arm events criteria: control &gt;= 12, treatment &gt;= 12
 Sample size criteria: n &gt;= 60
-Subgroup search completed in 0.02 minutes
+Subgroup search completed in 0.01 minutes
 
 --- Filtering Summary ---
   Combinations evaluated: 406
   Passed variance check: 375
   Passed prevalence (&gt;= 0.025 ): 375
   Passed redundancy check: 358
-  Passed events counts (d0&gt;= 12, d1&gt;= 12): 308
-  Passed sample size (n&gt;= 60 ): 299
-  Cox model fit successfully: 299
+  Passed events counts (d0&gt;= 12, d1&gt;= 12): 312
+  Passed sample size (n&gt;= 60 ): 303
+  Cox model fit successfully: 303
   Passed effect threshold (effect &gt;= 1.2500): 3
 -------------------------
 
@@ -1832,7 +1845,7 @@ Subgroup 2: resample Pcons=0.8 (threshold 0.9)
 Subgroup 3: resample Pcons=0.82 (threshold 0.9)
 Evaluated 3 of 3 candidates (complete)
 No subgroups found meeting consistency threshold
-Seconds and minutes forestsearch overall = 4.509 0.0751
+Seconds and minutes forestsearch overall = 3.337 0.0556
 Consistency algorithm used: twostage
 tau, maxdepth = 47.90727 2
    leaf.node control.mean control.size control.se depth
@@ -1849,7 +1862,7 @@ GRF subgroup NOT found</code></pre>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">sims_alt_wall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">runtime_alt</span><span class="op">)</span> <span class="op">*</span> <span class="fl">60</span>  <span class="co"># store in seconds</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Completed in"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">runtime_alt</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
 </details><div class="cell-output cell-output-stdout">
-<pre><code>Completed in 1.4 minutes</code></pre>
+<pre><code>Completed in 1.3 minutes</code></pre>
 </div>
 <details class="code-fold"><summary>Code</summary><div class="sourceCode cell-code" id="cb143"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Results:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">results_alt</span><span class="op">)</span>, <span class="st">"rows\n"</span><span class="op">)</span></span></code></pre></div>
@@ -1947,7 +1960,7 @@ Subgroup 1: resample Pcons=0.66 (threshold 0.9)
 Subgroup 2: resample Pcons=0.57 (threshold 0.9)
 Evaluated 2 of 2 candidates (complete)
 No subgroups found meeting consistency threshold
-Seconds and minutes forestsearch overall = 4.289 0.0715
+Seconds and minutes forestsearch overall = 2.97 0.0495
 Consistency algorithm used: twostage
 tau, maxdepth = 43.8823 2
   leaf.node control.mean control.size control.se depth
@@ -1964,7 +1977,7 @@ GRF subgroup NOT found</code></pre>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">sims_null_wall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">runtime_null</span><span class="op">)</span> <span class="op">*</span> <span class="fl">60</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Completed in"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">runtime_null</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
 </details><div class="cell-output cell-output-stdout">
-<pre><code>Completed in 1.3 minutes</code></pre>
+<pre><code>Completed in 1.2 minutes</code></pre>
 </div>
 </div>
 </section></section><section class="section level2" data-number="6"><h2 data-number="6" id="summarizing-results">
@@ -2482,9 +2495,9 @@ Controlled Direct Effects
 <td class="gt_row gt_right" headers="N_sims">44</td>
 <td class="gt_row gt_right" headers="Detection">0.89</td>
 <td class="gt_row gt_right" headers="Sen">0.77</td>
-<td class="gt_row gt_right" headers="Spec">0.98</td>
+<td class="gt_row gt_right" headers="Spec">0.99</td>
 <td class="gt_row gt_right" headers="PPV">0.80</td>
-<td class="gt_row gt_right" headers="NPV">0.98</td>
+<td class="gt_row gt_right" headers="NPV">0.97</td>
 <td class="gt_row gt_right" headers="CDE_H_true">2.40</td>
 <td class="gt_row gt_right" headers="CDE_Hc_true">0.58</td>
 <td class="gt_row gt_right" headers="CDE_H_hat">2.24</td>
@@ -2495,9 +2508,9 @@ Controlled Direct Effects
 <td class="gt_row gt_right" headers="N_sims">44</td>
 <td class="gt_row gt_right" headers="Detection">0.61</td>
 <td class="gt_row gt_right" headers="Sen">0.61</td>
-<td class="gt_row gt_right" headers="Spec">0.95</td>
+<td class="gt_row gt_right" headers="Spec">0.99</td>
 <td class="gt_row gt_right" headers="PPV">0.58</td>
-<td class="gt_row gt_right" headers="NPV">1.00</td>
+<td class="gt_row gt_right" headers="NPV">0.95</td>
 <td class="gt_row gt_right" headers="CDE_H_true">2.40</td>
 <td class="gt_row gt_right" headers="CDE_Hc_true">0.58</td>
 <td class="gt_row gt_right" headers="CDE_H_hat">2.29</td>
@@ -4766,8 +4779,8 @@ Controlled Direct Effects
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="M-Alt:-N=700,-p_H=13%,-theta(H)=2,-theta(Hc)=0.66,-theta(ITT)=0.72  Metric" style="font-size: 16px">sens(Hc)</td>
-<td class="gt_row gt_right" headers="M-Alt:-N=700,-p_H=13%,-theta(H)=2,-theta(Hc)=0.66,-theta(ITT)=0.72  FS" style="font-size: 16px">0.98</td>
-<td class="gt_row gt_right" headers="M-Alt:-N=700,-p_H=13%,-theta(H)=2,-theta(Hc)=0.66,-theta(ITT)=0.72  GRF" style="font-size: 16px">0.95</td>
+<td class="gt_row gt_right" headers="M-Alt:-N=700,-p_H=13%,-theta(H)=2,-theta(Hc)=0.66,-theta(ITT)=0.72  FS" style="font-size: 16px">0.99</td>
+<td class="gt_row gt_right" headers="M-Alt:-N=700,-p_H=13%,-theta(H)=2,-theta(Hc)=0.66,-theta(ITT)=0.72  GRF" style="font-size: 16px">0.99</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="M-Alt:-N=700,-p_H=13%,-theta(H)=2,-theta(Hc)=0.66,-theta(ITT)=0.72  Metric" style="font-size: 16px">ppv(H)</td>
@@ -4776,8 +4789,8 @@ Controlled Direct Effects
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="M-Alt:-N=700,-p_H=13%,-theta(H)=2,-theta(Hc)=0.66,-theta(ITT)=0.72  Metric" style="font-size: 16px">ppv(Hc)</td>
-<td class="gt_row gt_right" headers="M-Alt:-N=700,-p_H=13%,-theta(H)=2,-theta(Hc)=0.66,-theta(ITT)=0.72  FS" style="font-size: 16px">0.98</td>
-<td class="gt_row gt_right" headers="M-Alt:-N=700,-p_H=13%,-theta(H)=2,-theta(Hc)=0.66,-theta(ITT)=0.72  GRF" style="font-size: 16px">1.00</td>
+<td class="gt_row gt_right" headers="M-Alt:-N=700,-p_H=13%,-theta(H)=2,-theta(Hc)=0.66,-theta(ITT)=0.72  FS" style="font-size: 16px">0.97</td>
+<td class="gt_row gt_right" headers="M-Alt:-N=700,-p_H=13%,-theta(H)=2,-theta(Hc)=0.66,-theta(ITT)=0.72  GRF" style="font-size: 16px">0.95</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="M-Alt:-N=700,-p_H=13%,-theta(H)=2,-theta(Hc)=0.66,-theta(ITT)=0.72  Metric" style="font-size: 16px">avg|H|</td>
@@ -5619,18 +5632,18 @@ Identified Harm Subgroup Size
 <pre><code>Alternative Hypothesis (H1):</code></pre>
 </div>
 <details class="code-fold"><summary>Code</summary><div class="sourceCode cell-code" id="cb210"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">analysis</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">results_alt</span><span class="op">$</span><span class="va">analysis</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">res</span> <span class="op">&lt;-</span> <span class="va">results_alt</span><span class="op">[</span><span class="va">results_alt</span><span class="op">$</span><span class="va">analysis</span> <span class="op">==</span> <span class="va">analysis</span>, <span class="op">]</span></span>
+<code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">this_analysis</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">results_alt</span><span class="op">$</span><span class="va">analysis</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">res</span> <span class="op">&lt;-</span> <span class="va">results_alt</span><span class="op">[</span><span class="va">results_alt</span><span class="op">$</span><span class="va">analysis</span> <span class="op">==</span> <span class="va">this_analysis</span>, <span class="op">]</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"  %s: Power = %.3f, Sens = %.3f, Spec = %.3f, PPV = %.3f\n"</span>,</span>
-<span>              <span class="va">analysis</span>,</span>
+<span>              <span class="va">this_analysis</span>,</span>
 <span>              <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">any.H</span><span class="op">)</span>,</span>
 <span>              <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">sens</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
 <span>              <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">spec</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
 <span>              <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">ppv</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 </details><div class="cell-output cell-output-stdout">
-<pre><code>  FS: Power = 0.750, Sens = 0.692, Spec = 0.961, PPV = 0.691
-  GRF: Power = 0.750, Sens = 0.692, Spec = 0.961, PPV = 0.691</code></pre>
+<pre><code>  FS: Power = 0.886, Sens = 0.774, Spec = 0.990, PPV = 0.804
+  GRF: Power = 0.614, Sens = 0.610, Spec = 0.992, PPV = 0.578</code></pre>
 </div>
 <details class="code-fold"><summary>Code</summary><div class="sourceCode cell-code" id="cb212"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nNull Hypothesis (H0):\n"</span><span class="op">)</span></span></code></pre></div>
@@ -5639,15 +5652,15 @@ Identified Harm Subgroup Size
 Null Hypothesis (H0):</code></pre>
 </div>
 <details class="code-fold"><summary>Code</summary><div class="sourceCode cell-code" id="cb214"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">analysis</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">results_null</span><span class="op">$</span><span class="va">analysis</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">res</span> <span class="op">&lt;-</span> <span class="va">results_null</span><span class="op">[</span><span class="va">results_null</span><span class="op">$</span><span class="va">analysis</span> <span class="op">==</span> <span class="va">analysis</span>, <span class="op">]</span></span>
+<code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">this_analysis</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">results_null</span><span class="op">$</span><span class="va">analysis</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">res</span> <span class="op">&lt;-</span> <span class="va">results_null</span><span class="op">[</span><span class="va">results_null</span><span class="op">$</span><span class="va">analysis</span> <span class="op">==</span> <span class="va">this_analysis</span>, <span class="op">]</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"  %s: Type I Error = %.4f\n"</span>,</span>
-<span>              <span class="va">analysis</span>,</span>
+<span>              <span class="va">this_analysis</span>,</span>
 <span>              <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">any.H</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 </details><div class="cell-output cell-output-stdout">
-<pre><code>  FS: Type I Error = 0.0341
-  GRF: Type I Error = 0.0341</code></pre>
+<pre><code>  FS: Type I Error = 0.0455
+  GRF: Type I Error = 0.0227</code></pre>
 </div>
 </div>
 </section></section><section class="section level2" data-number="8"><h2 data-number="8" id="sec-format-oc">
@@ -6434,27 +6447,27 @@ Null Hypothesis (H0):</code></pre>
 <tbody class="gt_table_body">
 <tr class="odd">
 <td class="gt_row gt_left" headers="Stage">DGM creation (H1)</td>
-<td class="gt_row gt_right" headers="Seconds">0.1</td>
+<td class="gt_row gt_right" headers="Seconds">0.2</td>
 <td class="gt_row gt_right" headers="Minutes">0.00</td>
 <td class="gt_row gt_right" headers="Pct">0.1</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Stage">Calibrate k_inter (Cox)</td>
-<td class="gt_row gt_right" headers="Seconds">4.9</td>
-<td class="gt_row gt_right" headers="Minutes">0.08</td>
-<td class="gt_row gt_right" headers="Pct">2.5</td>
+<td class="gt_row gt_right" headers="Seconds">7.2</td>
+<td class="gt_row gt_right" headers="Minutes">0.12</td>
+<td class="gt_row gt_right" headers="Pct">3.8</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Stage">Calibrate k_inter (AHR)</td>
-<td class="gt_row gt_right" headers="Seconds">1.8</td>
-<td class="gt_row gt_right" headers="Minutes">0.03</td>
-<td class="gt_row gt_right" headers="Pct">1.0</td>
+<td class="gt_row gt_right" headers="Seconds">2.8</td>
+<td class="gt_row gt_right" headers="Minutes">0.05</td>
+<td class="gt_row gt_right" headers="Pct">1.5</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Stage">Validate k_inter</td>
-<td class="gt_row gt_right" headers="Seconds">0.6</td>
+<td class="gt_row gt_right" headers="Seconds">0.9</td>
 <td class="gt_row gt_right" headers="Minutes">0.01</td>
-<td class="gt_row gt_right" headers="Pct">0.3</td>
+<td class="gt_row gt_right" headers="Pct">0.4</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Stage">DGM creation (H0)</td>
@@ -6464,19 +6477,19 @@ Null Hypothesis (H0):</code></pre>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Stage">Simulations H1</td>
-<td class="gt_row gt_right" headers="Seconds">82.1</td>
-<td class="gt_row gt_right" headers="Minutes">1.37</td>
-<td class="gt_row gt_right" headers="Pct">42.5</td>
+<td class="gt_row gt_right" headers="Seconds">75.2</td>
+<td class="gt_row gt_right" headers="Minutes">1.25</td>
+<td class="gt_row gt_right" headers="Pct">39.5</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Stage">Simulations H0</td>
-<td class="gt_row gt_right" headers="Seconds">78.8</td>
-<td class="gt_row gt_right" headers="Minutes">1.31</td>
-<td class="gt_row gt_right" headers="Pct">40.8</td>
+<td class="gt_row gt_right" headers="Seconds">69.4</td>
+<td class="gt_row gt_right" headers="Minutes">1.16</td>
+<td class="gt_row gt_right" headers="Pct">36.4</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Stage">Summarize H1</td>
-<td class="gt_row gt_right" headers="Seconds">0.1</td>
+<td class="gt_row gt_right" headers="Seconds">0.2</td>
 <td class="gt_row gt_right" headers="Minutes">0.00</td>
 <td class="gt_row gt_right" headers="Pct">0.1</td>
 </tr>
@@ -6488,8 +6501,8 @@ Null Hypothesis (H0):</code></pre>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Stage" style="font-weight: bold">Total vignette</td>
-<td class="gt_row gt_right" headers="Seconds" style="font-weight: bold">193.1</td>
-<td class="gt_row gt_right" headers="Minutes" style="font-weight: bold">3.22</td>
+<td class="gt_row gt_right" headers="Seconds" style="font-weight: bold">190.4</td>
+<td class="gt_row gt_right" headers="Minutes" style="font-weight: bold">3.17</td>
 <td class="gt_row gt_right" headers="Pct" style="font-weight: bold">100.0</td>
 </tr>
 </tbody>
@@ -6609,14 +6622,14 @@ Null Hypothesis (H0):</code></pre>
 <span>            <span class="va">timings</span><span class="op">$</span><span class="va">sims_alt_elapsed</span> <span class="op">/</span> <span class="va">sim_config_alt</span><span class="op">$</span><span class="va">n_sims</span>,</span>
 <span>            <span class="va">sim_config_alt</span><span class="op">$</span><span class="va">n_sims</span>, <span class="va">n_workers</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </details><div class="cell-output cell-output-stdout">
-<pre><code>  H1: 1.9 sec/sim (wall) across 44 sims on 3 workers</code></pre>
+<pre><code>  H1: 1.7 sec/sim (wall) across 44 sims on 3 workers</code></pre>
 </div>
 <details class="code-fold"><summary>Code</summary><div class="sourceCode cell-code" id="cb232"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"  H0: %.1f sec/sim (wall) across %d sims on %d workers\n"</span>,</span>
 <span>            <span class="va">timings</span><span class="op">$</span><span class="va">sims_null_elapsed</span> <span class="op">/</span> <span class="va">sim_config_null</span><span class="op">$</span><span class="va">n_sims</span>,</span>
 <span>            <span class="va">sim_config_null</span><span class="op">$</span><span class="va">n_sims</span>, <span class="va">n_workers</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </details><div class="cell-output cell-output-stdout">
-<pre><code>  H0: 1.8 sec/sim (wall) across 44 sims on 3 workers</code></pre>
+<pre><code>  H0: 1.6 sec/sim (wall) across 44 sims on 3 workers</code></pre>
 </div>
 </div>
 </section></section><section class="section level2" data-number="12"><h2 data-number="12" id="complete-example-script">
@@ -10323,8 +10336,8 @@ CI Coverage
 <span><span class="fu"><a href="https://rdrr.io/r/base/gc.html" class="external-link">gc</a></span><span class="op">(</span>verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 </details><div class="cell-output cell-output-stdout">
 <pre><code>          used  (Mb) gc trigger  (Mb) max used  (Mb)
-Ncells 2766629 147.8    4655220 248.7  4655220 248.7
-Vcells 5824720  44.5   12274584  93.7 10162154  77.6</code></pre>
+Ncells 2853089 152.4    4892921 261.4  4892921 261.4
+Vcells 5962030  45.5   12273597  93.7 10161331  77.6</code></pre>
 </div>
 </div>
 </section><section class="section level2" data-number="18"><h2 data-number="18" id="session-info">
@@ -10355,10 +10368,10 @@ attached base packages:
 [1] stats     graphics  grDevices utils     datasets  methods   base
 
 other attached packages:
- [1] katex_1.5.0         doFuture_1.4.0      future_1.80.0
- [4] foreach_1.5.2       gt_1.4.0            ggplot2_4.0.3
+ [1] katex_1.5.0         doFuture_1.4.0      future_1.82.0
+ [4] foreach_1.5.2       gt_1.4.0            ggplot2_4.0.4
  [7] survival_3.8-12     data.table_1.18.6.1 weightedsurv_0.1.0
-[10] forestsearch_0.4.0
+[10] forestsearch_0.5.0
 
 loaded via a namespace (and not attached):
  [1] sass_0.4.10          generics_0.1.4       xml2_1.6.0
@@ -10369,19 +10382,18 @@ loaded via a namespace (and not attached):
 [16] mvtnorm_1.4-2        fastmap_1.2.0        jsonlite_2.0.0
 [19] Matrix_1.7-6         glmnet_5.2           scales_1.4.0
 [22] codetools_0.2-20     cli_3.6.6            rlang_1.3.0
-[25] litedown_0.11        parallelly_1.48.0    future.apply_1.21.0
-[28] commonmark_2.0.0     splines_4.6.2        base64enc_0.1-6
-[31] withr_3.0.3          yaml_2.3.12          otel_0.2.0
-[34] tools_4.6.2          parallel_4.6.2       dplyr_1.2.1
-[37] globals_0.20.0       curl_8.1.0           vctrs_0.7.3
-[40] R6_2.6.1             lifecycle_1.0.5      randomForest_4.7-1.2
-[43] V8_8.2.1             fs_2.1.0             pkgconfig_2.0.3
-[46] progressr_1.1.0      pillar_1.11.1        gtable_0.3.6
-[49] glue_1.8.1           Rcpp_1.1.2           xfun_0.62
-[52] tibble_3.3.1         tidyselect_1.2.1     knitr_1.52
-[55] farver_2.1.2         patchwork_1.3.2      htmltools_0.5.9
-[58] rmarkdown_2.32       compiler_4.6.2       S7_0.2.2
-[61] markdown_2.1        </code></pre>
+[25] litedown_1.0         parallelly_1.50.0    future.apply_1.21.0
+[28] splines_4.6.2        base64enc_0.1-6      withr_3.0.3
+[31] yaml_2.3.12          otel_0.3.0           tools_4.6.2
+[34] parallel_4.6.2       dplyr_1.2.1          globals_0.20.0
+[37] curl_8.1.0           vctrs_0.7.3          R6_2.6.1
+[40] lifecycle_1.0.5      randomForest_4.7-1.2 V8_8.2.1
+[43] fs_2.1.0             pkgconfig_2.0.3      progressr_1.1.0
+[46] pillar_1.11.1        gtable_0.3.6         glue_1.8.1
+[49] Rcpp_1.1.2           xfun_0.62            tibble_3.3.1
+[52] tidyselect_1.2.1     knitr_1.52           farver_2.1.2
+[55] patchwork_1.3.2      htmltools_0.5.9      rmarkdown_2.32
+[58] compiler_4.6.2       S7_0.2.2             markdown_2.1        </code></pre>
 </div>
 </div>
 </section><section class="section level2" data-number="19"><h2 data-number="19" id="references">
@@ -10402,7 +10414,8 @@ loaded via a namespace (and not attached):
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }
       // Inspect non-navigation links and adorn them if external
-     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
       for (var i=0; i<links.length; i++) {
         const link = links[i];
         if (!isInternal(link.href)) {
@@ -10411,8 +10424,69 @@ loaded via a namespace (and not attached):
           if (link.dataset.originalHref !== undefined) {
             link.href = link.dataset.originalHref;
           }
+          if (!link.classList.contains('no-external-icon')) {
+          }
         }
       }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
       const config = {
         allowHTML: true,
@@ -10426,6 +10500,7 @@ loaded via a namespace (and not attached):
         interactiveBorder: 10,
         theme: 'light-border',
         placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
       };
       if (contentFn) {
         config.content = contentFn;

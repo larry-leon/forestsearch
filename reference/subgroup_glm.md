@@ -58,10 +58,10 @@ subgroup_glm(
   `NULL` resolves to the wrapper default for the outcome type: `"MD"`
   (continuous), `"OR"` (binary – the
   [`generate_glm_dgm()`](https://larry-leon.github.io/forestsearch/reference/generate_glm_dgm.md)
-  default and the calibration target; note that
+  default and the calibration target; it is also
   [`make_effect_estimator()`](https://larry-leon.github.io/forestsearch/reference/make_effect_estimator.md)'s
-  own binary default is `"RD"`), or `"IRR"` (count – all layers agree).
-  Binary also accepts `"RD"`; count also accepts `"IRD"`; see the
+  own binary default), or `"IRR"` (count – all layers agree). Binary
+  also accepts `"RD"`; count also accepts `"IRD"`; see the
   supported-settings section for the gated measures.
 
 - adverse_outcome:

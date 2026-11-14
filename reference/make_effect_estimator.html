@@ -15,7 +15,7 @@ lightweight and handle small-sample edge cases gracefully."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -30,6 +30,7 @@ lightweight and handle small-sample edge cases gracefully."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/gbsg-table1.html">The GBSG analysis (Table 1), end to end</a></li>
     <li><a class="dropdown-item" href="../articles/survival-post-selection.html">Post-Selection Inference</a></li>
     <li><a class="dropdown-item" href="../articles/guohe-nested-continuum.html">Comparison with Guo &amp; He (2021)</a></li>
     <li><a class="dropdown-item" href="../articles/actg175-glm-outcomes.html">Binary and Continuous Outcomes (ACTG 175)</a></li>
@@ -38,6 +39,10 @@ lightweight and handle small-sample edge cases gracefully."></head><body>
     <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>MRCT consistency</h6></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency.html">MRCT regional consistency via subgroup identification</a></li>
+    <li><a class="dropdown-item" href="../articles/mrct-consistency-simulations.html">MRCT regional consistency: simulations</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/forestsearch-2024.html">The 2024 workflow (León et al. 2024)</a></li>
   </ul></li>
@@ -123,11 +128,26 @@ is <code>"OR"</code> – the same default <code><a href="forestsearch.html">fore
 <dt id="arg-adverse-outcome">adverse_outcome<a class="anchor" aria-label="anchor" href="#arg-adverse-outcome"></a></dt>
 <dd><p>Logical. If <code>TRUE</code> (default), higher
 outcome values indicate harm and the effect is computed on the
-raw outcome.  If <code>FALSE</code>, the outcome is beneficial (e.g.,
-improvement) and the effect is computed on <code>1 - Y</code> internally
-so that effect &gt; 0 (or OR &gt; 1) consistently indicates treatment
-harm.  Only applies to binary outcomes; ignored for survival,
-continuous, and count.</p></dd>
+raw outcome.  If <code>FALSE</code>, higher values indicate benefit
+(e.g., improvement) and, where it applies, the effect is computed
+on a reversed outcome so that effect &gt; 0 (or a ratio &gt; 1) indicates
+treatment harm.  By outcome type and effect measure:</p><ul><li><p><code>"binary"</code> with <code>"OR"</code>, <code>"RR"</code> or <code>"RD"</code>:
+with <code>FALSE</code> the outcome is replaced by <code>1 - Y</code> before
+fitting.  The log-OR and the RD change sign; the log-RR becomes
+the log risk ratio of the complementary event,
+<code>log((1 - p1) / (1 - p0))</code>, which is not <code>-log(p1 / p0)</code>
+(<code>p1</code>, <code>p0</code>: the treated and control risks).</p></li>
+<li><p><code>"continuous"</code> (<code>"MD"</code>): with <code>FALSE</code> the
+outcome is replaced by <code>-Y</code> before fitting, so the MD
+changes sign.</p></li>
+<li><p><code>"count"</code> (<code>"IRR"</code>, <code>"IRD"</code>), and
+<code>"binary"</code> with <code>"IRR"</code> or <code>"IRD"</code>: ignored; the
+Poisson rate estimator always uses the raw outcome.</p></li>
+<li><p><code>"survival"</code>: ignored; the Cox estimator always uses the
+raw time and event.</p></li>
+</ul><p><code><a href="forestsearch.html">forestsearch</a></code> resolves its own default (<code>TRUE</code> for
+binary and count outcomes, <code>FALSE</code> otherwise) and passes it here;
+this function's default is <code>TRUE</code> for every outcome type.</p></dd>
 
 
 <dt id="arg-robust-se">robust_se<a class="anchor" aria-label="anchor" href="#arg-robust-se"></a></dt>

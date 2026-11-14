@@ -60,11 +60,31 @@ make_effect_estimator(
 - adverse_outcome:
 
   Logical. If `TRUE` (default), higher outcome values indicate harm and
-  the effect is computed on the raw outcome. If `FALSE`, the outcome is
-  beneficial (e.g., improvement) and the effect is computed on `1 - Y`
-  internally so that effect \> 0 (or OR \> 1) consistently indicates
-  treatment harm. Only applies to binary outcomes; ignored for survival,
-  continuous, and count.
+  the effect is computed on the raw outcome. If `FALSE`, higher values
+  indicate benefit (e.g., improvement) and, where it applies, the effect
+  is computed on a reversed outcome so that effect \> 0 (or a ratio
+  \> 1) indicates treatment harm. By outcome type and effect measure:
+
+  - `"binary"` with `"OR"`, `"RR"` or `"RD"`: with `FALSE` the outcome
+    is replaced by `1 - Y` before fitting. The log-OR and the RD change
+    sign; the log-RR becomes the log risk ratio of the complementary
+    event, `log((1 - p1) / (1 - p0))`, which is not `-log(p1 / p0)`
+    (`p1`, `p0`: the treated and control risks).
+
+  - `"continuous"` (`"MD"`): with `FALSE` the outcome is replaced by
+    `-Y` before fitting, so the MD changes sign.
+
+  - `"count"` (`"IRR"`, `"IRD"`), and `"binary"` with `"IRR"` or
+    `"IRD"`: ignored; the Poisson rate estimator always uses the raw
+    outcome.
+
+  - `"survival"`: ignored; the Cox estimator always uses the raw time
+    and event.
+
+  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+  resolves its own default (`TRUE` for binary and count outcomes,
+  `FALSE` otherwise) and passes it here; this function's default is
+  `TRUE` for every outcome type.
 
 - robust_se:
 

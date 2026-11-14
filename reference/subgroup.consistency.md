@@ -298,14 +298,19 @@ subgroup.consistency(
       is set up and no per-batch globals resolution is paid. A parallel
       plan with `workers = 1` is honoured as parallel (one-worker
       batched backend); pass `plan = "sequential"` to run the plain
-      loop. Results under `consistency_method = "resample"` are
-      identical on every path (the closed form consumes no RNG). Under
-      `"split"` the plain loop draws from a single RNG stream seeded
-      once, whereas the batched backend gives each candidate its own
-      L'Ecuyer-CMRG stream indexed by global position, so a sequential
-      plan's `p.consistency` values differ from a parallel plan's within
-      Monte-Carlo noise at the stated `fs.splits`; invariance to worker
-      count holds within any plan.
+      loop. Under `consistency_method = "resample"` a candidate whose
+      closed form is available consumes no RNG, so its result is
+      identical on every path. Literal splitting – `"split"`, an IRD
+      effect under `"resample"`, or a candidate whose closed form is not
+      available and falls back to splitting – draws, in the plain loop,
+      from a single RNG stream seeded once, whereas the batched backend
+      gives each candidate its own L'Ecuyer-CMRG stream indexed by
+      global position, so a sequential plan's `p.consistency` values can
+      differ from a parallel plan's within Monte-Carlo noise at the
+      stated `n.splits`, and admission and selection can differ too;
+      invariance to worker count holds within any plan (with a non-NULL
+      `seed`). Under `sg_focus = "maxeff"` every plan runs the same
+      plain loop.
 
   workers
 
@@ -317,7 +322,7 @@ subgroup.consistency(
       plan – the knob for the per-batch overhead described above.
       Smaller values provide finer-grained early stopping but may
       increase overhead. Default: When stop_threshold is set and
-      sg_focus is "hr" or "minSG", defaults to 1 (stop immediately when
+      sg_focus is "maxeffCons", defaults to 1 (stop immediately when
       first candidate passes). For other sg_focus values with
       stop_threshold, defaults to min(workers, n_candidates/4). When
       stop_threshold is NULL, defaults to workers\*2 for efficiency.

@@ -75,7 +75,7 @@ plot_effect_distribution(
 - panel_labels:
 
   Named character vector with names `"itt"`, `"H"`, `"Hc"` and the
-  display labels for each violin. Default:
+  display labels for each violin. Default: `NULL`, giving
   `c(itt = "ITT", H = "Identified H-hat", Hc = "Identified Hc-hat")`.
   When `subgroup_notation = "benefit"`, the default `Hc` label is
   adjusted to `"Identified Hc-hat (benefit)"`.
