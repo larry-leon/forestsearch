@@ -71,6 +71,7 @@ N-fold (leave-one-out) and repeated K-fold CV for stability; `cv_metrics_tables(
 
 - Tests live in `tests/testthat/test-<name>.R` (edition 3). Current suite focuses on cross-cutting contracts: input validation, return-shape contracts, cross-outcome parity (survival vs GLM giving consistent shapes), get_fsdata diagnostics, GLM pipeline integration, and downstream consumers. `helper-synthetic-dgm.R` provides small synthetic data.
 - When a test fails, confirm the fault is in the test before editing it. Do not modify tests to pass without an actionable reason — the author has explicitly flagged this as a recurring problem.
+- No test requires bit-identical floating-point results. Compare numbers with expect_equal(tolerance = 1e-8); use expect_identical only for values that are exact by nature (integers, strings, logicals, the selected subgroup definition). Exactness to the last digit is not a requirement of this package.
 
 ## Working style (author preferences)
 
