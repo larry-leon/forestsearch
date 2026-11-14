@@ -33,11 +33,12 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::pkgdown, any::katex, cran::forestsearch
+          # 2026-11-14: build the site with the repository's forestsearch (0.5.0 is not on CRAN yet); see dev/tasks/TASK_site_build_from_repo_2026-11-14.md
+          extra-packages: any::pkgdown, any::katex, local::.
           needs: website
 
       - name: Build site
-        run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
+        run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE, quiet = FALSE)
         shell: Rscript {0}
 
       - name: Deploy to GitHub pages 🚀
