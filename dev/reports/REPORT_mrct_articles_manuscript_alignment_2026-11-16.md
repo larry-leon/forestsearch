@@ -296,7 +296,7 @@ neither exceeds twice five minutes. The note was not edited.
 | `a4f936a1` | task: mrct-articles-manuscript-alignment 2026-11-16 (as received) | `dev/tasks/TASK_mrct_articles_manuscript_alignment_2026-11-16.md` |
 | `2356d073` | docs: MRCT articles aligned with the manuscript; the two region-interaction configurations | `vignettes/articles/mrct-consistency.qmd`, `vignettes/articles/mrct-consistency-simulations.qmd` |
 
-The report's own commits follow (see Final checks).
+The report's commits: `e2a2f611` (the report) and the commit that adds the final checks (see the last section).
 
 ## Files outside the repository
 
@@ -306,3 +306,22 @@ The report's own commits follow (see Final checks).
 - `/tmp/mrctalign/render/`: the two sources, the two first renders, and `capture/` (the observer
   render). Kept.
 - `/tmp/mrctalign/logs/`: install, load-check and render logs, the capture profile, `sims_capture.rds`.
+
+## Final checks (Step 5.5) and clean-up (Step 5.6)
+
+Run at 13:23 after the report commit `e2a2f611`.
+
+| Check | Result |
+|---|---|
+| This session's commits (`a793c404..e2a2f611`, `--no-renames`) touch only the two articles, the task file and the report | holds: `dev/tasks/TASK_mrct_articles_manuscript_alignment_2026-11-16.md` (`a4f936a1`); the two articles (`2356d073`); `dev/reports/REPORT_mrct_articles_manuscript_alignment_2026-11-16.md` (`e2a2f611`, and the commit that adds this section) |
+| No modified tracked files | holds: `git status --short` empty |
+| No `.html` under `vignettes/` | holds: 0 on disk, 0 tracked |
+| Nothing changed in mrct-consistency | holds: branch `docs/workstream-index-2026-11-14`, HEAD `60a53bd`, `main` `be7be00` as at the start; `git status --short` empty; no file newer than 13:05 (task start); `.git/FETCH_HEAD` dated 09:37, before the task; reflog has no entry today |
+| Nothing pushed, pulled, merged or tagged | holds: `origin/master` is `a793c404` (its reflog's last entry, "update by push", is 12:41, before the task); forestsearch's `.git/FETCH_HEAD` is dated 12:47, before the task; the local reflog since the start SHA has commits only; tags unchanged (`v0.1.0`, `v0.4.0`, `v0.5.0`), none at HEAD |
+
+Note: GitHub Desktop runs on this host and has pushed earlier task commits to `origin/master`
+by itself (see `fs-site-render-traps` records of 2026-11-16). At the time of these checks it had
+pushed none of this session's commits; this session ran no network git command.
+
+Step 5.6: `/tmp/mrctalign/lib` deleted (13:23). `/tmp/mrctalign/render/` kept. The user library's
+own forestsearch 0.5.0 is untouched.
