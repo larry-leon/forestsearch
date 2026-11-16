@@ -360,5 +360,19 @@ q variants) are base-model cells.
 
 ## Step 7 — close
 
-Commits of this session on forestsearch `master`: 20f204b1 (task file) and the report commit; final
-checks are in the closing message of the session.
+Commits of this session on forestsearch `master`: 20f204b1 (task file), 70ad388a (this report) and
+the commit adding this section. The report is copied to `~/Downloads`.
+
+Final checks (run after 70ad388a):
+
+- `git diff --no-renames --name-status d059e054 HEAD`: `A dev/tasks/TASK_mrct_type1_scenarios_trace_2026-11-16.md`,
+  `A dev/reports/REPORT_mrct_type1_scenarios_trace_2026-11-16.md`. Nothing else. `git status --short`
+  is empty. Outside `.git/` and `quarto/`, no other file in forestsearch is newer than the session
+  start (12:28).
+- Other repositories: no file newer than 12:28 in any of the 12 under `~/Documents/GitHub/`.
+  mrct-consistency HEAD is still `60a53bd`, with a clean status. `Cox_AHR` and `guidesubgroup` each
+  show one `git status` entry, both older than this session.
+- No push, pull, fetch, merge or tag. Tags: v0.1.0, v0.4.0 and v0.5.0, as at the start. The newest
+  `origin/master` reflog entry is still `d059e054` (10:14:58), so neither session commit had reached
+  the remote-tracking ref at the time of the check. GitHub Desktop runs on this host and has pushed
+  `master` commits on its own before.
