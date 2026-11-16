@@ -208,8 +208,8 @@ for (x in list(list("Binary", fit_bin, in_bin, sec_bin),
 }
 ```
 
-    #> Binary     !{cd40 <= 380} & !{wtkg <= 86}   N 72   fit 37 s (multiplier stage 1.4 s)
-    #> Continuous !{cd40 <= 507} & {gender}        N 79   fit 45 s (multiplier stage 0.9 s)
+    #> Binary     !{cd40 <= 380} & !{wtkg <= 86}   N 72   fit 37 s (multiplier stage 1.6 s)
+    #> Continuous !{cd40 <= 507} & {gender}        N 79   fit 45 s (multiplier stage 1.1 s)
 
 On the binary endpoint forest search returns the 72 patients weighing
 more than 86 kg with baseline CD4 above 380 cells per mm³; on the
@@ -556,9 +556,9 @@ for (m in names(fits_s3)) {
 }
 ```
 
-    #> FS   !{cd40 <= 380} & !{wtkg <= 86}         N  72   fit  32.9 s (multiplier stage  0.6 s)   family 2794
-    #> DINA {preanti >= 849.40000000000009} & {cd40 >= 338} N  98   fit   1.8 s (multiplier stage  0.3 s)   family 147
-    #> GRF  {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005} N  95   fit  11.5 s (multiplier stage  0.5 s)   family 1289
+    #> FS   !{cd40 <= 380} & !{wtkg <= 86}         N  72   fit  32.4 s (multiplier stage  0.8 s)   family 2794
+    #> DINA {preanti >= 849.40000000000009} & {cd40 >= 338} N  98   fit   1.9 s (multiplier stage  0.3 s)   family 147
+    #> GRF  {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005} N  95   fit  11.4 s (multiplier stage  0.5 s)   family 1289
 
 ``` r
 
@@ -614,7 +614,7 @@ round(boot_secs, 1)
 ```
 
     #>   FS DINA  GRF
-    #> 61.1 26.3 45.0
+    #> 56.8 25.8 44.5
 
 ### Naive, bootstrap and multiplier side by side
 
@@ -710,9 +710,9 @@ knitr::kable(cost, row.names = FALSE, digits = 2,
 
 | Method | MR (s) |   B | bootstrap (s) | s per replicate | projected at B = 1,000 (s) |
 |:-------|-------:|----:|--------------:|----------------:|---------------------------:|
-| FS     |   0.61 |  25 |         61.06 |            2.44 |                       2443 |
-| DINA   |   0.31 |  25 |         26.30 |            1.05 |                       1052 |
-| GRF    |   0.45 |  10 |         45.04 |            4.50 |                       4504 |
+| FS     |   0.77 |  25 |         56.76 |            2.27 |                       2270 |
+| DINA   |   0.34 |  25 |         25.79 |            1.03 |                       1032 |
+| GRF    |   0.54 |  10 |         44.50 |            4.45 |                       4450 |
 
 Wall-clock timings from this run: the multiplier stage under the fits’
 sequential plan, the bootstrap on 2 workers. The projection is linear in

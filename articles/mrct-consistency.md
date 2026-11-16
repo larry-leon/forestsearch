@@ -21,13 +21,18 @@ t_article <- proc.time()[["elapsed"]]
 ```
 
 This article reproduces, with every call visible, the
-regional-consistency strategy of the mrct-consistency technical report:
-a multiregional trial is positive overall, one region looks
-unfavourable, and a subgroup identified by
+regional-consistency strategy of the accompanying manuscript, *A
+signal-generating strategy for regional inconsistency in positive
+multiregional trials: held-out subgroup identification with
+selection-adjusted inference* (in submission; its source and records are
+in the mrct-consistency repository): a multiregional trial is positive
+overall, one region looks unfavourable, and a subgroup identified by
 [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
 **on the patients outside the region** is applied inside it. The
-simulation design that generated the case study, and the campaign’s
-results, are in the companion article
+manuscript is the reference for the ideas and the terminology used here;
+its worked example (Section 4) is the case study of
+[Section 2](#sec-case). The simulation design that generated the case
+study, and the campaign’s results, are in the companion article
 [mrct-consistency-simulations](https://larry-leon.github.io/forestsearch/articles/mrct-consistency-simulations.md).
 
 > **Installing forestsearch**
@@ -127,33 +132,46 @@ all-patient Cox hazard ratio is below 1.0 (**ITT ub \< 1.0**). The
 region of interest, about a fifth of the patients in our illustrations,
 has a Cox point estimate above 1.0 (**region ITT \> 1.0**). This pair is
 the **trigger**: the regional consistency failure as it presents in
-oncology multiregional clinical trials (MRCTs).
+oncology multiregional clinical trials (MRCTs). The regional component
+is a point-estimate criterion: it is estimation-based, it is not a test
+of the regional treatment effect, and it claims no statistical
+significance.
 
-The question is whether a subgroup identified based on the non-region
-patients can account for the regional result: if removing it from the
-region leaves a Cox estimate below 1.0, the regional result is
-suggestive/compatible with a trial-wide subgroup. We therefore cast the
-MRCT regional consistency criteria in terms of the identified subgroup –
-whether the regional subgroup point estimate is below 1.0 – as if the
-subgroup was pre-specified. While the subgroup is not pre-specified, our
-proposal pre-specifies the identification procedure and does not include
-the regional data to which it is applied. The strategy is **signal
-generation, not confirmation**.
+The question is whether a treatment-effect subgroup identified
+independently in the rest of the trial can account for part of the
+apparent regional inconsistency. The subgroup is identified using only
+the patients outside the region, and the resulting rule is applied
+unchanged to the held-out region, whose outcomes play no part in finding
+it. The subgroup is not pre-specified; the identification procedure is,
+and by the time the rule reaches the region it is fixed, as a
+pre-specified rule would be. If the region, after the identified
+subgroup is removed, returns a Cox point estimate below 1.0, the
+regional result is compatible with a trial-wide subgroup explanation
+rather than an effect unique to geography. The procedure is
+**signal-generating, not confirmatory**: the same sequence can arise
+when no harmed subgroup exists, and every rate reported in these
+articles is a signal-generation rate for a pre-specified pipeline, not a
+confirmatory error rate.
 
-We consider two mechanisms for the trigger:
+Three explanations fit a triggered trial:
 
-- **a trial-wide harmed subgroup** — the explanation this article’s
-  analysis pursues: a subgroup effect present in the region and
-  non-region populations, resulting in attenuation of the region’s
-  estimate (the region’s prognostic effect and the finite follow-up
-  window shaping how far);
+- **noise** — a region holds a minority of the patients, and an estimate
+  on a few dozen events moves freely around its target; the null cell N0
+  of the simulations article quantifies how often;
 - **a region-specific effect** — the region differs in its treatment
-  effect. The analysis approach does not pursue this explanation; it
-  enters through the extension of [Section 1.2](#sec-dgm-overview),
-  whose configurations with no regional treatment benefit (the true
-  region effect is $`> 1.0`$) quantify how often the strategy falsely
-  leads to meeting consistency in an identified subgroup — the
-  false-positive rate of the subgroup pathway.
+  effect, through a factor confined to it. The analysis does not pursue
+  this explanation; it enters through the region-dependent extension of
+  [Section 1.2](#sec-dgm-overview), whose two configurations with no
+  treatment benefit in the region outside $`H^*`$
+  ($`b_{\mathrm{R}} = 1.0`$) quantify the **false-positive increase in
+  meeting consistency**: how often the region is returned below 1.0
+  through a subgroup when its own effect is null (the [simulations
+  article](https://larry-leon.github.io/forestsearch/articles/mrct-consistency-simulations.html#sec-region-interaction));
+- **a trial-wide subgroup** — the explanation this article’s analysis
+  pursues: patients who do not benefit or are harmed, present in every
+  region, whose share of the regional analysis, together with the
+  region’s own prognosis and the finite follow-up of the analysis, pulls
+  the regional estimate up.
 
 > **The region in this article**
 >
@@ -183,8 +201,8 @@ We consider two mechanisms for the trigger:
 
 ### 1.2 The data-generating mechanism
 
-Replicate 5 is one trial drawn from the report’s S2 cell; we describe
-the mechanism behind it, stated before the analysis so that its
+Replicate 5 is one trial drawn from the manuscript’s S2 cell; we
+describe the mechanism behind it, stated before the analysis so that its
 assumptions are clearly stated. Every simulated trial draws from a
 Weibull accelerated-failure-time law built from ACTG 175 (the
 construction — the Weibull fit, the copula expansion to a
@@ -200,7 +218,7 @@ with $`\Lambda_0(s) = (s\,e^{-\mu})^{1/\tau}`$ and
 $`\theta_z(x) = -\ell_z(x)/\tau`$. The log hazard splits into a
 prognostic part and a treatment part,
 ``` math
-\theta_z(X) = \theta_0(X) + z\,\psi(X), \qquad \theta_0(X) = X^\top \beta + r\,\mathbf 1\{X \in R\}.
+\theta_z(X) = \theta_0(X) + z\,\psi(X), \qquad \theta_0(X) = X^\top \eta + r\,\mathbf 1\{X \in \mathrm{R}\}.
 ```
 The regional prognostic effect enters only through $`r`$: an additive
 log-hazard shift carried by every patient of the region, on both arms
@@ -219,31 +237,34 @@ The mechanism therefore assumes, inside and outside the region alike:
 - **(M1) Proportional hazards within each patient**, with
   patient-specific ratio $`e^{\psi(X)}`$.
 - **(M2) A common effect law across the region boundary** — $`\psi`$
-  does not involve $`R`$, so $`(b, h)`$ are the same inside and outside
-  the region. The extension below relaxes this: with treatment-by-region
-  interactions $`\gamma_R`$ and $`\gamma_{H^*\!R}`$, $`\psi`$ may depend
-  on $`R`$, the effects inside the region become $`(b_R, h_R)`$, and
-  (M2) is then $`\gamma_R = \gamma_{H^*\!R} = 0`$.
+  does not involve $`\mathrm{R}`$, so $`(b, h)`$ are the same inside and
+  outside the region. The extension below relaxes this: with
+  treatment-by-region interactions $`\gamma_{\mathrm{R}}`$ and
+  $`\gamma_{H^*\mathrm{R}}`$, $`\psi`$ may depend on $`\mathrm{R}`$, the
+  effects inside the region become $`(b_{\mathrm{R}}, h_{\mathrm{R}})`$,
+  and (M2) is then the testable null
+  $`\gamma_{\mathrm{R}} = \gamma_{H^*\mathrm{R}} = 0`$.
 - **(M3) A purely prognostic region** — $`r`$ shifts $`\theta_0`$ for
   all region patients and neither arm is favored.
 - **(M4) Free regional composition** — the distribution of $`X`$, and
   with it the region’s $`H^*`$ share, may differ between the region and
-  the non-region population per the observed configuration of ACTG 175
-  (we take patient’s observed covariates as-is).
+  the non-region population.
 
-Under (M1)–(M4) any divergence of the region’s windowed Cox limit from
-the trial’s is produced by composition and by the finite analysis
-window, not by any region-dependent treatment effect.
+Under (M1)–(M4) any divergence of the region’s population Cox limit (its
+margHR(40), defined in the note below) from the trial’s is produced by
+composition and by the finite analysis window, not by any
+region-dependent treatment effect.
 
-> **The windowed Cox limit**
+> **The population Cox limit**
 >
 > A two-sample Cox fit of treatment on a set of patients — all patients,
 > the region, or the region minus a subgroup — assumes one hazard ratio
 > for the set. With S2’s design (entry uniform over 11 months, analysis
 > at 40 months, so every patient is followed for 29 to 40 months), the
 > estimate converges, as the trial grows, to a limit that depends on the
-> set and on that window: the set’s **windowed Cox limit**, margHR(40).
-> With no censoring the limit is margHR($`\infty`$).
+> set and on that window: the set’s **population Cox limit** at the
+> analysis, margHR(40), also called its **windowed Cox limit**. With no
+> censoring the limit is margHR($`\infty`$).
 >
 > Every patient’s hazard ratio is constant, but a set’s is not. Compared
 > among the patients still event-free, the two arms’ mean hazards start
@@ -264,19 +285,38 @@ window, not by any region-dependent treatment effect.
 > its CDE than the trial’s does. The [appendix](#sec-window) shows both
 > for S2, with a figure.
 
-Writing the effect with treatment-by-region interactions extends (M2):
+**A region-dependent extension.** Writing the effect with
+treatment-by-region interactions makes (M2) a testable restriction
+rather than a built-in one:
 ``` math
 \psi(X) = \log b + \log(h/b)\,\mathbf 1\{X \in H^*\}
-          + \gamma_R\,\mathbf 1\{X \in R\}
-          + \gamma_{H^*\!R}\,\mathbf 1\{X \in H^*\}\,\mathbf 1\{X \in R\},
+          + \gamma_{\mathrm{R}}\,\mathbf 1\{X \in \mathrm{R}\}
+          + \gamma_{H^*\mathrm{R}}\,\mathbf 1\{X \in H^*\}\,\mathbf 1\{X \in \mathrm{R}\},
 ```
-with $`\gamma_R = \log(b_R/b)`$ and
-$`\gamma_{H^*\!R} = \log(h_R/h) - \log(b_R/b)`$: the hazard ratio of
-treatment is $`b`$ outside and $`b_R`$ inside the region for patients
-outside $`H^*`$, and $`h`$ outside and $`h_R`$ inside the region for
-patients in $`H^*`$. The base model is the null
-$`\gamma_R = \gamma_{H^*\!R} = 0`$. Every cell of this article is the
-base model.
+with $`\gamma_{\mathrm{R}} = \log(b_{\mathrm{R}}/b)`$ the
+treatment-by-region interaction outside $`H^*`$ and
+$`\gamma_{H^*\mathrm{R}} = \log(h_{\mathrm{R}}/h) - \log(b_{\mathrm{R}}/b)`$
+the treatment-by-subgroup-by-region interaction: the hazard ratio of
+treatment is $`b`$ outside and $`b_{\mathrm{R}}`$ inside the region for
+patients outside $`H^*`$, and $`h`$ outside and $`h_{\mathrm{R}}`$
+inside the region for patients in $`H^*`$. The base model is the null
+$`\gamma_{\mathrm{R}} = \gamma_{H^*\mathrm{R}} = 0`$, that is,
+$`b_{\mathrm{R}} = b`$ and $`h_{\mathrm{R}} = h`$.
+
+Every cell of the simulation campaign, and the case study of this
+article, is the base model: the trigger arises there with no
+region-dependent effect to find. Two extended configurations are built
+on S2’s design, everything else as in S2:
+
+- **S2, null** — $`b_{\mathrm{R}} = 1.0`$ and $`h_{\mathrm{R}} = 1.0`$:
+  no treatment effect anywhere inside the region;
+- **S2, detrimental** — $`b_{\mathrm{R}} = 1.0`$ and
+  $`h_{\mathrm{R}} = 2.0`$: no effect in the region outside $`H^*`$, and
+  the harm of $`H^*`$ inside the region as outside it.
+
+Their analytic probabilities and campaign results are in the
+[simulations
+article](https://larry-leon.github.io/forestsearch/articles/mrct-consistency-simulations.html#sec-region-interaction).
 
 In S2, the cell that produced replicate 5:
 
@@ -307,7 +347,9 @@ record are in the companion article
 ### 1.3 Analytic predictions before the analysis
 
 Before a single Cox model is fitted, the design’s event probabilities
-can be computed with no simulation. Three calls do it:
+can be computed with no simulation. This is the manuscript’s
+analyst’s-trial design view (its Section 4.3): the trial is treated as
+the analyst’s own, with its region observed. Three calls do it:
 
 1.  rebuild the mechanism **from `rep5_trial.csv`**, with its region
     taken as observed and S2’s stated effects ($`h = 2`$ in $`H^*`$ =
@@ -359,27 +401,28 @@ c(region_prognostic_loghr = r_pre, generating_r = -log(4),
     region_prognostic_loghr            generating_r          build_warnings
                   -1.541238               -1.386294                3.000000
                     seconds
-                   1.600000 
+                   1.500000 
 
 Seven design probabilities follow from four of them, built from three
-events (the event notation is in the [appendix](#sec-event-notation)):
+events of the manuscript’s Table 1 (reproduced in the
+[appendix](#sec-event-notation)):
 
-- $`A`$ = {ITT ub \< 1.0} — the trial is positive (the manuscript’s
-  $`\mathrm{ITT}^+`$);
-- $`B`$ = {region ITT \> 1.0} — the region’s point estimate is
-  unfavourable (the manuscript’s $`\mathrm{R}^-`$);
-- $`C^*`$ = {region($`G^*`$) \< 1.0} — removing $`H^*`$ exactly leaves
-  the region’s estimate below 1.0 (the manuscript’s
-  $`\mathrm{R}(G^*)^+`$).
+- $`\mathrm{ITT}^+`$ = {ITT ub \< 1.0} — the trial is positive;
+- $`\mathrm{R}^-`$ = {region ITT \> 1.0} — the region’s point estimate
+  is unfavourable ($`\mathrm{R}^+`$ is its complement);
+- $`\mathrm{R}(G^*)^+`$ = {region($`G^*`$) \< 1.0} — removing $`H^*`$
+  exactly leaves the region’s estimate below 1.0.
 
 The named rows:
 
-- **consistency** = $`A \setminus B`$ — the standard pathway: the trial
-  is positive and the region is not above 1.0;
-- **non-consistency (the trigger)** = $`A \cap B`$ — the standard
-  pathway fails, and the investigation begins;
-- **oracle consistency (the oracle joint)** = $`A \cap B \cap C^*`$ —
-  the subgroup pathway, in its oracle form: the trigger occurs and
+- **consistency** = $`\mathrm{ITT}^+ \cap \mathrm{R}^+`$ — the standard
+  pathway: the trial is positive and the region is not above 1.0;
+- **non-consistency (the trigger)** =
+  $`\mathrm{ITT}^+ \cap \mathrm{R}^-`$ — the standard pathway fails, and
+  the investigation begins;
+- **oracle consistency** =
+  $`\mathrm{ITT}^+ \cap \mathrm{R}^- \cap \mathrm{R}(G^*)^+`$ — the
+  transportability pathway, in its oracle form: the trigger occurs and
   removing $`H^*`$ exactly leaves the region below 1.0;
 - **row (7)** — the two routes together: consistency and oracle
   consistency are mutually exclusive (the region is above 1.0 in one and
@@ -400,7 +443,7 @@ lab <- c("(1) P(ITT ub < 1.0): the trial is positive",
          "(2) P(region ITT > 1.0)",
          "(3) P(consistency): positive, region ITT ≤ 1.0",
          "(4) P(non-consistency): the trigger",
-         "(5) P(oracle consistency): the oracle joint",
+         "(5) P(oracle consistency)",
          "(6) P(oracle non-consistency)",
          "(7) P(consistency or oracle consistency)")
 knitr::kable(data.frame(row = lab, `from rep5_trial` = f3(rows_pre), check.names = FALSE),
@@ -414,7 +457,7 @@ knitr::kable(data.frame(row = lab, `from rep5_trial` = f3(rows_pre), check.names
 | \(2\) P(region ITT \> 1.0)                       |           0.362 |
 | \(3\) P(consistency): positive, region ITT ≤ 1.0 |           0.536 |
 | \(4\) P(non-consistency): the trigger            |           0.242 |
-| \(5\) P(oracle consistency): the oracle joint    |           0.180 |
+| \(5\) P(oracle consistency)                      |           0.180 |
 | \(6\) P(oracle non-consistency)                  |           0.062 |
 | \(7\) P(consistency or oracle consistency)       |           0.716 |
 
@@ -432,10 +475,10 @@ full construction (the simulations article) gives slightly different
 ones. Any build warnings are the censoring model’s fit and are explained
 in the simulations article.
 
-Consistency, non-consistency and oracle consistency are the names used
-in the accompanying manuscript; this article’s trigger is the
-non-consistency event and its oracle joint the oracle consistency, as
-the rows state.
+Consistency, non-consistency and oracle consistency are the manuscript’s
+named events; this article’s trigger is the non-consistency event.
+Probability denotes an analytic quantity, as here; proportion denotes
+what a simulation campaign observed.
 
 *With your trial:* the same three calls, with your columns and your
 stated $`H^*`$, $`b`$ and $`h`$ (the simulations article walks through
@@ -455,10 +498,12 @@ will have few triggered trials to summarise.
 4.  Apply $`\hat H`$ inside the region; $`\hat G`$ = region minus
     $`\hat H`$. Fit the region’s Cox model on $`\hat G`$.
 5.  Record whether region($`\hat G`$) \< 1.0; the trigger together with
-    region($`\hat G`$) \< 1.0 is **joint**. Record, as the oracle,
-    whether region($`G^*`$) \< 1.0, with $`G^*`$ = region minus the true
-    harmed subgroup $`H^*`$. In simulation, also record the sensitivity
-    and specificity of $`\hat H`$ against $`H^*`$ on both sides.
+    region($`\hat G`$) \< 1.0 is **joint**. In simulation, record as the
+    oracle whether region($`G^*`$) \< 1.0, with $`G^*`$ = region minus
+    the true harmed subgroup $`H^*`$ (the trigger together with
+    region($`G^*`$) \< 1.0 is the **oracle consistency**), and the
+    sensitivity and specificity of $`\hat H`$ against $`H^*`$ on both
+    sides.
 
 > **The pipeline in one call**
 >
@@ -472,28 +517,28 @@ will have few triggered trials to summarise.
 $`\hat H`$ is learned on the non-region patients only and applied to the
 region, whose outcomes the identifier never sees: the region is a
 held-out test set, and its Cox fits on the whole region and on
-$`\hat G`$ are ordinary Wald fits on sets defined by a fixed rule. The
-hold-out removes the subgroup selection, the region’s fits carry no bias
-from a search their outcomes never entered. The pipeline itself fully
-runs only when the region’s estimate is above 1.0, so everything after
-step 2 is conditioned on an unfavourable regional draw. While the
-analysis is post-hoc, we propose a pre-specified identifier algorithm
-(with key elements set in order to provide as much pre-specification as
-possible).
+$`\hat G`$ are ordinary Wald fits on sets defined by a fixed rule. Their
+intervals carry no identification selection bias: the rule was fixed
+before the regional outcomes were examined, as a pre-specified rule
+would be. The pipeline runs in full only when the region’s estimate is
+above 1.0, so every quantity after step 2 is a property of triggered
+trials and is read among them. The analysis is post hoc, but the
+pipeline is fixed: from the trigger to the post-selection bounds, every
+step, and every setting of the identifier, is specified in advance.
 
 | Label | Meaning |
 |----|----|
 | trigger | ITT ub \< 1.0 and region ITT \> 1.0, in the same trial |
 | $`H^*`$ | the true harmed subgroup, here CD4 $`\le`$ 230 cells/mm³ |
-| $`\hat H`$ | the subgroup the identifier declares on the non-region patients |
-| $`\hat G`$, $`G^*`$ | region minus $`\hat H`$; region minus $`H^*`$ (the oracle) |
+| $`\hat H`$ | the identified subgroup: the rule the identifier declares on the non-region patients |
+| $`\hat G`$, $`G^*`$ | the identified regional complement, region minus $`\hat H`$; the oracle regional complement, region minus $`H^*`$ |
 | $`\hat H^c`$ | the non-region complement of $`\hat H`$: non-region patients not in $`\hat H`$ (not $`\hat G`$) |
-| joint | the trigger and region($`\hat G`$) \< 1.0; with $`G^*`$ in place of $`\hat G`$, the oracle joint |
+| joint, oracle consistency | the trigger and region($`\hat G`$) \< 1.0 (the manuscript’s declared consistency); the trigger and region($`G^*`$) \< 1.0 |
 | consistency / non-consistency | a positive trial with region ITT $`\le`$ 1.0; the trigger |
 | Sens / Spec | of $`\hat H`$ against $`H^*`$, on the non-region patients and in the region |
 | AHR | average hazard ratio of a set: $`\exp`$ of its patients’ mean log hazard ratio |
 | CDE | controlled direct effect: the ratio of the set’s mean hazards under the two arms |
-| margHR(40), margHR($`\infty`$) | the marginal hazard ratio: the limit of the set’s two-sample Cox estimate at the 40-month analysis, and with no censoring |
+| margHR(40), margHR($`\infty`$) | the population Cox limit of the set’s two-sample Cox estimate at the 40-month analysis (the windowed Cox limit), and the corresponding limit with no censoring |
 
 Labels used throughout. {.table .caption-top}
 
@@ -506,7 +551,7 @@ Labels used throughout. {.table .caption-top}
 > section depends on how the trial arose. The companion article
 > [mrct-consistency-simulations](https://larry-leon.github.io/forestsearch/articles/mrct-consistency-simulations.md)
 > shows how to set up simulations around your trial, and contains the
-> report’s own simulation design, which generated replicate 5, and its
+> manuscript’s simulation design, which generated replicate 5, and its
 > results.
 
 ## 2 The case study: replicate 5 of S2
@@ -514,7 +559,10 @@ Labels used throughout. {.table .caption-top}
 This section analyses one trial from its data to its bounds. The trial
 is replicate 5 of S2, shipped as `rep5_trial.csv` (one row per patient;
 its provenance is in `PROVENANCE.md`), and nothing below reads the
-simulation sections. The columns are the ones the analysis uses:
+simulation sections. It is the manuscript’s worked example (its Section
+4), which places it as a mild case of the trigger rather than a typical
+one: its regional estimate sits in the lower quarter of S2’s triggered
+trials. The columns are the ones the analysis uses:
 
 - `id` — the patient;
 - `y_sim`, `event_sim` — the time in months, and the event indicator;
@@ -618,19 +666,26 @@ runs on the non-region patients, with the region’s patients passed as
 the test set (`df.test`) to which the declared rule is applied, with the
 campaign’s arguments:
 
-- **candidates** — cuts on the observed covariates, with deciles for
-  CD4, weight and prior ART, and at most two factors per rule;
-- **the screen** — a candidate is admitted when its full-data hazard
-  ratio is at least 0.90 (`hr.threshold`);
-- **the consistency requirement** — the candidate must show a hazard
-  ratio of at least 0.80 in both halves of a random split of the data,
-  in at least 90% of the splits (`hr.consistency`,
-  `pconsistency.threshold`);
-- **admissibility** — the identifier’s subgroup-size and per-arm event
-  minimums, at their defaults here;
-- **selection** — among the candidates that pass, the declared subgroup
-  is the largest within an effect neighbourhood of 0.20 of the largest
-  effect.
+- **candidates** — each baseline covariate is turned into cut factors
+  (deciles for CD4, weight and prior ART; the mean, median and quartiles
+  for the other continuous covariates; a binary covariate as itself),
+  and every cut enters as its indicator and as its complement. A
+  candidate is a single cut or a conjunction of two. It is *eligible* if
+  it holds more than 60 patients and at least 10 events on each arm (the
+  package defaults);
+- **the effect screen** — an eligible candidate passes when its Cox
+  hazard ratio of treatment, fitted on its own patients, lies above the
+  floor of 0.90 (`hr.threshold`);
+- **the consistency screen** — it passes when, over random half-splits
+  of the candidate, both halves show a hazard ratio above 0.80 in at
+  least 90% of the splits (`hr.consistency`, `pconsistency.threshold`);
+  forest search evaluates this rate in closed form from the candidate’s
+  Cox coefficient and its robust standard error. The candidates passing
+  both screens form the *admissible family*;
+- **selection and declaration** — among the admissible candidates the
+  identifier selects the largest whose hazard ratio lies within a
+  proportional neighbourhood of 0.20 of the largest admissible hazard
+  ratio. If no candidate is admissible, nothing is declared.
 
 Multiplier resampling (MR, `mr_inference = TRUE`) follows in the same
 call: 2,000 Poisson multiplier draws, the complement de-biased and given
@@ -671,7 +726,7 @@ c(seconds = round(t_mr, 1), candidate_family = mr$n_family, n_Hhat = mr$n_select
 ```
 
               seconds  candidate_family            n_Hhat n_Hhat_complement
-                 54.5            3003.0              73.0             733.0 
+                 52.8            3003.0              73.0             733.0 
 
 Code
 
@@ -684,7 +739,7 @@ Hhat_def
 
 $`\hat H`$ is `{z_cd40 <= 236} & !{z_preanti <= 196}` (`!{…}` is the
 complement): CD4 $`\le`$ 236 and prior ART over 196 days. The call took
-54 seconds on one thread. *With your trial:* `df.analysis` and `df.test`
+53 seconds on one thread. *With your trial:* `df.analysis` and `df.test`
 are your non-region and region rows; your column names go in
 `outcome.name`, `event.name`, `treat.name` and `id.name`, your
 covariates in `confounders.name`, and those of your continuous
@@ -855,13 +910,15 @@ Read by location: the naive hazard ratio of $`\hat H`$ is 2.661 and its
 de-biased value 1.629, but the field lower bound is 0.850, below 0.90:
 once the selection is accounted for, the data do not rule out a modest
 benefit in $`\hat H`$ — and a lower bound does not establish harm there
-either. The field upper bound for $`\hat H^c`$ is 0.904, below 1.0: the
-non-region patients outside $`\hat H`$ benefit. The two bounds are
-one-sided statements about two different sets, not an interval for the
-contrast between them, so together they do not establish that the two
-effects are separated; the Bonferroni pair in the table is the joint
-statement. $`\hat H`$ is re-selected on a share 0.186 of the draws.
-*With your trial:* nothing changes;
+either. (The manuscript, Section 4.2, places this bound among those of
+S2’s declared triggered trials: it lies above 78% of them.) The field
+upper bound for $`\hat H^c`$ is 0.904, below 1.0: the non-region
+patients outside $`\hat H`$ benefit. The two bounds are one-sided
+statements about two different sets, not an interval for the contrast
+between them, so together they do not establish that the two effects are
+separated; the Bonferroni pair in the table is the joint statement.
+$`\hat H`$ is re-selected on a share 0.186 of the draws. *With your
+trial:* nothing changes;
 [`compute_frontier_cis()`](https://larry-leon.github.io/forestsearch/reference/compute_frontier_cis.md)
 and
 [`mr_estimates_table()`](https://larry-leon.github.io/forestsearch/reference/mr_estimates_table.md)
@@ -906,10 +963,10 @@ simulation design, and is in the simulations article.
 Replicate 5 is one trial of S2. The campaign ran 10,000 trials of the
 same design (the simulations article). The first table gives the
 campaign-observed counterparts of the analytic rows of
-[Section 1.3](#sec-predictions) — unconditional, over all trials; the
-second follows the pipeline of this section, conditional on the trigger
-where its denominators say so. The numbers are read from the campaign’s
-records, shipped with the package.
+[Section 1.3](#sec-predictions) — observed proportions, unconditional,
+over all trials; the second follows the pipeline of this section, among
+triggered trials where its denominators say so. The numbers are read
+from the campaign’s records, shipped with the package.
 
 Code
 
@@ -943,7 +1000,7 @@ stopifnot(near(obs[2] + obs[3], obs[1], 1e-12), near(obs[4] + obs[5], obs[3], 1e
 lab_obs <- c("(1) P(ITT ub < 1.0): the trial is positive",
              "(3) P(consistency): positive, region ITT ≤ 1.0",
              "(4) P(non-consistency): the trigger",
-             "(5) P(oracle consistency): the oracle joint",
+             "(5) P(oracle consistency)",
              "(6) P(oracle non-consistency)",
              "(7) P(consistency or oracle consistency)",
              "(8) P̂(declared consistency)",
@@ -962,7 +1019,7 @@ knitr::kable(data.frame(row = append(lab_obs, "(2) P(region ITT > 1.0)", after =
 | \(2\) P(region ITT \> 1.0)                       |     0.327 (3,266) |
 | \(3\) P(consistency): positive, region ITT ≤ 1.0 |     0.600 (5,999) |
 | \(4\) P(non-consistency): the trigger            |     0.240 (2,398) |
-| \(5\) P(oracle consistency): the oracle joint    |     0.186 (1,864) |
+| \(5\) P(oracle consistency)                      |     0.186 (1,864) |
 | \(6\) P(oracle non-consistency)                  |       0.053 (534) |
 | \(7\) P(consistency or oracle consistency)       |     0.786 (7,863) |
 | \(8\) P̂(declared consistency)                    |     0.123 (1,228) |
@@ -1004,7 +1061,7 @@ knitr::kable(
     of = c(sprintf("all trials (%s)", big(camp$reps)), "triggered trials", "declared triggered trials",
            "triggered trials", "declared triggered trials")),
   align = "lrl",
-  caption = "Conditional on the trigger: the pipeline of this section, as often as it went each way (each row's denominator stated).")
+  caption = "Among triggered trials: the pipeline of this section, as often as it went each way (each row's denominator stated).")
 ```
 
 | step | S2 | of |
@@ -1015,7 +1072,7 @@ knitr::kable(
 | declared, region(Ĝ) \< 1.0 | 51.2 (1,228) | triggered trials |
 | Ĝ, % of region patients | 87.2 | declared triggered trials |
 
-Conditional on the trigger: the pipeline of this section, as often as it
+Among triggered trials: the pipeline of this section, as often as it
 went each way (each row’s denominator stated). {.table .caption-top}
 
 Read unconditionally: the trial is positive in 0.840 of trials;
@@ -1023,13 +1080,20 @@ consistency holds outright in 0.600, and the trigger occurs in 0.240 —
 about one S2 trial in four. The oracle resolution holds in 0.186 of all
 trials (row 5) and the declared subgroup’s in 0.123 (row 8), so the two
 routes together give 0.786 by the oracle pathway and 0.723 by the
-declared pathway (rows 7 and 9). Conditional on the trigger: a subgroup
-was declared in 2,397 of 2,398 triggered trials, region(Ĝ) was below 1.0
-in about half (51.2%), and Ĝ kept on average 87.2% of the region’s
+declared pathway (rows 7 and 9). Among triggered trials: a subgroup was
+declared in 2,397 of 2,398 triggered trials, region(Ĝ) was below 1.0 in
+about half (51.2%), and Ĝ kept on average 87.2% of the region’s
 patients. The field lower bound for Ĥ was above 1.0 in 13.6% of the
 declared triggered trials; in the others it lies below 1.0, and it is
 read by its location, as for replicate 5 in step 5. Replicate 5 is one
 of the triggered trials with region(Ĝ) \< 1.0.
+
+Under S2 rows (5) and (8) are recoveries: a harmed subgroup is present
+in every region. The same rows for the two region-interaction
+configurations of [Section 1.2](#sec-dgm-overview), where the region
+outside $`H^*`$ has no treatment effect, are the false-positive increase
+in meeting consistency; they are in the [simulations
+article](https://larry-leon.github.io/forestsearch/articles/mrct-consistency-simulations.html#sec-region-interaction).
 
 ### 2.7 The one-call form
 
@@ -1106,11 +1170,11 @@ and
 [`mr_estimates_table()`](https://larry-leon.github.io/forestsearch/reference/mr_estimates_table.md)
 read its `$fs`.
 
-The article took 3.2 minutes to run.
+The article took 3.1 minutes to run.
 
 ## Appendix: the analysis window and the windowed Cox limit
 
-This appendix works through the callout “The windowed Cox limit” of
+This appendix works through the callout “The population Cox limit” of
 [Section 1.2](#sec-dgm-overview) for S2, on the build of
 [Section 1.3](#sec-predictions) (`dgm_pre`, whose hazard scale and
 regional shift are estimated from replicate 5).
@@ -1293,9 +1357,7 @@ below the trial’s 0.757.
 
 The accompanying manuscript collects the design’s events in its Table 1,
 reproduced here; a superscript $`+`$ ($`-`$) marks a point estimate or
-bound in (opposite to) the direction of consistency. This article’s
-$`A`$, $`B`$ and $`C^*`$ are $`\mathrm{ITT}^+`$, $`\mathrm{R}^-`$ and
-$`\mathrm{R}(G^*)^+`$.
+bound in (opposite to) the direction of consistency.
 
 | Event | Definition | Reading |
 |----|----|----|

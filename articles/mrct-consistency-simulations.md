@@ -109,11 +109,17 @@ c(forestsearch = as.character(packageVersion("forestsearch")))
 > The rendered `mrct-consistency-simulations.html` is written beside the
 > `.qmd`. Delete the scratch folder when done.
 
-This article is the simulation side of the regional-consistency
-strategy: how the report’s data-generating mechanism and cells were
-built, the analytic layer that predicts the design’s behaviour before
-any simulation, the committed campaign’s results, and how the case study
-of the application article
+This article is the simulation side of the regional-consistency strategy
+of the accompanying manuscript, *A signal-generating strategy for
+regional inconsistency in positive multiregional trials: held-out
+subgroup identification with selection-adjusted inference* (in
+submission; its source and records are in the mrct-consistency
+repository): how the manuscript’s data-generating mechanism and cells
+were built, the analytic layer that gives the design’s probabilities
+before any simulation, the committed campaign’s results, the two
+region-interaction configurations
+([Section 4.5](#sec-region-interaction)), and how the case study of the
+application article
 ([mrct-consistency](https://larry-leon.github.io/forestsearch/articles/mrct-consistency.md))
 was found. It executes independently of that article: the case study’s
 objects, which the checks below compare against, are recomputed first
@@ -183,7 +189,7 @@ c(patients = nrow(trial), seconds_mr = round(t_mr, 1)); Hhat_def
 ```
 
       patients seconds_mr
-        1000.0       55.6 
+        1000.0       53.3 
 
     [1] "{z_cd40 <= 236} & !{z_preanti <= 196}"
 
@@ -193,22 +199,23 @@ the bounds are read and discussed in the application article.
 ## 2 Setting up simulations from your own trial
 
 This section treats `rep5_trial.csv` as if it were your trial, with its
-region **observed**: the column `z_region` is taken as recorded, and
-nothing about who is in the region is modelled. $`H^*`$ and the effects
-in the cells are then your statements. Five steps, in order.
+region **observed** — the manuscript’s analyst’s-trial design view (its
+Section 4.3): the column `z_region` is taken as recorded, and nothing
+about who is in the region is modelled. $`H^*`$ and the effects in the
+cells are then your statements. Five steps, in order.
 
 **1. A data-generating mechanism that carries the observed region.**
 [`inject_mrct_structure()`](https://larry-leon.github.io/forestsearch/reference/inject_mrct_structure.md),
-the function of the report’s build ([Section 3.1](#sec-dgm)), is given
-the trial and `region = list(observed = "region")`: with
+the function of the manuscript’s build ([Section 3.1](#sec-dgm)), is
+given the trial and `region = list(observed = "region")`: with
 `region$observed`, the region is carried through the expansion with the
 covariates and nothing about membership is modelled. With `loghr` left
 at `NULL` the region’s prognostic log hazard ratio is estimated by the
 Weibull AFT fit, as the other covariates’ effects are; $`H^*`$, $`b`$
-and $`h`$ are set as in the report’s build (`spline_spec` gives $`b`$
-everywhere, `x3` defines $`H^*`$ = CD4 $`\le`$ 230 and multiplies the
-hazard ratio in it by $`h/b`$), and the super-population is expanded by
-the copula. There is no
+and $`h`$ are set as in the manuscript’s build (`spline_spec` gives
+$`b`$ everywhere, `x3` defines $`H^*`$ = CD4 $`\le`$ 230 and multiplies
+the hazard ratio in it by $`h/b`$), and the super-population is expanded
+by the copula. There is no
 [`scale_dgm_hazard()`](https://larry-leon.github.io/forestsearch/reference/scale_dgm_hazard.md)
 call here: replicate 5’s outcomes were drawn with every hazard already
 multiplied by 3, so the Weibull fit to them estimates the scaled
@@ -319,19 +326,19 @@ p_own <- ahr_design_table(pop_own, b = 0.55, h = 2, n = 1000)
 tab_own <- rbind(
   data.frame(row = unname(sets_own[lim_own$set]), a = f3(lim_own$marghr), b = f3(lim_own$marghr_inf),
              c = f3(lim_own$ahr), d = f3(lim_own$cde)),
-  data.frame(row = c("P(trigger), n = 1,000", "P(oracle joint), n = 1,000"),
+  data.frame(row = c("P(non-consistency), n = 1,000", "P(oracle consistency), n = 1,000"),
              a = f3(c(p_own[["p_trigger"]], p_own[["p_trigger_and_Gstar_lt1"]])), b = "", c = "", d = ""))
 knitr::kable(setNames(tab_own, c("", "margHR(40)", "margHR(∞)", "AHR", "CDE")), row.names = FALSE,
              align = "lrrrr", caption = "The analytic layer on the mechanism built from the trial (h = 2, b = 0.55).")
 ```
 
-|                            | margHR(40) | margHR(∞) |   AHR |   CDE |
-|:---------------------------|-----------:|----------:|------:|------:|
-| region                     |      0.884 |     0.669 | 0.673 | 1.091 |
-| non-region                 |      0.740 |     0.667 | 0.682 | 1.077 |
-| G\* (region minus H\*)     |      0.557 |     0.609 | 0.550 | 0.550 |
-| P(trigger), n = 1,000      |      0.242 |           |       |       |
-| P(oracle joint), n = 1,000 |      0.180 |           |       |       |
+|                                  | margHR(40) | margHR(∞) |   AHR |   CDE |
+|:---------------------------------|-----------:|----------:|------:|------:|
+| region                           |      0.884 |     0.669 | 0.673 | 1.091 |
+| non-region                       |      0.740 |     0.667 | 0.682 | 1.077 |
+| G\* (region minus H\*)           |      0.557 |     0.609 | 0.550 | 0.550 |
+| P(non-consistency), n = 1,000    |      0.242 |           |       |       |
+| P(oracle consistency), n = 1,000 |      0.180 |           |       |       |
 
 The analytic layer on the mechanism built from the trial (h = 2, b =
 0.55). {.table .caption-top}
@@ -346,10 +353,10 @@ s2 <- function(q, set) { v <- pred_S2$value[pred_S2$quantity == q & pred_S2$set 
 ```
 
 As a reading, not a check: the region’s margHR(40) is 0.884 here against
-0.868 in S2, P(trigger) 0.242 against 0.241 and the oracle joint 0.180
-against 0.187 ([Section 3.3](#sec-analytic)); the build from one trial
-of 1,000 is not S2’s build from ACTG 175 and is not expected to
-reproduce it.
+0.868 in S2, P(non-consistency) 0.242 against 0.241 and P(oracle
+consistency) 0.180 against 0.187 ([Section 3.3](#sec-analytic)); the
+build from one trial of 1,000 is not S2’s build from ACTG 175 and is not
+expected to reproduce it.
 
 > **The analytic layer**
 >
@@ -358,18 +365,19 @@ reproduce it.
 > then
 > [`ahr_truths_table()`](https://larry-leon.github.io/forestsearch/reference/ahr_tables.md)
 > on the sets you care about gives each set’s four truths: read margHR
-> at the analysis time as the set’s windowed Cox limit, what its Cox
-> estimate converges to — it moves with the event rate and the window
-> while the AHR and CDE do not (the application article’s
+> at the analysis time as the set’s population Cox limit (the windowed
+> Cox limit), what its Cox estimate converges to — it moves with the
+> event rate and the window while the AHR and CDE do not (the
+> application article’s
 > [appendix](https://larry-leon.github.io/forestsearch/articles/mrct-consistency.html#sec-window)
 > shows why) — and the AHR and CDE as the effect in the set.
 > [`ahr_design_table()`](https://larry-leon.github.io/forestsearch/reference/ahr_tables.md)
 > at your trial size gives P(ITT ub \< 1.0), P(region ITT \> 1.0),
-> P(trigger) and the oracle joint before any simulation; if P(trigger)
-> is very small, the campaign will have few triggered trials to
-> summarise.
+> P(non-consistency) and P(oracle consistency) before any simulation; if
+> P(non-consistency) is very small, the campaign will have few triggered
+> trials to summarise.
 > [`ahr_solve()`](https://larry-leon.github.io/forestsearch/reference/ahr_solve.md)
-> places one free parameter so that P(trigger) reaches a target
+> places one free parameter so that P(non-consistency) reaches a target
 > ([Section 3.3.1](#sec-roots)). These are computed by quadrature and
 > take seconds per cell.
 
@@ -411,9 +419,9 @@ res_own <- mrct_region_sims(
 > use; the time per trial on a lightly loaded machine does not carry
 > over to all workers busy.
 
-**5. Case selection and the summaries conditional on the trigger**
-(shown, not run): the shares of the triggered trials, from the per-trial
-Cox fits of the full record, and a case chosen by the rule of
+**5. Case selection and the summaries among triggered trials** (shown,
+not run): the shares of the triggered trials, from the per-trial Cox
+fits of the full record, and a case chosen by the rule of
 [Section 3.4](#sec-find).
 
 Code
@@ -426,28 +434,28 @@ case_own <- mrct_select_case(res_own)                         # the first trial 
 
 > **Reading the results**
 >
-> Summarise the campaign conditional on the trigger: a team runs the
-> joint analysis only when the trial is positive and the region’s
-> estimate is above 1.0, so the triggered trials are the denominator
-> that matters. Report for each cell the share of triggered trials with
-> a declaration, the joint and, beside it, the oracle joint as the
-> benchmark that removing $`H^*`$ exactly would give under the stated
-> mechanism (a benchmark, not a bound: in a given trial $`\hat G`$ can
-> do better); then the same rows in the null cells.
+> Summarise the campaign among triggered trials: a team runs the joint
+> analysis only when the trial is positive and the region’s estimate is
+> above 1.0, so the triggered trials are the denominator that matters.
+> Report for each cell the share of triggered trials with a declaration,
+> the joint and, beside it, the oracle consistency as the benchmark that
+> removing $`H^*`$ exactly would give under the stated mechanism (a
+> benchmark, not a bound: in a given trial $`\hat G`$ can do better);
+> then the same rows in the null cells.
 > [`mrct_select_case()`](https://larry-leon.github.io/forestsearch/reference/mrct_select_case.md)
 > picks a case by a stated rule before it is looked at, and
 > [`mrct_case_study()`](https://larry-leon.github.io/forestsearch/reference/mrct_case_study.md)
 > redraws and examines it ([Section 3.4](#sec-find)).
 
-## 3 How replicate 5 was generated: the report’s simulation design
+## 3 How replicate 5 was generated: the manuscript’s simulation design
 
-Replicate 5 is one trial drawn from the report’s S2 cell. This section
-is that design: the data-generating mechanism built from ACTG 175
-([Section 3.1](#sec-dgm)), the eight cells, the analytic layer
-([Section 3.3](#sec-analytic)), and the rule and the calls by which
-replicate 5 was found and redrawn ([Section 3.4](#sec-find)); it closes
-with what can be said about replicate 5 only because it is simulated
-([Section 3.5](#sec-case-sim)).
+Replicate 5 is one trial drawn from the manuscript’s S2 cell. This
+section is that design: the data-generating mechanism built from ACTG
+175 ([Section 3.1](#sec-dgm)), the six cells and the two later-enrolling
+variants, the analytic layer ([Section 3.3](#sec-analytic)), and the
+rule and the calls by which replicate 5 was found and redrawn
+([Section 3.4](#sec-find)); it closes with what can be said about
+replicate 5 only because it is simulated ([Section 3.5](#sec-case-sim)).
 
 ### 3.1 The data-generating mechanism, built from ACTG 175
 
@@ -557,7 +565,7 @@ c(rows = nrow(dgm_live$df_super), region = mean(dgm_live$df_super$z_region),
   period used below (`analysis_time = 40`, `max_entry = 11`), and
   `cens_adjust` for the dropout model.
 
-> **Reproducing this report’s build exactly**
+> **Reproducing the manuscript’s build exactly**
 >
 > This chunk exists only so that the committed record is reproduced to
 > the last digit on any platform: it builds the cells with the latent
@@ -573,8 +581,10 @@ c(rows = nrow(dgm_live$df_super), region = mean(dgm_live$df_super$z_region),
 > latent_R <- as.matrix(mrct_record("latent_R.csv", row.names = 1))
 >
 > # One cell: hazard ratio h in H* = {CD4 <= 230}, b = 0.55 elsewhere, region
-> # prognostic log-HR r, all hazards x m; the calls of steps 2 and 3 above.
-> build_cell <- function(h, r = -log(4), b = 0.55, cut = 230, m = 3) {
+> # prognostic log-HR r, all hazards x m; the calls of steps 2 and 3 above. Further
+> # arguments of inject_mrct_structure() pass through "..." (the region-interaction
+> # configurations of the results section use it).
+> build_cell <- function(h, r = -log(4), b = 0.55, cut = 230, m = 3, ...) {
 >   mrct_build_dgm(
 >     actg,
 >     outcome_var = "time_months", event_var = "cens", treatment_var = "treat_mrct",
@@ -589,7 +599,7 @@ c(rows = nrow(dgm_live$df_super), region = mean(dgm_live$df_super$z_region),
 >     n_super = 20000, expand = "copula", seed = 7L,
 >     continuous_vars_cens = c("age", "cd40"), factor_vars_cens = "symptom",
 >     latent_R = latent_R,
->     m = m)
+>     m = m, ...)
 > }
 > t_build <- proc.time()[["elapsed"]]
 > dgm_S2 <- build_cell(h = 2)
@@ -605,11 +615,11 @@ c(rows = nrow(dgm_live$df_super), region = mean(dgm_live$df_super$z_region),
 >                        seconds                       rows
 >                   4.000000e-01               2.000000e+04
 >          latent_R_max_abs_diff super_population_identical
->                   3.978588e-15               0.000000e+00 
+>                   3.804249e-15               0.000000e+00 
 >
 > On this render machine the live fit of step 2 differs from the shipped
-> matrix (largest absolute difference 4e-15), so the reader’s path gives
-> a slightly different super-population; the checks below use this
+> matrix (largest absolute difference 3.8e-15), so the reader’s path
+> gives a slightly different super-population; the checks below use this
 > chunk’s build.
 
 **Build check.** The build must equal the campaign’s build record of S2
@@ -648,10 +658,10 @@ c(columns_compared = length(ours), largest_relative_difference = signif(build_di
 ```
 
                columns_compared largest_relative_difference
-                        2.4e+01                     6.9e-15 
+                        2.4e+01                     4.3e-15 
 
 **Passed**: the build equals the record (largest relative difference
-6.9e-15). In this build the region holds 20.1% of the super-population,
+4.3e-15). In this build the region holds 20.1% of the super-population,
 $`H^*`$ holds 15.7% of all patients (16.5% of the region and 15.5%
 outside it), and at equal covariates a region patient has $`e^{r}`$ =
 0.25 times the hazard of a non-region patient. The trial:
@@ -663,9 +673,9 @@ months; the Weibull dropout is pushed far beyond the window
 
 Six cells at $`r = -\log 4`$ differ only in the hazard ratio $`h`$
 inside $`H^*`$; two later-enrolling cells keep S2’s effects and let the
-region enter later, with $`r`$ or the delay solved so that P(trigger) =
-0.25 ([Section 3.3.1](#sec-roots)). The specifications as the committed
-runs’ timing records state them:
+region enter later, with $`r`$ or the delay solved so that
+P(non-consistency) = 0.25 ([Section 3.3.1](#sec-roots)). The
+specifications as the committed runs’ timing records state them:
 
 Code
 
@@ -711,16 +721,21 @@ knitr::kable(data.frame(
 The cells. Every patient’s hazard ratio is the same in every region.
 {.table .caption-top style="width:100%;"}
 
+Two further configurations, **S2, null** and **S2, detrimental**, give
+the region its own treatment effect (the manuscript’s region-dependent
+extension). They are not base-model cells; they are built and reported
+in [Section 4.5](#sec-region-interaction).
+
 ### 3.3 The analytic layer in brief
 
 For any patient set of such a DGM, analysed at a calendar time with
 uniform staggered entry and administrative censoring only, the analytic
 layer computes by quadrature (nothing is drawn) the exact limit of the
 two-sample Cox estimate on the set (the Struthers–Kalbfleisch root,
-margHR(40): the set’s windowed Cox limit), its information and robust
-variance, the expected events, the correlation between nested sets’
-estimates, the set’s AHR and CDE, and the normal-approximation
-probability of the trigger at a trial size.
+margHR(40): the set’s population Cox limit, the windowed Cox limit), its
+information and robust variance, the expected events, the correlation
+between nested sets’ estimates, the set’s AHR and CDE, and the
+normal-approximation probability of the trigger at a trial size.
 [`ahr_population()`](https://larry-leon.github.io/forestsearch/reference/ahr_population.md)
 reads the DGM;
 [`ahr_limit()`](https://larry-leon.github.io/forestsearch/reference/ahr_limit.md)
@@ -728,7 +743,7 @@ gives a set’s four truths;
 [`ahr_design()`](https://larry-leon.github.io/forestsearch/reference/ahr_design.md)
 gives the trial-level probabilities;
 [`ahr_solve()`](https://larry-leon.github.io/forestsearch/reference/ahr_solve.md)
-solves P(trigger) = target in one free parameter.
+solves P(non-consistency) = target in one free parameter.
 [`ahr_truths_table()`](https://larry-leon.github.io/forestsearch/reference/ahr_tables.md)
 and
 [`ahr_design_table()`](https://larry-leon.github.io/forestsearch/reference/ahr_tables.md)
@@ -803,9 +818,9 @@ structure. In S2 the region’s margHR(40) is 0.868, below 1, although its
 CDE is 1.097: the trigger in S2 is a sampling event around a regional
 limit below 1.
 
-**The trigger predictions at $`n = 1{,}000`$**, and the oracle joint,
-P(trigger and region($`G^*`$) \< 1.0) — in the application article’s
-named events, non-consistency and oracle consistency:
+**The analytic probabilities at $`n = 1{,}000`$**: P(non-consistency),
+the trigger probability, and P(oracle consistency), the probability of
+the trigger together with region($`G^*`$) \< 1.0:
 
 Code
 
@@ -822,14 +837,14 @@ d1000 <- design_tab(1000, function(k) paste0(k, "_rmlog4"))
 for (q in c("p_A", "p_B", "p_A_B", "p_Cstar", "p_A_B_Cstar"))
   stopifnot(all(abs(d1000[[q]] - vapply(d1000$ref, function(cc) pv(cc, q, ""), 0)) < 1e-9))
 show_design <- function(d) knitr::kable(data.frame(
-  cell = d$cell, `P(ITT ub < 1.0)` = f3(d$p_A), `P(region ITT > 1.0)` = f3(d$p_B), `P(trigger)` = f3(d$p_A_B),
-  `P(region(G*) < 1.0)` = f3(d$p_Cstar), `P(oracle joint)` = f3(d$p_A_B_Cstar),
+  cell = d$cell, `P(ITT ub < 1.0)` = f3(d$p_A), `P(region ITT > 1.0)` = f3(d$p_B), `P(non-consistency)` = f3(d$p_A_B),
+  `P(region(G*) < 1.0)` = f3(d$p_Cstar), `P(oracle consistency)` = f3(d$p_A_B_Cstar),
   `P(G* < 1.0 | trigger)` = f3(d$p_A_B_Cstar / d$p_A_B), check.names = FALSE),
   row.names = FALSE, align = "lrrrrrr")
 show_design(d1000)
 ```
 
-| cell | P(ITT ub \< 1.0) | P(region ITT \> 1.0) | P(trigger) | P(region(G\*) \< 1.0) | P(oracle joint) | P(G\* \< 1.0 \| trigger) |
+| cell | P(ITT ub \< 1.0) | P(region ITT \> 1.0) | P(non-consistency) | P(region(G\*) \< 1.0) | P(oracle consistency) | P(G\* \< 1.0 \| trigger) |
 |:---|---:|---:|---:|---:|---:|---:|
 | N0 | 0.999 | 0.055 | 0.054 | 0.913 | 0.017 | 0.310 |
 | N1 | 0.994 | 0.086 | 0.084 | 0.913 | 0.036 | 0.436 |
@@ -838,8 +853,9 @@ show_design(d1000)
 | S3 | 0.718 | 0.473 | 0.289 | 0.913 | 0.245 | 0.848 |
 | S4 | 0.635 | 0.568 | 0.305 | 0.913 | 0.268 | 0.879 |
 
-At $`n = 700`$ (predictions only; the $`n = 700`$ campaign is in the
-report and is not reproduced here):
+At $`n = 700`$ (analytic probabilities only; the $`n = 700`$ campaign is
+in the manuscript’s Supplementary Material D and is not reproduced
+here):
 
 Code
 
@@ -853,7 +869,7 @@ for (q in c("p_A", "p_B", "p_A_B", "p_Cstar", "p_A_B_Cstar"))
 show_design(d700)
 ```
 
-| cell | P(ITT ub \< 1.0) | P(region ITT \> 1.0) | P(trigger) | P(region(G\*) \< 1.0) | P(oracle joint) | P(G\* \< 1.0 \| trigger) |
+| cell | P(ITT ub \< 1.0) | P(region ITT \> 1.0) | P(non-consistency) | P(region(G\*) \< 1.0) | P(oracle consistency) | P(G\* \< 1.0 \| trigger) |
 |:---|---:|---:|---:|---:|---:|---:|
 | N0 | 0.986 | 0.091 | 0.086 | 0.873 | 0.025 | 0.294 |
 | N1 | 0.961 | 0.127 | 0.114 | 0.873 | 0.045 | 0.399 |
@@ -878,11 +894,15 @@ is a small-sample event, made frequent by the region’s few events.
 #### 3.3.1 How $`r = -\log 4`$ was chosen, and the later-enrolling regions
 
 The campaign’s regional shift was chosen to make the trigger frequent at
-the design: with S2’s effects ($`h = 2`$), $`r`$ solving P(trigger) =
-0.25 at $`n = 1{,}000`$ is found by
+the design: with S2’s effects ($`h = 2`$), $`r`$ solving
+P(non-consistency) = 0.25 at $`n = 1{,}000`$ is found by
 [`ahr_solve()`](https://larry-leon.github.io/forestsearch/reference/ahr_solve.md),
-and the campaign rounded it to $`-\log 4`$. Each evaluation rebuilds the
-DGM at that $`r`$.
+and the campaign rounded it to $`-\log 4`$, a stress setting chosen to
+make the trigger frequent: a regional patient’s hazard is then a quarter
+of that of a non-regional patient with the same covariates, at or beyond
+the largest regional differences in baseline risk documented across
+MRCTs (the manuscript’s Introduction). Each evaluation rebuilds the DGM
+at that $`r`$.
 
 Code
 
@@ -898,17 +918,20 @@ sol_r <- ahr_solve(p_trig_r, 0.25, c(-log(5), -log(3.5)), n_scan = 5L, tol = 1e-
 ref0 <- rref("Reference: a = 0, r solving")
 stopifnot(sol_r$n_roots == 1, abs(sol_r$roots - ref0$r) < 1e-6)
 c(root_r = sol_r$roots, k_in_minus_log_k = exp(-sol_r$roots), committed_root = ref0$r,
-  P_trigger_at_root = sol_r$values)
+  P_nonconsistency_at_root = sol_r$values)
 ```
 
-               root_r  k_in_minus_log_k    committed_root P_trigger_at_root
-            -1.441190          4.225721         -1.441190          0.250000 
+                      root_r         k_in_minus_log_k           committed_root
+                   -1.441190                 4.225721                -1.441190
+    P_nonconsistency_at_root
+                    0.250000 
 
 The root is $`r = -\log 4.226`$, the committed -1.4412; the campaign
-used $`r = -\log 4`$, where P(trigger) is 0.241. The same target defines
-the two later-enrolling cells, in which the region’s patients enter
-$`a`$ months after the others (`entry_delay`): D1 keeps $`r = -\log 2`$
-and solves the delay $`a`$; D2 fixes $`a = 6`$ months and solves $`r`$.
+used $`r = -\log 4`$, where P(non-consistency) is 0.241. The same target
+defines the two later-enrolling cells, in which the region’s patients
+enter $`a`$ months after the others (`entry_delay`): D1 keeps
+$`r = -\log 2`$ and solves the delay $`a`$; D2 fixes $`a = 6`$ months
+and solves $`r`$.
 
 Code
 
@@ -938,20 +961,20 @@ knitr::kable(data.frame(
   `region delay a (months)` = f3(c(sol_a$roots, 6)),
   `P(ITT ub < 1.0)` = f3(vapply(dD, function(d) d$prob[["p_itt_ub_lt1"]], 0)),
   `P(region ITT > 1.0)` = f3(vapply(dD, function(d) d$prob[["p_region_itt_gt1"]], 0)),
-  `P(trigger)` = f3(vapply(dD, function(d) d$prob[["p_trigger"]], 0)),
-  `P(oracle joint)` = f3(vapply(dD, function(d) d$prob[["p_trigger_and_Gstar_lt1"]], 0)),
+  `P(non-consistency)` = f3(vapply(dD, function(d) d$prob[["p_trigger"]], 0)),
+  `P(oracle consistency)` = f3(vapply(dD, function(d) d$prob[["p_trigger_and_Gstar_lt1"]], 0)),
   `region margHR(40)` = f3(vapply(dD, function(d) d$sets$marghr[d$sets$set == "region"], 0)),
   check.names = FALSE), row.names = FALSE, align = "lrrrrrrr",
   caption = "The later-enrolling cells: roots reproduced with entry_delay (committed roots to 1e-6).")
 ```
 
-| cell | r | region delay a (months) | P(ITT ub \< 1.0) | P(region ITT \> 1.0) | P(trigger) | P(oracle joint) | region margHR(40) |
+| cell | r | region delay a (months) | P(ITT ub \< 1.0) | P(region ITT \> 1.0) | P(non-consistency) | P(oracle consistency) | region margHR(40) |
 |:---|---:|---:|---:|---:|---:|---:|---:|
 | S2_D1 | −log 2.000 | 11.619 | 0.862 | 0.323 | 0.250 | 0.193 | 0.866 |
 | S2_D2 | −log 2.946 | 6.000 | 0.855 | 0.329 | 0.250 | 0.193 | 0.869 |
 
 The later-enrolling cells: roots reproduced with entry_delay (committed
-roots to 1e-6). {.table .caption-top}
+roots to 1e-6). {.table .caption-top style="width:100%;"}
 
 Code
 
@@ -964,20 +987,20 @@ A later-enrolling region is followed for less time, which keeps its
 40-month window in the phase where the treated $`H^*`$ patients are
 failing: a delay of 11.62 months at $`r = -\log 2`$, or of 6 months at
 $`r = -\log 2.946`$, does what the shift to $`-\log 4`$ does at no
-delay. The analytic computations of this section took 27 seconds.
+delay. The analytic computations of this section took 26 seconds.
 
 ### 3.4 Finding a case study
 
-The report’s case example is one trial of the S2 cell, chosen by a
-stated rule: the first replicate, by index, that reaches the trigger,
-declares $`\hat H`$ and has region($`\hat G`$) \< 1.0. Four calls find
-and examine such a trial in any simulation. They are shown on S2 with
-the campaign’s arguments and call seed at 100 replicates (`nsims_demo`,
-set at the top of the file), on workers from
+The manuscript’s worked example (its Section 4) is one trial of the S2
+cell, chosen by a stated rule: the first replicate, by index, that
+reaches the trigger, declares $`\hat H`$ and has region($`\hat G`$) \<
+1.0. Four calls find and examine such a trial in any simulation. They
+are shown on S2 with the campaign’s arguments and call seed at 100
+replicates (`nsims_demo`, set at the top of the file), on workers from
 [`parallel::detectCores()`](https://rdrr.io/r/parallel/detectCores.html);
 with the campaign’s seed these replicates are the campaign’s first 100.
 The same run is summarised beside the campaign in
-[Section 4.6](#sec-demo).
+[Section 4.7](#sec-demo).
 
 **1. Simulate with the full record.**
 `mrct_region_sims(record = "full")` keeps, for every trial, the Cox fits
@@ -1009,7 +1032,7 @@ c(replicates = nsims_demo, workers = workers_demo, seconds = round(t_demo, 1))
 ```
 
     replicates    workers    seconds
-         100.0        4.0      333.5 
+         100.0        4.0      310.9 
 
 **2. Select the trial.**
 [`mrct_select_case()`](https://larry-leon.github.io/forestsearch/reference/mrct_select_case.md)
@@ -1033,7 +1056,7 @@ Code
 
 ``` r
 
-# the selection returns replicate 5, the report's case example
+# the selection returns replicate 5, the manuscript's worked example
 stopifnot(nrow(case) == 1, case$sim == 5)
 est <- as.data.frame(attr(demo, "estimators")); demo <- as.data.frame(demo)[order(demo$sim), ]
 stopifnot(nrow(demo) == nsims_demo, identical(demo$sim, seq_len(nsims_demo)))
@@ -1113,9 +1136,9 @@ the same ({z_cd40 \<= 236} & !{z_preanti \<= 196}). {.table
 .caption-top}
 
 **Passed**: the redrawn trial equals `rep5_trial.csv` (largest relative
-difference 4.1e-15), and its $`\hat H`$ and four hazard ratios (largest
+difference 4.8e-15), and its $`\hat H`$ and four hazard ratios (largest
 absolute difference 0) are those of [Section 1](#sec-case-objects). The
-call took 9 seconds.
+call took 8 seconds.
 
 > **Platform precision**
 >
@@ -1169,8 +1192,8 @@ plot(cs, which = "forest")
 Figure 1: Replicate 5 of S2 by the simulation route: hazard ratio,
 experimental vs control, with 95% CI (log scale).
 
-The selection returns replicate 5, the report’s case example and the
-trial of [Section 1](#sec-case-objects).
+The selection returns replicate 5, the manuscript’s worked example and
+the trial of [Section 1](#sec-case-objects).
 
 ### 3.5 Because this trial is simulated
 
@@ -1342,7 +1365,7 @@ toward 1, and sampling did the rest.
 The campaign ran 10,000 replicates per cell at $`n = 1{,}000`$ with
 [`mrct_region_sims()`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md).
 Its records are summarised here from the shipped core tables;
-[Section 4.6](#sec-demo) summarises the small run of
+[Section 4.7](#sec-demo) summarises the small run of
 [Section 3.4](#sec-find) beside them.
 
 ### 4.1 The core operating characteristics at $`n = 1{,}000`$
@@ -1409,7 +1432,7 @@ triggered trials, against an oracle benchmark of 77.7% to 89.2%. Where
 there is nothing harmful to find (N0) a subgroup is still declared in
 52.2% of triggered trials and the joint holds in 10.6%: the strategy
 “explains” some triggers when there is nothing to explain, which is why
-it is signal generation.
+the procedure is signal-generating, not confirmatory.
 
 ### 4.2 The later-enrolling cells
 
@@ -1451,17 +1474,18 @@ knitr::kable(ce[, c("label", "denominator", "S2", "S2_D1", "S2_D2")], row.names 
 S2 at no delay and the two later-enrolling cells, 10,000 replicates
 each. {.table .caption-top}
 
-The later-enrolling cells behave as S2: the same trigger rate by
+The later-enrolling cells behave as S2: the same trigger probability by
 construction, the same identification and nearly the same joint (49.74%
 and 50.34% against 51.21%). What makes the region look inconsistent does
 not need to be a prognostic shift: a shorter regional follow-up does the
 same.
 
-### 4.3 Predicted against observed
+### 4.3 Analytic probabilities against observed proportions
 
-The analytic layer’s trigger probability and oracle joint (computed in
-[Section 3.3](#sec-analytic)) against the campaign’s frequencies over
-10,000 trials, with $`z`$ the difference in binomial SEs.
+The analytic layer’s P(non-consistency) and P(oracle consistency)
+(computed in [Section 3.3](#sec-analytic)) against the campaign’s
+observed proportions over 10,000 trials, with $`z`$ the difference in
+binomial SEs.
 
 Code
 
@@ -1477,14 +1501,14 @@ po <- rbind(
              obs_oracle = vapply(names(dD), gv, 0, q = "p_trigger_Gstar_lt1")))
 zb <- function(o, p) (o - p) / sqrt(p * (1 - p) / 10000)
 po$z_trigger <- zb(po$obs_trigger, po$pred_trigger); po$z_oracle <- zb(po$obs_oracle, po$pred_oracle)
-knitr::kable(data.frame(cell = po$cell, `P(trigger): predicted` = f4(po$pred_trigger), observed = f4(po$obs_trigger),
-                        z = f2(po$z_trigger), `oracle joint: predicted` = f4(po$pred_oracle),
+knitr::kable(data.frame(cell = po$cell, `P(non-consistency): analytic` = f4(po$pred_trigger), observed = f4(po$obs_trigger),
+                        z = f2(po$z_trigger), `P(oracle consistency): analytic` = f4(po$pred_oracle),
                         `observed ` = f4(po$obs_oracle), `z ` = f2(po$z_oracle), check.names = FALSE),
              row.names = FALSE, align = "lrrrrrr",
-             caption = "Analytic predictions against the campaign (10,000 trials per cell).")
+             caption = "Analytic probabilities against the campaign's observed proportions (10,000 trials per cell).")
 ```
 
-| cell | P(trigger): predicted | observed | z | oracle joint: predicted | observed | z |
+| cell | P(non-consistency): analytic | observed | z | P(oracle consistency): analytic | observed | z |
 |:---|---:|---:|---:|---:|---:|---:|
 | N0 | 0.0544 | 0.0540 | -0.19 | 0.0169 | 0.0165 | -0.28 |
 | N1 | 0.0837 | 0.0775 | -2.24 | 0.0365 | 0.0337 | -1.49 |
@@ -1495,19 +1519,20 @@ knitr::kable(data.frame(cell = po$cell, `P(trigger): predicted` = f4(po$pred_tri
 | S2_D1 | 0.2500 | 0.2515 | 0.35 | 0.1932 | 0.1967 | 0.89 |
 | S2_D2 | 0.2500 | 0.2515 | 0.35 | 0.1933 | 0.1959 | 0.66 |
 
-Analytic predictions against the campaign (10,000 trials per cell).
-{.table .caption-top}
+Analytic probabilities against the campaign’s observed proportions
+(10,000 trials per cell). {.table .caption-top}
 
-The normal approximation predicts the trigger and the oracle joint
-before any simulation; the largest $`|z|`$ over the eight cells is 2.24.
+The normal approximation gives P(non-consistency) and P(oracle
+consistency) before any simulation; the largest $`|z|`$ over the eight
+base-model cells is 2.24.
 
 ### 4.4 Post-selection inference on $`\hat H`$ in the triggered trials
 
 The MR field call of [Section 1](#sec-case-objects) was run on every
-triggered trial of the eight cells. Three shares are read by location,
-against clinically meaningful hazard ratios: the share of declared
-triggered trials whose $`\hat H`$ lower bound is above 0.90 and above
-1.0, and the share whose $`\hat H^c`$ upper bound is below 1.0.
+triggered trial of the eight base-model cells. Three shares are read by
+location, against clinically meaningful hazard ratios: the share of
+declared triggered trials whose $`\hat H`$ lower bound is above 0.90 and
+above 1.0, and the share whose $`\hat H^c`$ upper bound is below 1.0.
 
 Code
 
@@ -1549,7 +1574,244 @@ triggered trials (100.00% at least): the patients outside $`\hat H`$
 benefit. The spread between the de-biased estimate and the bound is the
 price of the selection.
 
-### 4.5 The campaign code and its wall-clock
+### 4.5 The region-interaction configurations
+
+Every cell above is the base model: every patient’s hazard ratio is the
+same on both sides of the region boundary, and the trigger arises with
+no region-dependent effect to find. The manuscript’s region-dependent
+extension (its Section 2; the mathematics is in the [application
+article](https://larry-leon.github.io/forestsearch/articles/mrct-consistency.html#sec-dgm-overview))
+lets the effects inside the region differ: $`b_{\mathrm{R}}`$ for the
+region’s patients outside $`H^*`$ and $`h_{\mathrm{R}}`$ for those
+inside it. Two configurations are built on S2’s design, everything else
+as in S2:
+
+- **S2, null** — $`b_{\mathrm{R}} = 1.0`$ and $`h_{\mathrm{R}} = 1.0`$:
+  no treatment effect anywhere inside the region;
+- **S2, detrimental** — $`b_{\mathrm{R}} = 1.0`$ and
+  $`h_{\mathrm{R}} = 2.0`$: no effect in the region outside $`H^*`$, and
+  the harm of $`H^*`$ inside the region as outside it.
+
+In both, the region outside $`H^*`$ is truly null. A region returned
+below 1.0 once a subgroup is removed is then spurious, so these
+configurations measure the **false-positive increase in meeting
+consistency** through the transportability pathway. As everywhere in
+these articles, the rates are signal-generation rates for a
+pre-specified pipeline, not confirmatory error rates.
+
+#### 4.5.1 The build and the analytic probabilities
+
+[`inject_mrct_structure()`](https://larry-leon.github.io/forestsearch/reference/inject_mrct_structure.md)
+takes the two interactions of the extension directly:
+`region_loghr_shift` is $`\gamma_{\mathrm{R}} = \log(b_{\mathrm{R}}/b)`$
+and `region_harm_loghr_shift` is
+$`\gamma_{H^*\mathrm{R}} = \log(h_{\mathrm{R}}/h) - \log(b_{\mathrm{R}}/b)`$;
+both default to 0, the base model.
+[`ahr_limit()`](https://larry-leon.github.io/forestsearch/reference/ahr_limit.md)
+and
+[`ahr_design()`](https://larry-leon.github.io/forestsearch/reference/ahr_design.md)
+take `b_R` and `h_R`. The two builds are S2’s build
+(`build_cell(h = 2)`) with the two arguments added.
+
+Code
+
+``` r
+
+ri <- list(`S2, null` = c(b_R = 1, h_R = 1), `S2, detrimental` = c(b_R = 1, h_R = 2))
+t_ri <- proc.time()[["elapsed"]]
+dgm_ri <- lapply(ri, function(x) build_cell(
+  h = 2,
+  region_loghr_shift = log(x[["b_R"]] / 0.55),                                # gamma_R
+  region_harm_loghr_shift = log(x[["h_R"]] / 2) - log(x[["b_R"]] / 0.55)))    # gamma_H*R
+pop_ri <- lapply(dgm_ri, ahr_population, analysis_time = 40, max_entry = 11)
+des_ri <- lapply(names(ri), function(k)
+  ahr_design(pop_ri[[k]], b = 0.55, h = 2, n = 1000, b_R = ri[[k]][["b_R"]], h_R = ri[[k]][["h_R"]]))
+names(des_ri) <- names(ri)
+reg_ri <- vapply(names(ri), function(k)
+  ahr_limit(pop_ri[[k]], "region", b = 0.55, h = 2, b_R = ri[[k]][["b_R"]], h_R = ri[[k]][["h_R"]],
+            variance = FALSE)$hr, 0)
+t_ri <- proc.time()[["elapsed"]] - t_ri
+# every patient's log hazard ratio: (b, h) outside the region, (b_R, h_R) inside it
+for (k in names(ri)) {
+  d <- dgm_ri[[k]]$df_super; in_R <- d$z_region == 1; in_H <- d$flag_harm == 1
+  want <- ifelse(in_R, ifelse(in_H, log(ri[[k]][["h_R"]]), log(ri[[k]][["b_R"]])),
+                 ifelse(in_H, log(2), log(0.55)))
+  stopifnot(near(d$loghr_po, want, 1e-8))
+}
+# the claims of the text below
+stopifnot(abs(reg_ri[["S2, null"]] - 1) < 1e-4, reg_ri[["S2, detrimental"]] > 1)
+c(setNames(reg_ri, paste("region margHR(40):", names(reg_ri))), seconds = round(t_ri, 1))
+```
+
+           region margHR(40): S2, null region margHR(40): S2, detrimental
+                              1.000000                           1.193099
+                               seconds
+                              1.400000 
+
+The region’s population Cox limit, margHR(40), is 1.000 under S2, null,
+and 1.193 under S2, detrimental, against 0.868 in S2.
+
+**The manuscript’s Table 2.** Rows (1) to (7) are analytic probabilities
+at $`n = 1{,}000`$, computed here: for S2 and N0 from the design table
+of [Section 3.3](#sec-analytic), for the two configurations from the
+builds above. Rows (8) and (9) add the campaign’s observed proportion of
+declared consistency (the trigger together with a declared subgroup and
+region($`\hat G`$) \< 1.0, over all trials): for S2 and N0 it is
+recounted from the shipped records; for the two configurations it is the
+value the manuscript states, because their records are in the
+mrct-consistency repository and are not shipped with this version of the
+package.
+
+Code
+
+``` r
+
+rows7 <- function(p) {
+  pA <- p[["p_itt_ub_lt1"]]; pB <- p[["p_region_itt_gt1"]]
+  pAB <- p[["p_trigger"]]; pABC <- p[["p_trigger_and_Gstar_lt1"]]
+  c(pA, pB, pA - pAB, pAB, pABC, pAB - pABC, (pA - pAB) + pABC)
+}
+base7 <- function(k) {
+  d <- d1000[d1000$cell == k, ]; stopifnot(nrow(d) == 1)
+  rows7(c(p_itt_ub_lt1 = d$p_A, p_region_itt_gt1 = d$p_B, p_trigger = d$p_A_B,
+          p_trigger_and_Gstar_lt1 = d$p_A_B_Cstar))
+}
+t2 <- cbind(S2 = base7("S2"), `S2, null` = rows7(des_ri[["S2, null"]]$prob),
+            `S2, detrimental` = rows7(des_ri[["S2, detrimental"]]$prob), N0 = base7("N0"))
+# the manuscript's Table 2, rows (1)-(7), as printed (three decimals)
+ms2 <- cbind(S2                = c(0.844, 0.326, 0.602, 0.241, 0.187, 0.054, 0.790),
+             `S2, null`        = c(0.804, 0.500, 0.443, 0.361, 0.070, 0.291, 0.513),
+             `S2, detrimental` = c(0.732, 0.727, 0.238, 0.494, 0.185, 0.309, 0.423),
+             N0                = c(0.999, 0.055, 0.944, 0.054, 0.017, 0.038, 0.961))
+stopifnot(max(abs(t2 - ms2)) < 6e-4)            # equal to the manuscript's printed values
+# row (8): declared consistency, observed over all 10,000 trials
+decl <- c(S2 = cn$n_declared_Ghat_lt1[cn$setting == "S2_rmlog4"] / 10000,
+          `S2, null` = 0.057, `S2, detrimental` = 0.115,      # as the manuscript states them
+          N0 = cn$n_declared_Ghat_lt1[cn$setting == "N0_rmlog4"] / 10000)
+stopifnot(abs(decl[c("S2", "N0")] - c(0.123, 0.006)) < 6e-4)
+t2 <- rbind(t2, decl, t2[3, ] + decl)
+stopifnot(abs(t2[9, ] - c(0.725, 0.500, 0.353, 0.950)) < 1.1e-3)
+lab2 <- c("(1) P(ITT ub < 1.0): the trial is positive",
+          "(2) P(region ITT > 1.0)",
+          "(3) P(consistency): positive, region ITT ≤ 1.0",
+          "(4) P(non-consistency): the trigger",
+          "(5) P(oracle consistency)",
+          "(6) P(oracle non-consistency)",
+          "(7) P(consistency or oracle consistency)",
+          "(8) P̂(declared consistency)",
+          "(9) P̂(consistency or declared consistency)")
+knitr::kable(data.frame(row = lab2, f3(t2[, 1]), f3(t2[, 2]), f3(t2[, 3]), f3(t2[, 4])),
+             col.names = c("", "S2", "S2, null (b_R = 1.0, h_R = 1.0)",
+                           "S2, detrimental (b_R = 1.0, h_R = 2.0)", "N0"),
+             row.names = FALSE, align = "lrrrr",
+             caption = "The manuscript's Table 2. Rows (1)–(7): analytic probabilities, computed here and equal to the manuscript's printed values. Rows (8)–(9): with the campaign's observed declared consistency (S2 and N0 recounted from the shipped records; the two configurations as the manuscript states them).")
+```
+
+|  | S2 | S2, null (b_R = 1.0, h_R = 1.0) | S2, detrimental (b_R = 1.0, h_R = 2.0) | N0 |
+|:---|---:|---:|---:|---:|
+| \(1\) P(ITT ub \< 1.0): the trial is positive | 0.844 | 0.804 | 0.732 | 0.999 |
+| \(2\) P(region ITT \> 1.0) | 0.326 | 0.500 | 0.727 | 0.055 |
+| \(3\) P(consistency): positive, region ITT ≤ 1.0 | 0.602 | 0.443 | 0.238 | 0.944 |
+| \(4\) P(non-consistency): the trigger | 0.241 | 0.361 | 0.494 | 0.054 |
+| \(5\) P(oracle consistency) | 0.187 | 0.070 | 0.185 | 0.017 |
+| \(6\) P(oracle non-consistency) | 0.054 | 0.291 | 0.309 | 0.038 |
+| \(7\) P(consistency or oracle consistency) | 0.790 | 0.513 | 0.423 | 0.961 |
+| \(8\) P̂(declared consistency) | 0.123 | 0.057 | 0.115 | 0.006 |
+| \(9\) P̂(consistency or declared consistency) | 0.725 | 0.500 | 0.353 | 0.950 |
+
+The manuscript’s Table 2. Rows (1)–(7): analytic probabilities, computed
+here and equal to the manuscript’s printed values. Rows (8)–(9): with
+the campaign’s observed declared consistency (S2 and N0 recounted from
+the shipped records; the two configurations as the manuscript states
+them). {.table .caption-top}
+
+Under S2, rows (5) and (8) are recoveries: a harmed subgroup is present
+in every region, and removing it returns the region to its benefit.
+Under the two configurations the region outside $`H^*`$ is truly null,
+so the same rows are the false-positive increase in meeting consistency
+through the oracle and the declared pathways: 0.070 and 0.057 of all
+trials under S2, null, and 0.185 and 0.115 under S2, detrimental. Moving
+from S2 to S2, detrimental roughly doubles the trigger probability
+(0.241 to 0.494) while leaving P(oracle consistency) essentially
+unchanged. Consistency by the standard pathway falls from 0.602 to
+0.238: under S2 it is a correct pass, because the region’s limit lies
+below 1; under S2, detrimental it is a silent miss, because the limit
+lies above 1. Oracle non-consistency rises from 0.054 to 0.309: among
+triggered trials the oracle resolution falls from 0.78 to 0.37, because
+the region’s remaining patients no longer carry a benefit to uncover.
+
+#### 4.5.2 The campaign results
+
+The two configurations were run as S2 was: 10,000 trials each at
+$`n = 1{,}000`$, with the identifier’s arguments of
+[Section 3.4](#sec-find) and the MR field inference on every triggered
+trial (the calls are in [Section 4.6](#sec-campaign-code)). The table is
+the manuscript’s Table 6. Its S2 column is recounted here from the
+shipped records; the two configurations’ columns are the values the
+manuscript states.
+
+Code
+
+``` r
+
+t6 <- data.frame(
+  row = c("trial power (ITT ub < 1.0)", "non-consistency: trials reaching the trigger, % (count)",
+          "subgroup declared, % (count)", "declared, region(Ĝ) < 1.0", "region(G*) < 1.0",
+          "declared, region(Ĝ) ≥ 1.0", "MR lower bound on Ĥ > 0.90", "MR lower bound on Ĥ > 1.0",
+          "MR upper bound on Ĥc < 1.0"),
+  of = c("all trials", "all trials", rep("triggered trials", 7)),
+  S2 = c("84.0", "24.0 (2,398)", "100.0 (2,397)", "51.2", "77.7", "48.7", "18.7", "13.6", "100.0"),
+  S2_null = c("80.3", "36.3 (3,627)", "100.0 (3,626)", "15.7", "19.4", "84.3", "18.9", "13.8", "100.0"),
+  S2_detrimental = c("73.1", "48.8 (4,880)", "100.0 (4,879)", "23.5", "37.3", "76.5", "18.5", "13.5", "100.0"))
+# the S2 column against the shipped records
+x2 <- cn[cn$setting == "S2_rmlog4", ]
+live_S2 <- c(as.numeric(lead(wide$S2[1])), 100 * x2$n_trigger / x2$replicates,
+             100 * x2$n_declared / x2$n_trigger, 100 * x2$n_declared_Ghat_lt1 / x2$n_trigger,
+             100 * x2$n_Gstar_lt1 / x2$n_trigger, 100 * x2$n_declared_Ghat_ge1 / x2$n_trigger,
+             as.numeric(mv_("lb_090", "S2")), as.numeric(mv_("lb_100", "S2")),
+             as.numeric(mv_("ubc_100", "S2")))
+stopifnot(abs(live_S2 - as.numeric(lead(t6$S2))) < 0.051, x2$n_trigger == 2398, x2$n_declared == 2397)
+knitr::kable(t6, row.names = FALSE, align = "llrrr",
+             col.names = c("", "% of", "S2", "S2, null (b_R = 1.0, h_R = 1.0)",
+                           "S2, detrimental (b_R = 1.0, h_R = 2.0)"),
+             caption = "The manuscript's Table 6: S2 and the two region-interaction configurations at n = 1,000, 10,000 trials per cell; observed proportions, in percent. The S2 column is recounted from the shipped records; the two configurations are as the manuscript states them.")
+```
+
+|  | % of | S2 | S2, null (b_R = 1.0, h_R = 1.0) | S2, detrimental (b_R = 1.0, h_R = 2.0) |
+|:---|:---|---:|---:|---:|
+| trial power (ITT ub \< 1.0) | all trials | 84.0 | 80.3 | 73.1 |
+| non-consistency: trials reaching the trigger, % (count) | all trials | 24.0 (2,398) | 36.3 (3,627) | 48.8 (4,880) |
+| subgroup declared, % (count) | triggered trials | 100.0 (2,397) | 100.0 (3,626) | 100.0 (4,879) |
+| declared, region(Ĝ) \< 1.0 | triggered trials | 51.2 | 15.7 | 23.5 |
+| region(G\*) \< 1.0 | triggered trials | 77.7 | 19.4 | 37.3 |
+| declared, region(Ĝ) ≥ 1.0 | triggered trials | 48.7 | 84.3 | 76.5 |
+| MR lower bound on Ĥ \> 0.90 | triggered trials | 18.7 | 18.9 | 18.5 |
+| MR lower bound on Ĥ \> 1.0 | triggered trials | 13.6 | 13.8 | 13.5 |
+| MR upper bound on Ĥc \< 1.0 | triggered trials | 100.0 | 100.0 | 100.0 |
+
+The manuscript’s Table 6: S2 and the two region-interaction
+configurations at n = 1,000, 10,000 trials per cell; observed
+proportions, in percent. The S2 column is recounted from the shipped
+records; the two configurations are as the manuscript states them.
+{.table .caption-top}
+
+As the region’s own effect worsens, the trial is positive less often
+(84.0%, 80.3% and 73.1% of trials) and reaches the trigger more often
+(24.0%, 36.3% and 48.8%): in the two configurations the trigger is
+produced largely by a regional treatment effect, which the pipeline does
+not look for. The identifier runs on the non-region patients, whose
+distribution is the same in the three columns, so it declares a subgroup
+in essentially every triggered trial, and its bounds on $`\hat H`$ and
+$`\hat H^c`$ are the same to within Monte Carlo error. What changes is
+the region. Region($`\hat G`$) is below 1.0 in 15.7% and 23.5% of the
+triggered trials of the two configurations, against 51.2% under S2, and
+the oracle’s region($`G^*`$) in 19.4% and 37.3%, against 77.7%. Under S2
+these are recoveries; in the two configurations they are the
+false-positive increase in meeting consistency. The oracle pathway’s
+increase exceeds the identifier’s in both: the oracle resolves every
+trigger by construction, while the declaration requirement screens.
+
+### 4.6 The campaign code and its wall-clock
 
 The committed campaign, one
 [`mrct_region_sims()`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md)
@@ -1581,6 +1843,9 @@ res$S2_D1 <- campaign_cell(build_cell(h = 2, r = -log(2)), seed = cells$seed[cel
                            entry_delay = list(var = "z_region", delay = sol_a$roots))
 res$S2_D2 <- campaign_cell(build_cell(h = 2, r = sol_r6$roots), seed = cells$seed[cells$cell == "S2_D2"],
                            entry_delay = list(var = "z_region", delay = 6))
+# the region-interaction configurations: S2's design with the region-dependent extension
+res$S2_null        <- campaign_cell(dgm_ri[["S2, null"]], seed = 615400000)
+res$S2_detrimental <- campaign_cell(dgm_ri[["S2, detrimental"]], seed = 615500000)
 ```
 
 The committed runs predate `record = "full"` and `entry_delay`: their
@@ -1588,7 +1853,12 @@ per-replicate records were rebuilt by redrawing each trial from its
 seed, which `record = "full"` now returns directly from the same trials,
 and the later-enrolling cells stored a fixed entry time per
 super-population row (`entry_var`), where `entry_delay` redraws the
-entry each trial with the same law. The timing records:
+entry each trial with the same law. The two region-interaction
+configurations ran afterwards; their per-trial and MR records are in the
+mrct-consistency repository (`results/region_interaction_cells/`,
+`results/mr_field_campaign/`) and are not among the records shipped with
+this version of the package, so the table below covers the eight
+base-model cells. The timing records:
 
 Code
 
@@ -1626,12 +1896,13 @@ Wall-clock of the committed runs, from their timing records. {.table
 The five cells N0–S4 ran side by side (the longest took 2.47 hours on 25
 workers each), S1 took 47 minutes and the two later-enrolling cells 23
 and 23 minutes, one after the other. The MR field campaign ran the eight
-cells one after another on the 15,917 triggered trials in 6.82 hours.
+base-model cells one after another on the 15,917 triggered trials in
+6.82 hours.
 
-### 4.6 The demonstration run
+### 4.7 The demonstration run
 
 The run of [Section 3.4](#sec-find) (100 replicates of S2 with the
-campaign’s arguments and call seed, on 4 workers, 333 seconds),
+campaign’s arguments and call seed, on 4 workers, 311 seconds),
 summarised into the core rows by the definitions of the core table. With
 the campaign’s seed, its replicates are the campaign’s first 100;
 [Section 3.4](#sec-find) checks its first replicates against the shipped
@@ -1674,7 +1945,7 @@ campaign (rows 3–8 in % of triggered trials). {.table .caption-top}
 
 At 100 replicates the demonstration has 20 triggered trials, so its rows
 carry large Monte Carlo error; they are a check of the pipeline, not an
-estimate of its operating characteristics. The whole article took 7.2
+estimate of its operating characteristics. The whole article took 6.8
 minutes to run.
 
 ## 5 Appendix: the analytic tools
@@ -1705,8 +1976,8 @@ $`\varepsilon = \log \mathrm{Exp}(1)`$, so
 ```
 a proportional-hazards model in $`(x, z)`$ with Weibull baseline. The
 prognostic part is
-$`\theta_0(x) = x^\top\beta + r\,\mathbf 1\{x \in R\}`$, the treatment
-effect
+$`\theta_0(x) = x^\top\eta + r\,\mathbf 1\{x \in \mathrm{R}\}`$, the
+treatment effect
 $`\psi(x) = \theta_1(x) - \theta_0(x) = \log b + \log(h/b)\,\mathbf 1\{\mathrm{CD4} \le 230\}`$,
 and
 [`scale_dgm_hazard()`](https://larry-leon.github.io/forestsearch/reference/scale_dgm_hazard.md)
@@ -1797,10 +2068,11 @@ is the average of $`g`$ over the expected events in the window
 layer is an integral or an average under $`dN`$: the score and
 information, the events form and the imbalance moments below.
 
-**The least-false limit.** On a patient set $`\mathcal S`$ patient $`i`$
-has window $`t_a - E_i`$, at-risk process $`Y_i(s)`$ and counting
-process $`N_i(s)`$. The two-sample Cox estimate
-$`\hat\beta_{\mathcal S}`$ is the root of the partial-likelihood score
+**The least-false limit (the manuscript’s Proposition 3.1).** On a
+patient set $`\mathcal S`$ patient $`i`$ has window $`t_a - E_i`$,
+at-risk process $`Y_i(s)`$ and counting process $`N_i(s)`$. The
+two-sample Cox estimate $`\hat\beta_{\mathcal S}`$ is the root of the
+partial-likelihood score
 $`U_{n,\mathcal S}(\beta) = \sum_{i \in \mathcal S}\int_0^{t_a}\{Z_i - \bar Z_{\mathcal S}(s, \beta)\}\,dN_i(s)`$,
 $`\bar Z_{\mathcal S} = S^{(1)}_{\mathcal S}/S^{(0)}_{\mathcal S}`$. The
 model is misspecified (the set mixes patients with different hazard
@@ -1862,9 +2134,10 @@ truths are closed forms:
 ```
 (derivation: Analytic Derivations, §B.3c).
 
-**The events form.** With $`\delta(u) = \log\{A_1(u)/A_0(u)\}`$ the log
-ratio of the arms’ numbers at risk and $`\bar P = D_1/(D_1 + D_0)`$, the
-score equation at the root reads exactly
+**The events form (the manuscript’s Proposition 3.2).** With
+$`\delta(u) = \log\{A_1(u)/A_0(u)\}`$ the log ratio of the arms’ numbers
+at risk and $`\bar P = D_1/(D_1 + D_0)`$, the score equation at the root
+reads exactly
 
 **\[identity\]**
 ``` math
@@ -1899,11 +2172,11 @@ $`\pi(\theta) = 1 - \tfrac{1}{t_e}\int_{t_a - t_e}^{t_a}\exp\{-c\,w^{1/\tau}\}\,
 $`c = e^{\theta - \mu/\tau}`$ (Analytic Derivations). It fails for a
 harmed $`H^*`$, whose treated patients are used up early.
 
-**The clock identity and the frailty reading.** Under a uniform effect
-($`h = b`$), $`A_1(u) = L_{\mathcal S}(bu)`$ and
-$`A_0(u) = L_{\mathcal S}(u)`$ with $`L_{\mathcal S}`$ the Laplace
-transform of $`e^{\theta_0}`$ over the set: the covariate-driven
-baseline acts as a frailty, and
+**The clock identity (the manuscript’s Proposition 3.3) and the frailty
+reading.** Under a uniform effect ($`h = b`$),
+$`A_1(u) = L_{\mathcal S}(bu)`$ and $`A_0(u) = L_{\mathcal S}(u)`$ with
+$`L_{\mathcal S}`$ the Laplace transform of $`e^{\theta_0}`$ over the
+set: the covariate-driven baseline acts as a frailty, and
 $`\vartheta_{\mathcal S}(s) = b\,\ell_{\mathcal S}(b\Lambda_0(s))/\ell_{\mathcal S}(\Lambda_0(s))`$,
 with $`\ell_{\mathcal S}`$ the survival-weighted mean of
 $`e^{\theta_0}`$ among the set’s survivors, drifts from $`b`$ toward 1
@@ -1936,11 +2209,12 @@ draws this profile for S2, for all patients and for the region, and
 margHR(40) against $`m`$.
 
 **The design layer.** **\[assumption\]** (A5): the three estimates
-entering the trigger and the oracle joint, $`\hat\beta_{\text{all}}`$,
-$`\hat\beta_R`$ and $`\hat\beta_{G^*}`$, are treated as jointly normal
-around their limits, with the robust standard deviations and the
-correlations of their influences. For a trial of $`n`$ patients, 1:1,
-with $`n_{\mathcal S} \sim \mathrm{Bin}(n, \pi_{\mathcal S})`$ in
+entering the trigger and the oracle consistency,
+$`\hat\beta_{\text{all}}`$, $`\hat\beta_{\mathrm{R}}`$ and
+$`\hat\beta_{G^*}`$, are treated as jointly normal around their limits,
+with the robust standard deviations and the correlations of their
+influences. For a trial of $`n`$ patients, 1:1, with
+$`n_{\mathcal S} \sim \mathrm{Bin}(n, \pi_{\mathcal S})`$ in
 $`\mathcal S`$ and $`i_1 = \int r(1 - r)\,dN`$ the information per
 patient,
 
@@ -1956,7 +2230,7 @@ patient,
 $`\Sigma`$ the variance of the Lin–Wei influence (Analytic Derivations).
 Under a common proportional-hazards model the correlation of nested
 estimates is the square root of the information share,
-$`\rho = \mathrm{Corr}(\hat\beta_{\text{all}}, \hat\beta_R) = \sqrt{I_R/I_{\text{all}}}`$;
+$`\rho = \mathrm{Corr}(\hat\beta_{\text{all}}, \hat\beta_{\mathrm{R}}) = \sqrt{I_{\mathrm{R}}/I_{\text{all}}}`$;
 under misspecification the layer uses the exact covariance of the two
 influences. With $`\mu_{\mathcal S} = \beta^*_{\mathcal S}`$,
 $`\sigma_{\mathcal S}`$ the robust SD, $`\tilde\sigma_{\text{all}}`$ the
@@ -1967,14 +2241,15 @@ model SE and $`z_{0.975} = \Phi^{-1}(0.975) \approx 1.96`$,
 ``` math
 \begin{aligned}
 P(\text{ITT ub} < 1) &= \Phi(z_A), & z_A &= \frac{-z_{0.975}\,\tilde\sigma_{\text{all}} - \mu_{\text{all}}}{\sigma_{\text{all}}};\\
-P(\text{region ITT} > 1) &= \Phi(-z_B), & z_B &= \frac{-\mu_R}{\sigma_R};\\
-P(\text{trigger}) &= \Phi_2(z_A, -z_B; -\rho_{\text{all},R}),
+P(\text{region ITT} > 1) &= \Phi(-z_B), & z_B &= \frac{-\mu_{\mathrm{R}}}{\sigma_{\mathrm{R}}};\\
+P(\text{non-consistency}) &= \Phi_2(z_A, -z_B; -\rho_{\text{all},\mathrm{R}}),
 \end{aligned}
 ```
-and the oracle joint is the trivariate
+and P(oracle consistency) is the trivariate
 $`\Phi_3(z_A, -z_B, z_C; \mathbf R)`$ with
 $`z_C = -\mu_{G^*}/\sigma_{G^*}`$, $`\mathbf R`$ the correlation matrix
-of $`(\hat\beta_{\text{all}}, -\hat\beta_R, \hat\beta_{G^*})`$
+of
+$`(\hat\beta_{\text{all}}, -\hat\beta_{\mathrm{R}}, \hat\beta_{G^*})`$
 ([`ahr_design()`](https://larry-leon.github.io/forestsearch/reference/ahr_design.md);
 derivation: Analytic Derivations).
 
@@ -1998,5 +2273,5 @@ where it is derived:
 | [`scale_dgm_hazard()`](https://larry-leon.github.io/forestsearch/reference/scale_dgm_hazard.md) | the hazard multiplier $`m`$: $`\mu \leftarrow \mu_{\text{fit}} - \tau\log m`$ (the DGM in closed form) | Analytic Derivations |
 | [`ahr_population()`](https://larry-leon.github.io/forestsearch/reference/ahr_population.md) | each patient’s $`\theta_0`$, $`\psi`$, $`H^*`$ and region flags, entry delays, $`\mu`$, $`\tau`$, $`t_a`$, $`t_e`$: the inputs of the arm functions and of the least-false limit | §B.3a |
 | [`ahr_limit()`](https://larry-leon.github.io/forestsearch/reference/ahr_limit.md) | evaluates the arm functions $`A_z`$, $`f_z`$; returns the least-false root $`\beta^*_{\mathcal S}`$ and margHR(40); margHR($`\infty`$); the AHR and the CDE; $`D_1`$, $`D_0`$ | §B.3a, §B.3c |
-| [`ahr_design()`](https://larry-leon.github.io/forestsearch/reference/ahr_design.md) | at trial size $`n`$: each set’s model and robust SEs with $`\mathrm E[1/n_{\mathcal S}]`$, its expected events $`n\pi_{\mathcal S}\int dN`$, the nested-set correlations, $`P(\text{ITT ub} < 1)`$, $`P(\text{region ITT} > 1)`$, $`P(\text{trigger})`$ and the oracle joint | §B.8.2; Analytic Derivations |
-| [`ahr_solve()`](https://larry-leon.github.io/forestsearch/reference/ahr_solve.md) | the value of one free design parameter at which $`P(\text{trigger})`$ attains a target (scan and [`uniroot()`](https://rdrr.io/r/stats/uniroot.html)) | Analytic Derivations |
+| [`ahr_design()`](https://larry-leon.github.io/forestsearch/reference/ahr_design.md) | at trial size $`n`$: each set’s model and robust SEs with $`\mathrm E[1/n_{\mathcal S}]`$, its expected events $`n\pi_{\mathcal S}\int dN`$, the nested-set correlations, $`P(\text{ITT ub} < 1)`$, $`P(\text{region ITT} > 1)`$, $`P(\text{non-consistency})`$ and $`P(\text{oracle consistency})`$ | §B.8.2; Analytic Derivations |
+| [`ahr_solve()`](https://larry-leon.github.io/forestsearch/reference/ahr_solve.md) | the value of one free design parameter at which $`P(\text{non-consistency})`$ attains a target (scan and [`uniroot()`](https://rdrr.io/r/stats/uniroot.html)) | Analytic Derivations |

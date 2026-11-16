@@ -1581,7 +1581,7 @@ results_alt <- foreach(
     Subgroup 3: resample Pcons=0.82 (threshold 0.9)
     Evaluated 3 of 3 candidates (complete)
     No subgroups found meeting consistency threshold
-    Seconds and minutes forestsearch overall = 3.399 0.0566
+    Seconds and minutes forestsearch overall = 3.319 0.0553
     Consistency algorithm used: twostage
     tau, maxdepth = 47.90727 2
        leaf.node control.mean control.size control.se depth
@@ -1709,7 +1709,7 @@ results_null <- foreach(
     Subgroup 2: resample Pcons=0.57 (threshold 0.9)
     Evaluated 2 of 2 candidates (complete)
     No subgroups found meeting consistency threshold
-    Seconds and minutes forestsearch overall = 2.425 0.0404
+    Seconds and minutes forestsearch overall = 2.346 0.0391
     Consistency algorithm used: twostage
     tau, maxdepth = 43.8823 2
       leaf.node control.mean control.size control.se depth
@@ -2703,15 +2703,15 @@ reproducibility information.
 | 44 H1 + 44 H0 simulations, 3 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.1 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 4.9 | 0.08 | 2.7 |
-| Calibrate k_inter (AHR) | 1.9 | 0.03 | 1.0 |
+| Calibrate k_inter (Cox) | 4.8 | 0.08 | 2.7 |
+| Calibrate k_inter (AHR) | 1.8 | 0.03 | 1.0 |
 | Validate k_inter | 0.6 | 0.01 | 0.3 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 73.3 | 1.22 | 40.4 |
-| Simulations H0 | 67.5 | 1.12 | 37.2 |
+| Simulations H1 | 71.0 | 1.18 | 39.7 |
+| Simulations H0 | 64.6 | 1.08 | 36.1 |
 | Summarize H1 | 0.2 | 0.00 | 0.1 |
-| Summarize H0 | 0.2 | 0.00 | 0.1 |
-| Total vignette | 181.4 | 3.02 | 100.0 |
+| Summarize H0 | 0.1 | 0.00 | 0.1 |
+| Total vignette | 178.8 | 2.98 | 100.0 |
 | ¹ Parallel backend: 3 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -2834,7 +2834,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-      H1: 1.7 sec/sim (wall) across 44 sims on 3 workers
+      H1: 1.6 sec/sim (wall) across 44 sims on 3 workers
 
 Code
 
@@ -4092,8 +4092,8 @@ gc(verbose = FALSE)
 ```
 
               used  (Mb) gc trigger  (Mb) max used  (Mb)
-    Ncells 2853090 152.4    4892895 261.4  4892895 261.4
-    Vcells 5962043  45.5   12273597  93.7 10161331  77.6
+    Ncells 2853180 152.4    4892895 261.4  4892895 261.4
+    Vcells 5962273  45.5   12273597  93.7 10161331  77.6
 
 ## 18 Session Info
 
