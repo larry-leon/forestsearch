@@ -671,7 +671,7 @@ c(seconds = round(t_mr, 1), candidate_family = mr$n_family, n_Hhat = mr$n_select
 ```
 
               seconds  candidate_family            n_Hhat n_Hhat_complement
-                 52.9            3003.0              73.0             733.0 
+                 54.5            3003.0              73.0             733.0 
 
 Code
 
@@ -684,7 +684,7 @@ Hhat_def
 
 $`\hat H`$ is `{z_cd40 <= 236} & !{z_preanti <= 196}` (`!{…}` is the
 complement): CD4 $`\le`$ 236 and prior ART over 196 days. The call took
-53 seconds on one thread. *With your trial:* `df.analysis` and `df.test`
+54 seconds on one thread. *With your trial:* `df.analysis` and `df.test`
 are your non-region and region rows; your column names go in
 `outcome.name`, `event.name`, `treat.name` and `id.name`, your
 covariates in `confounders.name`, and those of your continuous
@@ -1106,7 +1106,7 @@ and
 [`mr_estimates_table()`](https://larry-leon.github.io/forestsearch/reference/mr_estimates_table.md)
 read its `$fs`.
 
-The article took 3.1 minutes to run.
+The article took 3.2 minutes to run.
 
 ## Appendix: the analysis window and the windowed Cox limit
 

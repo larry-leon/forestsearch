@@ -239,8 +239,8 @@
 <span>              <span class="va">g</span><span class="op">$</span><span class="va">timing_seconds</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; Binary     !{cd40 &lt;= 380} &amp; !{wtkg &lt;= 86}   N 72   fit 38 s (multiplier stage 1.7 s)</span></span>
-<span><span class="co">#&gt; Continuous !{cd40 &lt;= 507} &amp; {gender}        N 79   fit 46 s (multiplier stage 1.1 s)</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; Binary     !{cd40 &lt;= 380} &amp; !{wtkg &lt;= 86}   N 72   fit 37 s (multiplier stage 1.4 s)</span></span>
+<span><span class="co">#&gt; Continuous !{cd40 &lt;= 507} &amp; {gender}        N 79   fit 45 s (multiplier stage 0.9 s)</span></span></code></pre>
 </div>
 </div>
 <p>On the binary endpoint forest search returns the 72 patients weighing more than 86 kg with baseline CD4 above 380 cells per mm³; on the continuous endpoint, the 79 men with baseline CD4 above 507. The package writes a region as a conjunction of the cut indicators it searched — <code>!{cd40 &lt;= 380}</code> is “CD4 above 380” and <a href="https://github.com/lmullen/gender" class="external-link">gender</a> is “male” — and the chunk above checks each against its description in words. The two regions are selected on different endpoints of the same patients and are not the same set; each leaves a complement of about 93% of the trial.</p>
@@ -731,9 +731,9 @@
 <span>              <span class="va">gm</span><span class="op">$</span><span class="va">timing_seconds</span>, <span class="va">gm</span><span class="op">$</span><span class="va">n_family</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code><span><span class="co">#&gt; FS   !{cd40 &lt;= 380} &amp; !{wtkg &lt;= 86}         N  72   fit  32.3 s (multiplier stage  0.8 s)   family 2794</span></span>
-<span><span class="co">#&gt; DINA {preanti &gt;= 849.40000000000009} &amp; {cd40 &gt;= 338} N  98   fit   1.9 s (multiplier stage  0.3 s)   family 147</span></span>
-<span><span class="co">#&gt; GRF  {wtkg &gt; 84.369600000000005} &amp; {cd40 &gt; 368.20000000000005} N  95   fit  11.4 s (multiplier stage  0.5 s)   family 1289</span></span></code></pre>
+<pre><code><span><span class="co">#&gt; FS   !{cd40 &lt;= 380} &amp; !{wtkg &lt;= 86}         N  72   fit  32.9 s (multiplier stage  0.6 s)   family 2794</span></span>
+<span><span class="co">#&gt; DINA {preanti &gt;= 849.40000000000009} &amp; {cd40 &gt;= 338} N  98   fit   1.8 s (multiplier stage  0.3 s)   family 147</span></span>
+<span><span class="co">#&gt; GRF  {wtkg &gt; 84.369600000000005} &amp; {cd40 &gt; 368.20000000000005} N  95   fit  11.5 s (multiplier stage  0.5 s)   family 1289</span></span></code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">agree</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fs_in_subgroup.html">fs_in_subgroup</a></span><span class="op">(</span><span class="va">fit_s3_fs</span>, <span class="va">df_bin</span><span class="op">)</span> <span class="op">==</span> <span class="fu"><a href="../reference/fs_in_subgroup.html">fs_in_subgroup</a></span><span class="op">(</span><span class="va">fit_s3_grf</span>, <span class="va">df_bin</span><span class="op">)</span></span>
@@ -764,7 +764,7 @@
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">boot_secs</span>, <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code><span><span class="co">#&gt;   FS DINA  GRF</span></span>
-<span><span class="co">#&gt; 59.2 26.0 44.6</span></span></code></pre>
+<span><span class="co">#&gt; 61.1 26.3 45.0</span></span></code></pre>
 </div>
 </div>
 </section><section class="level3"><h3 id="naive-bootstrap-and-multiplier-side-by-side">Naive, bootstrap and multiplier side by side<a class="anchor" aria-label="anchor" href="#naive-bootstrap-and-multiplier-side-by-side"></a>
@@ -980,27 +980,27 @@
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">FS</td>
-<td style="text-align: right;">0.77</td>
+<td style="text-align: right;">0.61</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">59.16</td>
-<td style="text-align: right;">2.37</td>
-<td style="text-align: right;">2366</td>
+<td style="text-align: right;">61.06</td>
+<td style="text-align: right;">2.44</td>
+<td style="text-align: right;">2443</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">DINA</td>
-<td style="text-align: right;">0.34</td>
+<td style="text-align: right;">0.31</td>
 <td style="text-align: right;">25</td>
-<td style="text-align: right;">26.01</td>
-<td style="text-align: right;">1.04</td>
-<td style="text-align: right;">1041</td>
+<td style="text-align: right;">26.30</td>
+<td style="text-align: right;">1.05</td>
+<td style="text-align: right;">1052</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">GRF</td>
-<td style="text-align: right;">0.54</td>
+<td style="text-align: right;">0.45</td>
 <td style="text-align: right;">10</td>
-<td style="text-align: right;">44.58</td>
-<td style="text-align: right;">4.46</td>
-<td style="text-align: right;">4458</td>
+<td style="text-align: right;">45.04</td>
+<td style="text-align: right;">4.50</td>
+<td style="text-align: right;">4504</td>
 </tr>
 </tbody>
 </table>

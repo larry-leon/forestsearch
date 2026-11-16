@@ -183,7 +183,7 @@ c(patients = nrow(trial), seconds_mr = round(t_mr, 1)); Hhat_def
 ```
 
       patients seconds_mr
-        1000.0       53.4 
+        1000.0       55.6 
 
     [1] "{z_cd40 <= 236} & !{z_preanti <= 196}"
 
@@ -603,13 +603,13 @@ c(rows = nrow(dgm_live$df_super), region = mean(dgm_live$df_super$z_region),
 > ```
 >
 >                        seconds                       rows
->                   3.000000e-01               2.000000e+04
+>                   4.000000e-01               2.000000e+04
 >          latent_R_max_abs_diff super_population_identical
->                   3.804249e-15               0.000000e+00 
+>                   3.978588e-15               0.000000e+00 
 >
 > On this render machine the live fit of step 2 differs from the shipped
-> matrix (largest absolute difference 3.8e-15), so the reader’s path
-> gives a slightly different super-population; the checks below use this
+> matrix (largest absolute difference 4e-15), so the reader’s path gives
+> a slightly different super-population; the checks below use this
 > chunk’s build.
 
 **Build check.** The build must equal the campaign’s build record of S2
@@ -648,10 +648,10 @@ c(columns_compared = length(ours), largest_relative_difference = signif(build_di
 ```
 
                columns_compared largest_relative_difference
-                        2.4e+01                     4.3e-15 
+                        2.4e+01                     6.9e-15 
 
 **Passed**: the build equals the record (largest relative difference
-4.3e-15). In this build the region holds 20.1% of the super-population,
+6.9e-15). In this build the region holds 20.1% of the super-population,
 $`H^*`$ holds 15.7% of all patients (16.5% of the region and 15.5%
 outside it), and at equal covariates a region patient has $`e^{r}`$ =
 0.25 times the hazard of a non-region patient. The trial:
@@ -964,7 +964,7 @@ A later-enrolling region is followed for less time, which keeps its
 40-month window in the phase where the treated $`H^*`$ patients are
 failing: a delay of 11.62 months at $`r = -\log 2`$, or of 6 months at
 $`r = -\log 2.946`$, does what the shift to $`-\log 4`$ does at no
-delay. The analytic computations of this section took 25 seconds.
+delay. The analytic computations of this section took 27 seconds.
 
 ### 3.4 Finding a case study
 
@@ -1009,7 +1009,7 @@ c(replicates = nsims_demo, workers = workers_demo, seconds = round(t_demo, 1))
 ```
 
     replicates    workers    seconds
-         100.0        4.0      306.9 
+         100.0        4.0      333.5 
 
 **2. Select the trial.**
 [`mrct_select_case()`](https://larry-leon.github.io/forestsearch/reference/mrct_select_case.md)
@@ -1113,9 +1113,9 @@ the same ({z_cd40 \<= 236} & !{z_preanti \<= 196}). {.table
 .caption-top}
 
 **Passed**: the redrawn trial equals `rep5_trial.csv` (largest relative
-difference 4.8e-15), and its $`\hat H`$ and four hazard ratios (largest
+difference 4.1e-15), and its $`\hat H`$ and four hazard ratios (largest
 absolute difference 0) are those of [Section 1](#sec-case-objects). The
-call took 8 seconds.
+call took 9 seconds.
 
 > **Platform precision**
 >
@@ -1631,7 +1631,7 @@ cells one after another on the 15,917 triggered trials in 6.82 hours.
 ### 4.6 The demonstration run
 
 The run of [Section 3.4](#sec-find) (100 replicates of S2 with the
-campaign’s arguments and call seed, on 4 workers, 307 seconds),
+campaign’s arguments and call seed, on 4 workers, 333 seconds),
 summarised into the core rows by the definitions of the core table. With
 the campaign’s seed, its replicates are the campaign’s first 100;
 [Section 3.4](#sec-find) checks its first replicates against the shipped
@@ -1674,7 +1674,7 @@ campaign (rows 3–8 in % of triggered trials). {.table .caption-top}
 
 At 100 replicates the demonstration has 20 triggered trials, so its rows
 carry large Monte Carlo error; they are a check of the pipeline, not an
-estimate of its operating characteristics. The whole article took 6.6
+estimate of its operating characteristics. The whole article took 7.2
 minutes to run.
 
 ## 5 Appendix: the analytic tools
