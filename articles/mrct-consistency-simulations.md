@@ -183,7 +183,7 @@ c(patients = nrow(trial), seconds_mr = round(t_mr, 1)); Hhat_def
 ```
 
       patients seconds_mr
-        1000.0       53.7 
+        1000.0       54.2 
 
     [1] "{z_cd40 <= 236} & !{z_preanti <= 196}"
 
@@ -265,14 +265,14 @@ c(rows = nrow(ds_own), region_super = mean(ds_own$z_region), region_trial = mean
                       Hstar region_prognostic_loghr            generating_r
                    0.164250               -1.541238               -1.386294
              build_warnings                 seconds
-                   3.000000                0.600000 
+                   3.000000                0.700000 
 
 Every patient’s log hazard ratio is $`\log 0.55`$ outside $`H^*`$ and
 $`\log 2`$ inside it. The region’s prognostic log hazard ratio,
 estimated from the trial, is $`\hat r`$ = -1.541 ($`e^{\hat r}`$ =
 0.214); the mechanism that generated replicate 5 used $`r = -\log 4`$ =
 -1.386 ([Section 3.1](#sec-dgm)). The region is 19.6% of the
-super-population and 19.4% of the trial. The build took 0.6 seconds. Its
+super-population and 19.4% of the trial. The build took 0.7 seconds. Its
 3 warnings, shown above, come from the censoring model’s fit: every
 censoring time in this trial lies between 29.01 and 39.98 months, that
 is, all censoring is administrative, and the Weibull fit to it does not
@@ -603,12 +603,12 @@ c(rows = nrow(dgm_live$df_super), region = mean(dgm_live$df_super$z_region),
 > ```
 >
 >                        seconds                       rows
->                   5.000000e-01               2.000000e+04
+>                   3.000000e-01               2.000000e+04
 >          latent_R_max_abs_diff super_population_identical
->                   2.858824e-15               0.000000e+00 
+>                   3.804249e-15               0.000000e+00 
 >
 > On this render machine the live fit of step 2 differs from the shipped
-> matrix (largest absolute difference 2.9e-15), so the reader’s path
+> matrix (largest absolute difference 3.8e-15), so the reader’s path
 > gives a slightly different super-population; the checks below use this
 > chunk’s build.
 
@@ -648,10 +648,10 @@ c(columns_compared = length(ours), largest_relative_difference = signif(build_di
 ```
 
                columns_compared largest_relative_difference
-                        2.4e+01                     3.8e-15 
+                        2.4e+01                     4.3e-15 
 
 **Passed**: the build equals the record (largest relative difference
-3.8e-15). In this build the region holds 20.1% of the super-population,
+4.3e-15). In this build the region holds 20.1% of the super-population,
 $`H^*`$ holds 15.7% of all patients (16.5% of the region and 15.5%
 outside it), and at equal covariates a region patient has $`e^{r}`$ =
 0.25 times the hazard of a non-region patient. The trial:
@@ -964,7 +964,7 @@ A later-enrolling region is followed for less time, which keeps its
 40-month window in the phase where the treated $`H^*`$ patients are
 failing: a delay of 11.62 months at $`r = -\log 2`$, or of 6 months at
 $`r = -\log 2.946`$, does what the shift to $`-\log 4`$ does at no
-delay. The analytic computations of this section took 34 seconds.
+delay. The analytic computations of this section took 26 seconds.
 
 ### 3.4 Finding a case study
 
@@ -1009,7 +1009,7 @@ c(replicates = nsims_demo, workers = workers_demo, seconds = round(t_demo, 1))
 ```
 
     replicates    workers    seconds
-         100.0        4.0      308.2 
+         100.0        4.0      313.6 
 
 **2. Select the trial.**
 [`mrct_select_case()`](https://larry-leon.github.io/forestsearch/reference/mrct_select_case.md)
@@ -1113,9 +1113,9 @@ the same ({z_cd40 \<= 236} & !{z_preanti \<= 196}). {.table
 .caption-top}
 
 **Passed**: the redrawn trial equals `rep5_trial.csv` (largest relative
-difference 5.3e-15), and its $`\hat H`$ and four hazard ratios (largest
+difference 4.8e-15), and its $`\hat H`$ and four hazard ratios (largest
 absolute difference 0) are those of [Section 1](#sec-case-objects). The
-call took 9 seconds.
+call took 8 seconds.
 
 > **Platform precision**
 >
@@ -1631,7 +1631,7 @@ cells one after another on the 15,917 triggered trials in 6.82 hours.
 ### 4.6 The demonstration run
 
 The run of [Section 3.4](#sec-find) (100 replicates of S2 with the
-campaign’s arguments and call seed, on 4 workers, 308 seconds),
+campaign’s arguments and call seed, on 4 workers, 314 seconds),
 summarised into the core rows by the definitions of the core table. With
 the campaign’s seed, its replicates are the campaign’s first 100;
 [Section 3.4](#sec-find) checks its first replicates against the shipped

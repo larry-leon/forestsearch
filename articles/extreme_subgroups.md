@@ -2355,16 +2355,16 @@ costs that don’t change with replicate count.
 
 | Step                                                   |   Elapsed | Per trial |
 |:-------------------------------------------------------|----------:|----------:|
-| DGM construction (generate_aft_dgm_flex)               |  1.71 sec |         — |
-| Censoring calibration (calibrate_cens_adjust)          |    723 ms |         — |
-| Simulation loop (150 trials × 56 subgroups, 4 workers) | 17.66 sec |    118 ms |
-| Total                                                  | 20.09 sec |         — |
+| DGM construction (generate_aft_dgm_flex)               |  1.24 sec |         — |
+| Censoring calibration (calibrate_cens_adjust)          |    545 ms |         — |
+| Simulation loop (150 trials × 56 subgroups, 4 workers) | 18.07 sec |    120 ms |
+| Total                                                  | 19.85 sec |         — |
 
 Timing for n_sims_uniform = 150, parallel across 4 of 4 cores. {.table
 .caption-top style="width:100%;"}
 
 
-    Throughput: 8.5 trials/sec (wall-clock, 4 workers)  |  Projected total time:  1,000 sims → 2.0 min    │    5,000 sims → 9.8 min
+    Throughput: 8.3 trials/sec (wall-clock, 4 workers)  |  Projected total time:  1,000 sims → 2.0 min    │    5,000 sims → 10.1 min
 
 ## 8 Appendix: DGM with Heterogeneous Treatment Effects
 
@@ -2678,11 +2678,11 @@ sessionInfo()
 
     R version 4.6.2 (2026-10-29)
     Platform: x86_64-pc-linux-gnu
-    Running under: Ubuntu 24.04.5 LTS
+    Running under: Ubuntu 26.04.1 LTS
 
     Matrix products: default
     BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
-    LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+    LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.32.so;  LAPACK version 3.12.0
 
     locale:
      [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8

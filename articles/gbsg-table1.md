@@ -259,7 +259,7 @@ cat(sprintf("Identified subgroup: %s\n", paste(fit_fs$sg.harm, collapse = " & ")
 cat(sprintf("Fit including inference: %.1f s\n", fit_sec_fs))
 ```
 
-    #> Fit including inference: 31.1 s
+    #> Fit including inference: 30.7 s
 
 ``` r
 
@@ -267,7 +267,7 @@ cat(sprintf("  multiplier stage %.1f s; field blocks %.1f + %.1f s\n", g_fs$timi
             g_fs$field$timing_seconds, g_fs$field$complement$timing_seconds))
 ```
 
-    #>   multiplier stage 1.0 s; field blocks 15.9 + 2.4 s
+    #>   multiplier stage 0.9 s; field blocks 15.7 + 2.4 s
 
 The identified region is `{er <= 0} & {pgr <= 26}`: no measured estrogen
 receptor and progesterone receptor at most 26 fmol/l. Two arguments in
@@ -534,7 +534,7 @@ cat(sprintf("DINA: %s  (fit %.1f s; re-selection family %d)\n",
             g_dina$n_family))
 ```
 
-    #> DINA: {grade3 >= 1} & {pgr <= 20}  (fit 10.1 s; re-selection family 30)
+    #> DINA: {grade3 >= 1} & {pgr <= 20}  (fit 10.4 s; re-selection family 30)
 
 ``` r
 
@@ -542,7 +542,7 @@ cat(sprintf("GRF:  %s  (fit %.1f s; re-selection family %d)\n",
             paste(fit_grf$sg.harm, collapse = " & "), fit_sec_grf, g_grf$n_family))
 ```
 
-    #> GRF:  {er <= 0}  (fit 26.1 s; re-selection family 858)
+    #> GRF:  {er <= 0}  (fit 25.7 s; re-selection family 858)
 
 GRF returns the 82 patients with no measured estrogen receptor, a region
 that contains forest search’s; DINA returns the 113 who are grade 3 with
@@ -893,11 +893,11 @@ sessionInfo()
 
     #> R version 4.6.2 (2026-10-29)
     #> Platform: x86_64-pc-linux-gnu
-    #> Running under: Ubuntu 24.04.5 LTS
+    #> Running under: Ubuntu 26.04.1 LTS
     #>
     #> Matrix products: default
     #> BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
-    #> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+    #> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.32.so;  LAPACK version 3.12.0
     #>
     #> locale:
     #>  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8

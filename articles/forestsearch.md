@@ -175,7 +175,7 @@ cat(sprintf("Identified subgroup: %s\n", paste(fit_fs$sg.harm, collapse = " & ")
 cat(sprintf("Patients in it: %d of %d. Fit: %.1f s\n", sum(in_H), nrow(df), fit_sec_fs))
 ```
 
-    #> Patients in it: 75 of 686. Fit: 2.3 s
+    #> Patients in it: 75 of 686. Fit: 2.4 s
 
 The identified region is `{er <= 0} & {pgr <= 26}`: no measured estrogen
 receptor and progesterone receptor at most 26 fmol/l. One argument in
@@ -436,11 +436,11 @@ sessionInfo()
 
     #> R version 4.6.2 (2026-10-29)
     #> Platform: x86_64-pc-linux-gnu
-    #> Running under: Ubuntu 24.04.5 LTS
+    #> Running under: Ubuntu 26.04.1 LTS
     #>
     #> Matrix products: default
     #> BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
-    #> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+    #> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.32.so;  LAPACK version 3.12.0
     #>
     #> locale:
     #>  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8

@@ -191,9 +191,9 @@ for (m in names(fits)) {
 }
 ```
 
-    #> FS   {er <= 0} & {size <= 35}     N  61   fit  29.6 s (multiplier stage 1.0 s)   family 1744
-    #> DINA {grade3 >= 1} & {pgr <= 10}  N  89   fit   1.4 s (multiplier stage 0.3 s)   family 84
-    #> GRF  {er <= 0}                    N  82   fit   9.8 s (multiplier stage 0.5 s)   family 858
+    #> FS   {er <= 0} & {size <= 35}     N  61   fit  28.6 s (multiplier stage 1.0 s)   family 1744
+    #> DINA {grade3 >= 1} & {pgr <= 10}  N  89   fit   1.6 s (multiplier stage 0.2 s)   family 84
+    #> GRF  {er <= 0}                    N  82   fit   9.4 s (multiplier stage 0.3 s)   family 858
 
 ## The multiplier correction
 
@@ -287,7 +287,7 @@ round(boot_secs, 1)
 ```
 
     #>   FS DINA  GRF
-    #> 45.6 32.8 35.2
+    #> 44.9 32.8 34.2
 
 The package’s own summaries, shown for forest search. The first is the
 bootstrap table: the naive estimate beside the bootstrap-corrected one,
@@ -317,9 +317,9 @@ summ_fs <- summarize_bootstrap_results(sgharm = fit_fs$sg.harm, boot_results = b
     #> TIMING ANALYSIS:
     #> -------------------------------------------------------------
     #> Overall:
-    #>   Total bootstrap time:          0.74 minutes (0.01 hours)
-    #>   Average per iteration:         0.03 min (1.8 sec)
-    #>   Projected for 1000 boots:      29.65 min (0.49 hrs)
+    #>   Total bootstrap time:          0.73 minutes (0.01 hours)
+    #>   Average per iteration:         0.03 min (1.7 sec)
+    #>   Projected for 1000 boots:      29.14 min (0.49 hrs)
 
 ``` r
 
@@ -441,9 +441,9 @@ knitr::kable(cost, row.names = FALSE, digits = 2,
 
 | Method | MR (s) |   B | bootstrap (s) | s per replicate | projected at B = 1,000 (s) |
 |:-------|-------:|----:|--------------:|----------------:|---------------------------:|
-| FS     |   0.99 |  25 |         45.60 |            1.82 |                       1824 |
-| DINA   |   0.25 |  25 |         32.83 |            1.31 |                       1313 |
-| GRF    |   0.53 |  10 |         35.20 |            3.52 |                       3520 |
+| FS     |   0.96 |  25 |         44.91 |            1.80 |                       1796 |
+| DINA   |   0.24 |  25 |         32.78 |            1.31 |                       1311 |
+| GRF    |   0.32 |  10 |         34.25 |            3.42 |                       3425 |
 
 Wall-clock timings from this run: the multiplier stage under the fits’
 sequential plan, the bootstrap on 2 workers. The projection is linear in
@@ -601,11 +601,11 @@ sessionInfo()
 
     #> R version 4.6.2 (2026-10-29)
     #> Platform: x86_64-pc-linux-gnu
-    #> Running under: Ubuntu 24.04.5 LTS
+    #> Running under: Ubuntu 26.04.1 LTS
     #>
     #> Matrix products: default
     #> BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
-    #> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+    #> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.32.so;  LAPACK version 3.12.0
     #>
     #> locale:
     #>  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8

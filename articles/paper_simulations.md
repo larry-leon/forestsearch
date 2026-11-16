@@ -1581,14 +1581,14 @@ results_alt <- foreach(
     Subgroup 3: resample Pcons=0.82 (threshold 0.9)
     Evaluated 3 of 3 candidates (complete)
     No subgroups found meeting consistency threshold
-    Seconds and minutes forestsearch overall = 3.337 0.0556
+    Seconds and minutes forestsearch overall = 3.168 0.0528
     Consistency algorithm used: twostage
     tau, maxdepth = 47.90727 2
        leaf.node control.mean control.size control.se depth
     1          2        -2.43       556.00       1.10     1
     2          3         1.78       144.00       2.55     1
     11         4        -3.77       383.00       1.36     2
-    3          6        -1.28       205.00       1.68     2
+    3          6        -1.29       205.00       1.68     2
     4          7         4.22        94.00       3.27     2
     GRF subgroup NOT found
 
@@ -1602,7 +1602,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    Completed in 1.3 minutes
+    Completed in 1.2 minutes
 
 Code
 
@@ -1686,7 +1686,7 @@ results_null <- foreach(
     Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406
     Per-arm events criteria: control >= 12, treatment >= 12
     Sample size criteria: n >= 60
-    Subgroup search completed in 0.01 minutes
+    Subgroup search completed in 0 minutes
 
     --- Filtering Summary ---
       Combinations evaluated: 406
@@ -1709,7 +1709,7 @@ results_null <- foreach(
     Subgroup 2: resample Pcons=0.57 (threshold 0.9)
     Evaluated 2 of 2 candidates (complete)
     No subgroups found meeting consistency threshold
-    Seconds and minutes forestsearch overall = 2.97 0.0495
+    Seconds and minutes forestsearch overall = 2.326 0.0388
     Consistency algorithm used: twostage
     tau, maxdepth = 43.8823 2
       leaf.node control.mean control.size control.se depth
@@ -1730,7 +1730,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    Completed in 1.2 minutes
+    Completed in 1.1 minutes
 
 ## 6 Summarizing Results
 
@@ -2702,16 +2702,16 @@ reproducibility information.
 |----|----|----|----|
 | 44 H1 + 44 H0 simulations, 3 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
-| DGM creation (H1) | 0.2 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 7.2 | 0.12 | 3.8 |
-| Calibrate k_inter (AHR) | 2.8 | 0.05 | 1.5 |
-| Validate k_inter | 0.9 | 0.01 | 0.4 |
+| DGM creation (H1) | 0.1 | 0.00 | 0.1 |
+| Calibrate k_inter (Cox) | 4.8 | 0.08 | 2.7 |
+| Calibrate k_inter (AHR) | 1.8 | 0.03 | 1.0 |
+| Validate k_inter | 0.6 | 0.01 | 0.3 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 75.2 | 1.25 | 39.5 |
-| Simulations H0 | 69.4 | 1.16 | 36.4 |
+| Simulations H1 | 70.4 | 1.17 | 39.8 |
+| Simulations H0 | 65.1 | 1.09 | 36.8 |
 | Summarize H1 | 0.2 | 0.00 | 0.1 |
 | Summarize H0 | 0.1 | 0.00 | 0.1 |
-| Total vignette | 190.4 | 3.17 | 100.0 |
+| Total vignette | 176.8 | 2.95 | 100.0 |
 | ¹ Parallel backend: 3 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -2834,7 +2834,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-      H1: 1.7 sec/sim (wall) across 44 sims on 3 workers
+      H1: 1.6 sec/sim (wall) across 44 sims on 3 workers
 
 Code
 
@@ -2845,7 +2845,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-      H0: 1.6 sec/sim (wall) across 44 sims on 3 workers
+      H0: 1.5 sec/sim (wall) across 44 sims on 3 workers
 
 ## 12 Complete Example Script
 
@@ -4092,8 +4092,8 @@ gc(verbose = FALSE)
 ```
 
               used  (Mb) gc trigger  (Mb) max used  (Mb)
-    Ncells 2853089 152.4    4892921 261.4  4892921 261.4
-    Vcells 5962030  45.5   12273597  93.7 10161331  77.6
+    Ncells 2853089 152.4    4892911 261.4  4892911 261.4
+    Vcells 5962042  45.5   12273597  93.7 10161331  77.6
 
 ## 18 Session Info
 
@@ -4106,11 +4106,11 @@ sessionInfo()
 
     R version 4.6.2 (2026-10-29)
     Platform: x86_64-pc-linux-gnu
-    Running under: Ubuntu 24.04.5 LTS
+    Running under: Ubuntu 26.04.1 LTS
 
     Matrix products: default
     BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
-    LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+    LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.32.so;  LAPACK version 3.12.0
 
     locale:
      [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8

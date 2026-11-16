@@ -158,7 +158,7 @@ cal <- run_null_calibration(
 )
 #> Null calibration: 2 N values x 10 sims = 20 tasks
 #>   N =  200: FPR = 0.200 (2/10) | P1 = 0.227 | 1.6 sec
-#>   N =  500: FPR = 0.500 (5/10) | P1 = 0.195 | 2.3 sec
+#>   N =  500: FPR = 0.500 (5/10) | P1 = 0.195 | 2.2 sec
 #> 
 #> L_eff Calibration
 #>   Model: L_eff = 0.157 * (N / 60)^1.421

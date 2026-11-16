@@ -253,7 +253,7 @@ grf_est <- grf.subg.harm.survival(
     ## 1          2         6.49        82.00       3.34     1
     ## 2          3        -4.10       604.00       1.06     1
     ## 11         4        -7.90       112.00       2.81     2
-    ## 21         5         3.86       177.00       1.87     2
+    ## 21         5         3.85       177.00       1.87     2
     ## 4          7        -5.89       356.00       1.33     2
     ## 
     ## Selected subgroup:
@@ -497,7 +497,7 @@ fs <- forestsearch(
     ## Legend: P = Pcons (consistency probability); OF = on Pareto frontier; S = selected.
     ## ==============================================================================================================
     ## 
-    ## Seconds and minutes forestsearch overall = 4.846 0.0808 
+    ## Seconds and minutes forestsearch overall = 4.838 0.0806 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0}
 
@@ -672,7 +672,7 @@ summaries <- summarize_bootstrap_results(
     ## Overall:
     ##   Total bootstrap time:          0.13 minutes (0.00 hours)
     ##   Average per iteration:         0.06 min (3.9 sec)
-    ##   Projected for 1000 boots:      64.41 min (1.07 hrs)
+    ##   Projected for 1000 boots:      64.42 min (1.07 hrs)
 
 ``` r
 
@@ -1243,10 +1243,10 @@ ER-negative patients may not benefit is consistent with:
 | Computational Timing |            |            |
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
-| GRF                  | 1.3        | 0.0        |
+| GRF                  | 1.2        | 0.0        |
 | ForestSearch         | 4.9        | 0.1        |
-| Bootstrap            | 8.5        | 0.1        |
-| Total                | 28.3       | 0.5        |
+| Bootstrap            | 8.6        | 0.1        |
+| Total                | 27.8       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 
@@ -1290,11 +1290,11 @@ sessionInfo()
 
     ## R version 4.6.2 (2026-10-29)
     ## Platform: x86_64-pc-linux-gnu
-    ## Running under: Ubuntu 24.04.5 LTS
+    ## Running under: Ubuntu 26.04.1 LTS
     ## 
     ## Matrix products: default
     ## BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
-    ## LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+    ## LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.32.so;  LAPACK version 3.12.0
     ## 
     ## locale:
     ##  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       
@@ -1337,4 +1337,4 @@ sessionInfo()
     ## [58] knitr_1.52           markdown_2.1         rlang_1.3.0         
     ## [61] Rcpp_1.1.2           glue_1.8.1           xml2_1.6.0          
     ## [64] rstudioapi_0.19.0    jsonlite_2.0.0       R6_2.6.1            
-    ## [67] systemfonts_1.3.2    fs_2.1.0
+    ## [67] systemfonts_1.3.3    fs_2.1.0

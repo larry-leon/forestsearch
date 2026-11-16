@@ -114,8 +114,8 @@ mr_method_comparison(list(FS = fit), list(FS = boot))
 #> 2     FS     Hc 366 (73%) 0.54 (0.43, 0.67)      0.58 0.52 (0.29, 0.93)
 mr_cost_table(list(FS = fit), list(FS = boot))
 #>   method mr_seconds bootstrap_B bootstrap_seconds seconds_per_replicate
-#> 1     FS      0.008           2             3.523                1.7615
+#> 1     FS      0.006           2             3.518                 1.759
 #>   projected_B_1000
-#> 1             1761
+#> 1             1759
 # }
 ```

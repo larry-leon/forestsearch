@@ -209,7 +209,7 @@ for (x in list(list("Binary", fit_bin, in_bin, sec_bin),
 ```
 
     #> Binary     !{cd40 <= 380} & !{wtkg <= 86}   N 72   fit 37 s (multiplier stage 1.5 s)
-    #> Continuous !{cd40 <= 507} & {gender}        N 79   fit 46 s (multiplier stage 1.1 s)
+    #> Continuous !{cd40 <= 507} & {gender}        N 79   fit 45 s (multiplier stage 1.3 s)
 
 On the binary endpoint forest search returns the 72 patients weighing
 more than 86 kg with baseline CD4 above 380 cells per mm³; on the
@@ -557,8 +557,8 @@ for (m in names(fits_s3)) {
 ```
 
     #> FS   !{cd40 <= 380} & !{wtkg <= 86}         N  72   fit  32.6 s (multiplier stage  0.8 s)   family 2794
-    #> DINA {preanti >= 849.40000000000009} & {cd40 >= 338} N  98   fit   2.0 s (multiplier stage  0.4 s)   family 147
-    #> GRF  {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005} N  95   fit  11.4 s (multiplier stage  0.5 s)   family 1289
+    #> DINA {preanti >= 849.40000000000009} & {cd40 >= 338} N  98   fit   1.8 s (multiplier stage  0.3 s)   family 147
+    #> GRF  {wtkg > 84.369600000000005} & {cd40 > 368.20000000000005} N  95   fit  11.0 s (multiplier stage  0.5 s)   family 1289
 
 ``` r
 
@@ -614,7 +614,7 @@ round(boot_secs, 1)
 ```
 
     #>   FS DINA  GRF
-    #> 56.3 26.0 44.1
+    #> 56.2 25.4 44.2
 
 ### Naive, bootstrap and multiplier side by side
 
@@ -710,9 +710,9 @@ knitr::kable(cost, row.names = FALSE, digits = 2,
 
 | Method | MR (s) |   B | bootstrap (s) | s per replicate | projected at B = 1,000 (s) |
 |:-------|-------:|----:|--------------:|----------------:|---------------------------:|
-| FS     |   0.79 |  25 |         56.28 |            2.25 |                       2251 |
-| DINA   |   0.35 |  25 |         26.05 |            1.04 |                       1042 |
-| GRF    |   0.52 |  10 |         44.08 |            4.41 |                       4408 |
+| FS     |   0.77 |  25 |         56.23 |            2.25 |                       2249 |
+| DINA   |   0.32 |  25 |         25.43 |            1.02 |                       1017 |
+| GRF    |   0.54 |  10 |         44.17 |            4.42 |                       4417 |
 
 Wall-clock timings from this run: the multiplier stage under the fits’
 sequential plan, the bootstrap on 2 workers. The projection is linear in
@@ -788,11 +788,11 @@ sessionInfo()
 
     #> R version 4.6.2 (2026-10-29)
     #> Platform: x86_64-pc-linux-gnu
-    #> Running under: Ubuntu 24.04.5 LTS
+    #> Running under: Ubuntu 26.04.1 LTS
     #>
     #> Matrix products: default
     #> BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
-    #> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+    #> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.32.so;  LAPACK version 3.12.0
     #>
     #> locale:
     #>  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8
