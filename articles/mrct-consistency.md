@@ -359,7 +359,7 @@ c(region_prognostic_loghr = r_pre, generating_r = -log(4),
     region_prognostic_loghr            generating_r          build_warnings
                   -1.541238               -1.386294                3.000000
                     seconds
-                   1.500000 
+                   1.600000 
 
 Seven design probabilities follow from four of them, built from three
 events (the event notation is in the [appendix](#sec-event-notation)):
@@ -671,7 +671,7 @@ c(seconds = round(t_mr, 1), candidate_family = mr$n_family, n_Hhat = mr$n_select
 ```
 
               seconds  candidate_family            n_Hhat n_Hhat_complement
-                 53.2            3003.0              73.0             733.0 
+                 52.9            3003.0              73.0             733.0 
 
 Code
 

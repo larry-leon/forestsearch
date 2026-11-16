@@ -176,7 +176,7 @@ mr_values(fit)
 #> 1               NA    0.5935985            NA      0.5935985              NA
 #> 2         1.230768           NA      1.416401             NA        1.408442
 #>   selection_bias p_hat n_family n_selected timing_seconds field_timing_seconds
-#> 1     0.07958234  0.46        3        151          0.004                0.014
+#> 1     0.07958234  0.46        3        151          0.004                0.023
 #> 2             NA    NA       NA         NA             NA                   NA
 #>   field_complement_timing_seconds
 #> 1                           0.013

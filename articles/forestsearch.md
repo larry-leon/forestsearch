@@ -175,7 +175,7 @@ cat(sprintf("Identified subgroup: %s\n", paste(fit_fs$sg.harm, collapse = " & ")
 cat(sprintf("Patients in it: %d of %d. Fit: %.1f s\n", sum(in_H), nrow(df), fit_sec_fs))
 ```
 
-    #> Patients in it: 75 of 686. Fit: 2.4 s
+    #> Patients in it: 75 of 686. Fit: 2.2 s
 
 The identified region is `{er <= 0} & {pgr <= 26}`: no measured estrogen
 receptor and progesterone receptor at most 26 fmol/l. One argument in

@@ -403,7 +403,7 @@ knitr::kable(walk, col.names = c("", "hazard-ratio scale"), row.names = FALSE,
 | Bonferroni pair: lower on H-hat / upper on H-hat^c (0.975 a side) | 1.01 / 1.35 |
 
 Replicate 1, beta_2 = 0.3, at the manuscript’s settings (141 candidates;
-89 s). {.table .caption-top}
+88 s). {.table .caption-top}
 
 The argmax selected $`\hat c`$ = 35.5, an overshoot of 5.5 beyond the
 true boundary, so $`\hat H`$ holds 176 subjects against about 150 in
@@ -809,8 +809,8 @@ knitr::kable(data.frame(
 
 | cell | replicates | seconds | seconds per replicate (wall, across workers) |
 |:---|---:|---:|---:|
-| beta_2 = 0.0 | 25 | 166.9 | 6.7 |
-| beta_2 = 0.3 | 25 | 167.3 | 6.7 |
+| beta_2 = 0.0 | 25 | 164.6 | 6.6 |
+| beta_2 = 0.3 | 25 | 165.9 | 6.6 |
 
 Wall-clock of this article’s run on 2 workers (Guo and He at B = 200; MR
 at 5000 draws, field 1000 x 500; truth curves 17.5 s in addition).

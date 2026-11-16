@@ -1581,7 +1581,7 @@ results_alt <- foreach(
     Subgroup 3: resample Pcons=0.82 (threshold 0.9)
     Evaluated 3 of 3 candidates (complete)
     No subgroups found meeting consistency threshold
-    Seconds and minutes forestsearch overall = 3.168 0.0528
+    Seconds and minutes forestsearch overall = 3.49 0.0582
     Consistency algorithm used: twostage
     tau, maxdepth = 47.90727 2
        leaf.node control.mean control.size control.se depth
@@ -1686,7 +1686,7 @@ results_null <- foreach(
     Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406
     Per-arm events criteria: control >= 12, treatment >= 12
     Sample size criteria: n >= 60
-    Subgroup search completed in 0 minutes
+    Subgroup search completed in 0.01 minutes
 
     --- Filtering Summary ---
       Combinations evaluated: 406
@@ -1709,7 +1709,7 @@ results_null <- foreach(
     Subgroup 2: resample Pcons=0.57 (threshold 0.9)
     Evaluated 2 of 2 candidates (complete)
     No subgroups found meeting consistency threshold
-    Seconds and minutes forestsearch overall = 2.326 0.0388
+    Seconds and minutes forestsearch overall = 2.726 0.0454
     Consistency algorithm used: twostage
     tau, maxdepth = 43.8823 2
       leaf.node control.mean control.size control.se depth
@@ -2707,11 +2707,11 @@ reproducibility information.
 | Calibrate k_inter (AHR) | 1.8 | 0.03 | 1.0 |
 | Validate k_inter | 0.6 | 0.01 | 0.3 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 70.4 | 1.17 | 39.8 |
-| Simulations H0 | 65.1 | 1.09 | 36.8 |
+| Simulations H1 | 70.3 | 1.17 | 39.9 |
+| Simulations H0 | 64.5 | 1.07 | 36.6 |
 | Summarize H1 | 0.2 | 0.00 | 0.1 |
 | Summarize H0 | 0.1 | 0.00 | 0.1 |
-| Total vignette | 176.8 | 2.95 | 100.0 |
+| Total vignette | 176.4 | 2.94 | 100.0 |
 | ¹ Parallel backend: 3 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -4092,8 +4092,8 @@ gc(verbose = FALSE)
 ```
 
               used  (Mb) gc trigger  (Mb) max used  (Mb)
-    Ncells 2853089 152.4    4892911 261.4  4892911 261.4
-    Vcells 5962042  45.5   12273597  93.7 10161331  77.6
+    Ncells 2853180 152.4    4892895 261.4  4892895 261.4
+    Vcells 5962273  45.5   12273597  93.7 10161331  77.6
 
 ## 18 Session Info
 
